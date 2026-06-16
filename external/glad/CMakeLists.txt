@@ -1,0 +1,5 @@
+add_library(glad STATIC src/glad.c)
+target_include_directories(glad PUBLIC include)
+if(MSVC)
+    target_compile_options(glad PRIVATE /W0)
+endif()

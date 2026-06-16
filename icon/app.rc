@@ -1,0 +1,23 @@
+#include <windows.h>
+#include "resource.h"
+
+// Application icon — place app.ico in this directory
+IDI_MAIN_ICON ICON "app.ico"
+
+// Optional: version info
+// VS_VERSION_INFO VERSIONINFO
+// FILEVERSION     1,0,0,0
+// PRODUCTVERSION  1,0,0,0
+// BEGIN
+//     BLOCK "StringFileInfo"
+//     BEGIN
+//         BLOCK "040904B0"  // US English, Unicode
+//         BEGIN
+//             VALUE "CompanyName",      ""
+//             VALUE "FileDescription",  "SGKit Application"
+//             VALUE "FileVersion",      "1.0.0.0"
+//             VALUE "ProductName",      "SGKit"
+//             VALUE "ProductVersion",   "1.0.0.0"
+//         END
+//     END
+// END
