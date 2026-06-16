@@ -1,0 +1,3 @@
+# SGKit
+
+Straightforward Graphics Kit
