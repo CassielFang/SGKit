@@ -265,7 +265,7 @@ bool Window::Create(const WindowDesc& desc)
             0x2091, desc.glMajorVersion,
             0x2092, desc.glMinorVersion,
             0x9126, 0x0001,         // WGL_CONTEXT_PROFILE_MASK → CORE
-#ifdef SGK_DEBUG
+#ifdef _DEBUG
             0x2094, 0x0001,         // WGL_CONTEXT_FLAGS → DEBUG
 #endif
             0

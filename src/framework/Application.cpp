@@ -11,6 +11,7 @@
 #include <sgkit/core/Window.h>
 #include <sgkit/core/Input.h>
 #include <sgkit/core/KeyCodes.h>
+#include <sgkit/core/Debug.h>
 #include <sgkit/graphics/Renderer.h>
 #include <sgkit/scene/Scene.h>
 
@@ -37,7 +38,7 @@ bool   g_running    = false;
 
 static void AttachConsole()
 {
-#ifdef SGK_PLATFORM_WINDOWS
+#if defined(SGK_PLATFORM_WINDOWS) && defined(_DEBUG)
     if (AllocConsole())
     {
         FILE* dummy;
@@ -50,7 +51,7 @@ static void AttachConsole()
 
 static void DetachConsole()
 {
-#ifdef SGK_PLATFORM_WINDOWS
+#if defined(SGK_PLATFORM_WINDOWS) && defined(_DEBUG)
     fclose(stdout);
     fclose(stderr);
     fclose(stdin);
@@ -125,6 +126,20 @@ int Run(const ApplicationConfig& config)
         DetachConsole();
         return 1;
     }
+
+#ifdef _DEBUG
+    // OpenGL debug output — logs errors/warnings to console
+    if (GLAD_GL_VERSION_4_3 || GLAD_GL_KHR_debug)
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback([](GLenum, GLenum type, GLuint, GLenum severity,
+                                  GLsizei, const GLchar* msg, const void*) {
+            if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+                std::fprintf(stderr, "GL: (%u) %s\n", type, msg);
+        }, nullptr);
+    }
+#endif
 
     std::printf("SGKit: OpenGL %s, GLSL %s\n",
                 glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));

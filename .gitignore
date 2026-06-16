@@ -1,6 +1,7 @@
 # C++ build artifacts
-build/
 out/
+build/
+lib/
 *.o
 *.obj
 *.exe
@@ -14,7 +15,7 @@ out/
 *.ilk
 
 # Generated asset copy
-assets/
+/assets/
 
 # CMake generated
 CMakeCache.txt
@@ -48,6 +49,3 @@ Release/
 # OS
 Thumbs.db
 .DS_Store
-
-# LearnOpenGL
-LearnOpenGL-CN-new-theme/

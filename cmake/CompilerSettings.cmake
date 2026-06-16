@@ -17,14 +17,19 @@ if(MSVC)
         _WIN32_WINNT=0x0A00
     )
 
-    string(APPEND CMAKE_CXX_FLAGS_DEBUG   " /Od /Zi")
-    string(APPEND CMAKE_CXX_FLAGS_RELEASE " /O2 /DNDEBUG")
+    # Debug / Release branches
+    add_compile_options(
+        $<$<CONFIG:Debug>:/Od>
+        $<$<CONFIG:Debug>:/Zi>
+        $<$<CONFIG:Release>:/O2>
+    )
 else()
     add_compile_options(-Wall -Wextra -Wpedantic)
 
-    string(APPEND CMAKE_CXX_FLAGS_DEBUG   " -O0 -g")
-    string(APPEND CMAKE_CXX_FLAGS_RELEASE " -O2 -DNDEBUG")
+    add_compile_options(
+        $<$<CONFIG:Debug>:-O0>
+        $<$<CONFIG:Debug>:-g>
+        $<$<CONFIG:Release>:-O2>
+        $<$<CONFIG:Release>:-DNDEBUG>
+    )
 endif()
-
-# Debug-only
-add_compile_definitions($<$<CONFIG:Debug>:SGK_DEBUG>)

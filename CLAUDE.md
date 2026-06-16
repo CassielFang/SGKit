@@ -9,15 +9,13 @@ SGKit (Straightforward Graphics Kit) — lightweight C++17 3D engine, OpenGL 4.6
 ## Build
 
 ```bash
-# VS 2022 "Open Folder" or:
-cmake --preset x64-Debug
-cmake --build out/build/x64-Debug
+# VS 2022 "Open Folder" — select x64-Debug / x64-Release and Build
 
-# Run examples
-out/build/x64-Debug/examples/Debug/examples.exe
+# Run sandbox (Debug)
+out/build/x64-Debug/examples/sandbox/Debug/sandbox.exe
 
 # Run tests
-cd out/build/x64-Debug && ctest
+cd out/build/x64-Debug && ctest -C Debug
 ```
 
 ## Architecture

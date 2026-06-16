@@ -8,3 +8,4 @@
 #include <sgkit/core/KeyCodes.h>
 #include <sgkit/core/ThreadPool.h>
 #include <sgkit/core/FileSystem.h>
+#include <sgkit/core/Debug.h>

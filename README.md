@@ -48,8 +48,7 @@
 用 VS 2022 "打开本地文件夹" 选项目根目录，或命令行：
 
 ```bash
-cmake --preset x64-Debug
-cmake --build out/build/x64-Debug
+# 用 VS 2022 "打开本地文件夹"，选择 x64-Debug 配置后生成即可
 ```
 
 ### 五分钟写一个窗口
@@ -117,9 +116,13 @@ SGKit/
 │   ├── scene/                        #   实体/组件/场景
 │   └── framework/                    #   应用框架
 ├── src/                              # 实现文件（对应上述模块）
-├── example/                          # 示例应用
-│   └── assets/shaders/               #   GLSL 着色器
-└── tests/                            # 单元测试
+├── examples/                         # 示例应用
+├── tests/                            # 单元测试
+├── lib/                              # 构建产物（sgkit.lib / sgkit_d.lib）
+│   ├── sgkit_d.lib                   #   Debug 静态库
+│   ├── sgkit_d.pdb                   #   Debug 调试符号
+│   └── sgkit.lib                     #   Release 静态库
+└── icon/                             # 应用图标
 ```
 
 ## 技术规格
@@ -134,7 +137,17 @@ SGKit/
 
 ## 在其他项目中使用
 
-将 SGKit 放到项目的 `external/SGKit/` 目录：
+**方式一：链接预编译库**（不需要 SGKit 源码）
+
+```cmake
+# 把 SGKit 的 include/ 和 lib/ 拷到你的项目
+target_include_directories(YourApp PRIVATE path/to/SGKit/include)
+target_link_directories(YourApp PRIVATE path/to/SGKit/lib)
+# Debug → sgkit_d.lib, Release → sgkit.lib
+target_link_libraries(YourApp PRIVATE sgkit_d)   # or sgkit
+```
+
+**方式二：源码集成**（可自定义引擎）
 
 ```cmake
 add_subdirectory(external/SGKit)
