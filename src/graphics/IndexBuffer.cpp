@@ -1,5 +1,7 @@
 #include <sgkit/graphics/IndexBuffer.h>
 
+#include <glad/glad.h>
+
 namespace sgkit {
 namespace graphics {
 
@@ -30,13 +32,22 @@ IndexBuffer& IndexBuffer::operator=(IndexBuffer&& other) noexcept
     return *this;
 }
 
-bool IndexBuffer::Create(const uint32_t* data, size_t count, uint32_t usage)
+bool IndexBuffer::Create(const uint32_t* data, size_t count, Usage usage)
 {
     Destroy();
+    GLenum usage_gl = GL_STATIC_DRAW;
+    if (usage == Usage::Dynamic_Draw)
+    {
+        usage_gl = GL_DYNAMIC_DRAW;
+    }
+    else if (usage == Usage::Stream_Draw)
+    {
+        usage_gl = GL_STREAM_DRAW;
+    }
     glGenBuffers(1, &m_handle);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_handle);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 static_cast<GLsizeiptr>(count * sizeof(uint32_t)), data, usage);
+                 static_cast<GLsizeiptr>(count * sizeof(uint32_t)), data, usage_gl);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     m_count = count;
     return m_handle != 0;

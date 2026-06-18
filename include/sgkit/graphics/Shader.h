@@ -1,14 +1,10 @@
 #pragma once
 
-#include <glad/glad.h>
-
+#include <string>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <unordered_map>
 
-#include <sgkit/math/Vector3.h>
-#include <sgkit/math/Vector4.h>
 #include <sgkit/math/Matrix4.h>
 
 namespace sgkit {

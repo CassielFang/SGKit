@@ -48,8 +48,8 @@ Quaternion Quaternion::Normalized() const { Quaternion q = *this; q.Normalize();
 Quaternion& Quaternion::Conjugate() { x = -x; y = -y; z = -z; return *this; }
 Quaternion Quaternion::Conjugated() const { return {-x, -y, -z, w}; }
 
-Quaternion& Quaternion::Invert() { *this = Inverse(); return *this; }
-Quaternion Quaternion::Inverse() const
+Quaternion& Quaternion::Invert() { *this = Inverted(); return *this; }
+Quaternion Quaternion::Inverted() const
 {
     float lenSq = LengthSquared();
     if (lenSq < k_Epsilon) return *this;

@@ -1,12 +1,16 @@
 #pragma once
 
-#include <glad/glad.h>
-
-#include <cstddef>
 #include <cstdint>
 
 namespace sgkit {
 namespace graphics {
+
+enum class Usage
+{
+    Static_Draw,
+    Dynamic_Draw,
+    Stream_Draw
+};
 
 class VertexBuffer
 {
@@ -19,7 +23,7 @@ public:
     VertexBuffer(VertexBuffer&& other) noexcept;
     VertexBuffer& operator=(VertexBuffer&& other) noexcept;
 
-    bool Create(const void* data, size_t sizeInBytes, uint32_t usage = GL_STATIC_DRAW);
+    bool Create(const void* data, size_t sizeInBytes, Usage usage = Usage::Static_Draw);
     void Destroy();
 
     void Bind() const;

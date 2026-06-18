@@ -113,7 +113,7 @@ int main()
 
     {
         Matrix4 t = Matrix4::Translate({5.0f, -3.0f, 2.0f});
-        Matrix4 inv = t.Inverse();
+        Matrix4 inv = t.Inverted();
         Vector3 p{1.0f, 2.0f, 3.0f};
         r.Check(inv.TransformPoint(t.TransformPoint(p)) == p, "Matrix4 inverse");
     }

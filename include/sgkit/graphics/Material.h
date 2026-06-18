@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <sgkit/graphics/Shader.h>
 #include <sgkit/graphics/Texture.h>
 #include <sgkit/math/Vector3.h>
@@ -8,8 +7,9 @@
 namespace sgkit {
 namespace graphics {
 
-struct Material
+class Material
 {
+public:
     std::shared_ptr<Shader>  shader;
     std::shared_ptr<Texture> diffuseTexture;
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cmath>
 #include <sgkit/math/MathUtils.h>
 #include <sgkit/math/Vector2.h>
 #include <sgkit/math/Vector3.h>
@@ -8,8 +7,9 @@
 namespace sgkit {
 namespace math {
 
-struct Vector4
+class Vector4
 {
+public:
     float x = 0.0f;
     float y = 0.0f;
     float z = 0.0f;

@@ -3,7 +3,6 @@
 #include <sgkit/scene/Entity.h>
 
 #include <vector>
-#include <cstddef>
 #include <algorithm>
 
 namespace sgkit {

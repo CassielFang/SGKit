@@ -6,8 +6,6 @@
 
 #include <sgkit/graphics/Renderer.h>
 
-#include <vector>
-
 namespace sgkit {
 namespace scene {
 

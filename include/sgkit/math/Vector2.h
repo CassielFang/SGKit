@@ -1,13 +1,13 @@
 #pragma once
 
-#include <cmath>
 #include <sgkit/math/MathUtils.h>
 
 namespace sgkit {
 namespace math {
 
-struct Vector2
+class Vector2
 {
+public:
     float x = 0.0f;
     float y = 0.0f;
 

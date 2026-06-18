@@ -2,12 +2,8 @@
 
 #include <sgkit/scene/Entity.h>
 #include <sgkit/math/Transform.h>
-#include <sgkit/math/Vector3.h>
 #include <sgkit/math/Matrix4.h>
 #include <sgkit/graphics/Mesh.h>
-
-#include <memory>
-#include <vector>
 
 namespace sgkit {
 namespace scene {
@@ -39,7 +35,7 @@ struct Camera
 
     math::Matrix4 GetViewMatrix(const math::Matrix4& worldMatrix) const
     {
-        return worldMatrix.Inverse();
+        return worldMatrix.Inverted();
     }
 
     math::Matrix4 GetProjectionMatrix(float aspectRatio) const

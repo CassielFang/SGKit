@@ -237,15 +237,15 @@ float Matrix4::Determinant() const
     return a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
 }
 
-// -- Inverse -------------------------------------------------------
+// -- Inverted -------------------------------------------------------
 
 Matrix4& Matrix4::Invert()
 {
-    *this = Inverse();
+    *this = Inverted();
     return *this;
 }
 
-Matrix4 Matrix4::Inverse() const
+Matrix4 Matrix4::Inverted() const
 {
     float a0 = m[0][0] * m[1][1] - m[0][1] * m[1][0];
     float a1 = m[0][0] * m[1][2] - m[0][2] * m[1][0];
@@ -294,13 +294,13 @@ Matrix4 Matrix4::Inverse() const
 
 // -- Static factories ----------------------------------------------
 
-Matrix4 Matrix4::Identity()     { Matrix4 m; m.SetIdentity(); return m; }
-Matrix4 Matrix4::Zero()         { Matrix4 m; m.SetZero(); return m; }
-Matrix4 Matrix4::Translate(const Vector3& v)   { Matrix4 m; m.SetTranslate(v); return m; }
-Matrix4 Matrix4::RotateX(float r)              { Matrix4 m; m.SetRotateX(r); return m; }
-Matrix4 Matrix4::RotateY(float r)              { Matrix4 m; m.SetRotateY(r); return m; }
-Matrix4 Matrix4::RotateZ(float r)              { Matrix4 m; m.SetRotateZ(r); return m; }
-Matrix4 Matrix4::Scale(const Vector3& v)       { Matrix4 m; m.SetScale(v); return m; }
+Matrix4 Matrix4::Identity() { Matrix4 m; m.SetIdentity(); return m; }
+Matrix4 Matrix4::Zero()     { Matrix4 m; m.SetZero();     return m; }
+Matrix4 Matrix4::Translate(const Vector3& v) { Matrix4 m; m.SetTranslate(v); return m; }
+Matrix4 Matrix4::RotateX(float r)            { Matrix4 m; m.SetRotateX(r);   return m; }
+Matrix4 Matrix4::RotateY(float r)            { Matrix4 m; m.SetRotateY(r);   return m; }
+Matrix4 Matrix4::RotateZ(float r)            { Matrix4 m; m.SetRotateZ(r);   return m; }
+Matrix4 Matrix4::Scale(const Vector3& v)     { Matrix4 m; m.SetScale(v);     return m; }
 
 Matrix4 Matrix4::Perspective(float fovYRadians, float aspect, float nearZ, float farZ)
 {

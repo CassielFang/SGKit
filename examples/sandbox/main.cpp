@@ -5,6 +5,7 @@
 #include <vector>
 
 using namespace sgkit;
+using namespace sgkit::graphics;
 
 // File-scope state
 static scene::Entity s_floorEntity   = scene::k_InvalidEntity;
@@ -68,7 +69,7 @@ static std::shared_ptr<graphics::Mesh> CreateColoredCubeMesh(
         static_cast<uint8_t>(b * 255), 255
     };
     auto tex = std::make_shared<graphics::Texture>();
-    tex->Create(1, 1, px.data(), GL_RGBA8, GL_RGBA);
+    tex->Create(1, 1, px.data(), TexInternalDataFormat::RGBA8, TexDataFormat::RGBA);
 
     auto mat = std::make_shared<graphics::Material>();
     mat->shader         = shader;
@@ -94,7 +95,7 @@ static std::shared_ptr<graphics::Texture> CreateStripedTexture()
             px[idx+0] = 220; px[idx+1] = c; px[idx+2] = 30; px[idx+3] = 255;
         }
     auto tex = std::make_shared<graphics::Texture>();
-    tex->Create(ts, ts, px.data(), GL_RGBA8, GL_RGBA);
+    tex->Create(ts, ts, px.data());
     return tex;
 }
 
@@ -136,7 +137,7 @@ static std::shared_ptr<graphics::Mesh> CreateFloorMesh()
             px[idx+0]=c; px[idx+1]=c; px[idx+2]=c; px[idx+3]=255;
         }
     auto tex = std::make_shared<graphics::Texture>();
-    tex->Create(ts, ts, px.data(), GL_RGBA8, GL_RGBA);
+    tex->Create(ts, ts, px.data());
     tex->SetFilterLinear(false);  // sharp checkerboard edges
 
     auto mat = std::make_shared<graphics::Material>();

@@ -1,6 +1,7 @@
 #include <sgkit/scene/Scene.h>
 
-#include <algorithm>
+#include <glad/glad.h>
+
 #include <cstdio>
 
 namespace sgkit {

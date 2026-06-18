@@ -1,6 +1,8 @@
 #include <sgkit/graphics/Shader.h>
 #include <sgkit/core/FileSystem.h>
 
+#include <glad/glad.h>
+
 #include <cstdio>
 #include <fstream>
 #include <sstream>

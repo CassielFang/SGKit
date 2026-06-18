@@ -1,14 +1,14 @@
 #pragma once
 
-#include <memory>
 #include <sgkit/graphics/VertexArray.h>
 #include <sgkit/graphics/Material.h>
 
 namespace sgkit {
 namespace graphics {
 
-struct Mesh
+class Mesh
 {
+public:
     std::shared_ptr<VertexArray> vertexArray;
     std::shared_ptr<Material>    material;
 

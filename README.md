@@ -4,7 +4,7 @@
 
 ## 核心理念
 
-**零第三方依赖**（除 glad OpenGL 加载器外），全部基于 C++17 标准库 + 平台 API 手写。不做黑盒封装，每一行代码你都能看懂、能改。
+**零第三方依赖**（除 glad OpenGL 加载器外），全部基于 C++17 标准库 + 平台 API 手写。
 
 ## 模块架构
 
@@ -45,11 +45,7 @@
 
 ### 构建
 
-用 VS 2022 "打开本地文件夹" 选项目根目录，或命令行：
-
-```bash
-# 用 VS 2022 "打开本地文件夹"，选择 x64-Debug 配置后生成即可
-```
+用 Visual Studio（建议2022及以上版本） 打开文件夹，选择配置后生成即可
 
 ### 五分钟写一个窗口
 
@@ -62,7 +58,7 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
     cfg.title = "Hello SGKit";
 
     cfg.onInit = []() -> bool {
-        // 创建场景、加载资源
+        // 创建场景,加载资源
         return true;
     };
 
@@ -80,7 +76,7 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
 }
 ```
 
-库自带的 `WinMain` 会调用 `CreateApplication()` 并启动游戏循环。四个回调一目了然，不需要继承任何类，不需要关心平台入口。
+库自带的 `WinMain` 会调用 `CreateApplication()` 并启动游戏循环。
 
 ### 引擎模块访问
 
@@ -88,10 +84,10 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
 
 | 函数 | 返回 |
 |------|------|
-| `GetWindow()` | 窗口（尺寸、关闭、全屏等） |
+| `GetWindow()` | 窗口（尺寸,关闭,全屏等） |
 | `GetInput()` | 输入（键盘/鼠标状态） |
-| `GetRenderer()` | 渲染器（清屏、状态切换） |
-| `GetScene()` | 场景（实体、组件、Transform 层级） |
+| `GetRenderer()` | 渲染器（清屏,状态切换） |
+| `GetScene()` | 场景（实体,组件,Transform 层级） |
 | `GetDeltaTime()` | 当前帧间隔（秒） |
 | `GetFPS()` | 帧率 |
 | `RequestQuit()` | 请求退出 |
@@ -106,7 +102,7 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
 SGKit/
 ├── CMakeLists.txt                    # 根 CMake
 ├── CMakePresets.json                 # x64-Debug / x64-Release
-├── cmake/                            # 编译设置、平台检测
+├── cmake/                            # 编译设置,平台检测
 ├── external/glad/                    # glad 加载器（静态库）
 ├── include/sgkit/                    # 公共头文件
 │   ├── sgkit.h                       #   聚合头

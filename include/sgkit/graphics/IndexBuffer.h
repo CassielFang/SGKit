@@ -1,9 +1,6 @@
 #pragma once
 
-#include <glad/glad.h>
-
-#include <cstddef>
-#include <cstdint>
+#include <sgkit/graphics/VertexBuffer.h>
 
 namespace sgkit {
 namespace graphics {
@@ -19,7 +16,7 @@ public:
     IndexBuffer(IndexBuffer&& other) noexcept;
     IndexBuffer& operator=(IndexBuffer&& other) noexcept;
 
-    bool Create(const uint32_t* data, size_t count, uint32_t usage = GL_STATIC_DRAW);
+    bool Create(const uint32_t* data, size_t count, Usage usage = Usage::Static_Draw);
     void Destroy();
 
     void Bind() const;

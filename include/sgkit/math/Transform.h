@@ -7,8 +7,9 @@
 namespace sgkit {
 namespace math {
 
-struct Transform
+class Transform
 {
+public:
     Vector3    position{0.0f, 0.0f, 0.0f};
     Quaternion rotation{};
     Vector3    scale{1.0f, 1.0f, 1.0f};

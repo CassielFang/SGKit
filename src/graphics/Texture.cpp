@@ -1,6 +1,8 @@
 #include <sgkit/graphics/Texture.h>
 #include <sgkit/core/FileSystem.h>
 
+#include <glad/glad.h>
+
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -58,9 +60,38 @@ bool Texture::LoadFromFile(const std::string& path)
 }
 
 bool Texture::Create(int width, int height, const void* data,
-                     uint32_t internalFormat, uint32_t format)
+                     TexInternalDataFormat internalFormat, TexDataFormat format)
 {
     Destroy();
+
+    GLenum internalFmt = 0;
+    switch (internalFormat)
+    {
+    case TexInternalDataFormat::Alpha: internalFmt = GL_ALPHA; break;
+    case TexInternalDataFormat::RGB: internalFmt = GL_RGB; break;
+    case TexInternalDataFormat::R3_G3_B2: internalFmt = GL_R3_G3_B2; break;
+    case TexInternalDataFormat::RGB4: internalFmt = GL_RGB4; break;
+    case TexInternalDataFormat::RGB5: internalFmt = GL_RGB5; break;
+    case TexInternalDataFormat::RGB8: internalFmt = GL_RGB8; break;
+    case TexInternalDataFormat::RGB10: internalFmt = GL_RGB10; break;
+    case TexInternalDataFormat::RGB12: internalFmt = GL_RGB12; break;
+    case TexInternalDataFormat::RGB16: internalFmt = GL_RGB16; break;
+    case TexInternalDataFormat::RGBA: internalFmt = GL_RGBA; break;
+    case TexInternalDataFormat::RGB5_A1: internalFmt = GL_RGB5_A1; break;
+    case TexInternalDataFormat::RGBA8: internalFmt = GL_RGBA8; break;
+    case TexInternalDataFormat::RGB10_A2: internalFmt = GL_RGB10_A2; break;
+    case TexInternalDataFormat::RGBA12: internalFmt = GL_RGBA12; break;
+    case TexInternalDataFormat::RGBA16: internalFmt = GL_RGBA16; break;
+    default: internalFmt = GL_RGBA8;
+    }
+    GLenum fmt = 0;
+    switch (format)
+    {
+    case TexDataFormat::Alpha: fmt = GL_ALPHA; break;
+    case TexDataFormat::RGB: fmt = GL_RGB; break;
+    case TexDataFormat::RGBA: fmt = GL_RGBA; break;
+    default: fmt = GL_RGBA;
+    }
 
     glGenTextures(1, &m_handle);
     glBindTexture(GL_TEXTURE_2D, m_handle);
@@ -70,15 +101,15 @@ bool Texture::Create(int width, int height, const void* data,
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internalFormat),
-                 width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internalFmt),
+                 width, height, 0, fmt, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
     m_width    = width;
     m_height   = height;
-    m_channels = (format == GL_RGBA) ? 4 : ((format == GL_RGB) ? 3 : 1);
+    m_channels = (fmt == GL_RGBA) ? 4 : ((fmt == GL_RGB) ? 3 : 1);
 
     return true;
 }
@@ -211,8 +242,10 @@ bool Texture::LoadBMP(const std::string& path)
         }
     }
 
-    uint32_t format = (channels == 4) ? GL_RGBA : GL_RGB;
-    uint32_t internalFormat = (channels == 4) ? GL_RGBA8 : GL_RGB8;
+    TexDataFormat format =
+        (channels == 4) ? TexDataFormat::RGBA : TexDataFormat::RGB;
+    TexInternalDataFormat internalFormat =
+        (channels == 4) ? TexInternalDataFormat::RGBA8 : TexInternalDataFormat::RGB8;
 
     return Create(width, height, pixels.data(), internalFormat, format);
 }

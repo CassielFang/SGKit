@@ -5,8 +5,9 @@
 namespace sgkit {
 namespace math {
 
-struct Quaternion
+class Quaternion
 {
+public:
     float x = 0.0f;
     float y = 0.0f;
     float z = 0.0f;
@@ -30,7 +31,7 @@ struct Quaternion
     Quaternion Conjugated() const;
 
     Quaternion& Invert();
-    Quaternion Inverse() const;
+    Quaternion Inverted() const;
 
     float LengthSquared() const;
     float Length() const;

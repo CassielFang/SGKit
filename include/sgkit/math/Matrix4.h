@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstring>
 #include <sgkit/math/MathUtils.h>
 #include <sgkit/math/Vector3.h>
 #include <sgkit/math/Vector4.h>
@@ -14,8 +13,9 @@ namespace math {
 //   m[0][1] m[1][1] m[2][1] m[3][1]    (column 1)
 //   m[0][2] m[1][2] m[2][2] m[3][2]    (column 2)
 //   m[0][3] m[1][3] m[2][3] m[3][3]    (column 3)
-struct Matrix4
+class Matrix4
 {
+public:
     float m[4][4];
 
     Matrix4();
@@ -57,7 +57,7 @@ struct Matrix4
     Matrix4 Transposed() const;
 
     Matrix4& Invert();
-    Matrix4 Inverse() const;
+    Matrix4 Inverted() const;
 
     float Determinant() const;
 

@@ -1,5 +1,4 @@
 # C++ build artifacts
-out/
 build/
 lib/
 *.o

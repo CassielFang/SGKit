@@ -1,5 +1,7 @@
 #include <sgkit/graphics/Framebuffer.h>
 
+#include <glad/glad.h>
+
 namespace sgkit {
 namespace graphics {
 
