@@ -1,3 +1,3 @@
 # Each subdirectory is an independent example application.
 add_subdirectory(sandbox)
-# add_subdirectory(hello-triangle)  ← future examples
+add_subdirectory(Lighting)
