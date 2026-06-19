@@ -1,3 +1,3 @@
-# Each subdirectory is an independent example application.
+# -- Individual examples ---------------------------------------------
 add_subdirectory(sandbox)
 add_subdirectory(Lighting)

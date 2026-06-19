@@ -5,6 +5,11 @@
 namespace sgkit {
 namespace core {
 
+enum class MouseButton : uint16_t
+{
+    Left = 0, Right, Middle, Back, Forward
+};
+
 enum class KeyCode : uint16_t
 {
     k_Unknown = 0,

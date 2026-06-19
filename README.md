@@ -94,7 +94,7 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
 
 ### Example 示例
 
-`examples/sandbox/main.cpp` 是一个完整 demo：旋转棋盘纹理立方体 + WASD 移动 + 右键拖拽视角。所有代码在 `CreateApplication()` 中完成，不依赖任何外部资源。
+`examples/sandbox/main.cpp` 是一个完整 demo：旋转棋盘纹理立方体 + WASD 移动 + 右键拖拽视角。`examples/Lighting/` 是光照学习示例（配合 LearnOpenGL 教程）。所有代码在 `CreateApplication()` 中完成，不依赖任何外部资源。
 
 ## 项目结构
 
@@ -133,14 +133,13 @@ SGKit/
 
 ## 在其他项目中使用
 
-**方式一：链接预编译库**（不需要 SGKit 源码）
+**方式一：链接预编译库**（不需要 SGKit 源码，只需 `include/` + `lib/`）
 
 ```cmake
-# 把 SGKit 的 include/ 和 lib/ 拷到你的项目
 target_include_directories(YourApp PRIVATE path/to/SGKit/include)
 target_link_directories(YourApp PRIVATE path/to/SGKit/lib)
-# Debug → sgkit_d.lib, Release → sgkit.lib
-target_link_libraries(YourApp PRIVATE sgkit_d)   # or sgkit
+# Debug → sgkit_d.lib, Release → sgkit.lib。glad 已内嵌，无需单独链接。
+target_link_libraries(YourApp PRIVATE sgkit_d gdi32 user32 opengl32 imm32)
 ```
 
 **方式二：源码集成**（可自定义引擎）

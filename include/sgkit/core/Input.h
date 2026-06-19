@@ -32,9 +32,9 @@ public:
     bool IsKeyReleased(KeyCode key) const;  // transition: down→up this frame
 
     // -- Mouse polling -------------------------------------------
-    bool  IsMouseButtonDown(int button) const;
-    bool  IsMouseButtonPressed(int button) const;
-    bool  IsMouseButtonReleased(int button) const;
+    bool  IsMouseButtonDown(MouseButton button) const;
+    bool  IsMouseButtonPressed(MouseButton button) const;
+    bool  IsMouseButtonReleased(MouseButton button) const;
 
     float GetMouseX() const;
     float GetMouseY() const;

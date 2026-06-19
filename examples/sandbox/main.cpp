@@ -11,6 +11,7 @@ using namespace sgkit::graphics;
 static scene::Entity s_floorEntity   = scene::k_InvalidEntity;
 static scene::Entity s_lightEntity   = scene::k_InvalidEntity;
 static scene::Entity s_cameraEntity  = scene::k_InvalidEntity;
+static std::shared_ptr<graphics::Shader> s_defaultShader;
 static constexpr int k_NumCubes = 4;
 static scene::Entity s_cubeEntities[k_NumCubes] = {};
 
@@ -59,8 +60,7 @@ static std::shared_ptr<graphics::Mesh> CreateColoredCubeMesh(
     va->AddVertexBuffer(vb, layout);
     va->SetIndexBuffer(ib);
 
-    auto shader = std::make_shared<graphics::Shader>();
-    shader->LoadFromFile("assets/shaders/default.vert", "assets/shaders/default.frag");
+    // use s_defaultShader directly
 
     // Solid-color texture (1x1 pixel)
     std::vector<uint8_t> px = {
@@ -72,7 +72,7 @@ static std::shared_ptr<graphics::Mesh> CreateColoredCubeMesh(
     tex->Create(1, 1, px.data(), TexInternalDataFormat::RGBA8, TexDataFormat::RGBA);
 
     auto mat = std::make_shared<graphics::Material>();
-    mat->shader         = shader;
+    mat->shader         = s_defaultShader;
     mat->diffuseTexture = tex;
     mat->shininess      = 64.0f;
 
@@ -122,8 +122,7 @@ static std::shared_ptr<graphics::Mesh> CreateFloorMesh()
     va->AddVertexBuffer(vb, layout);
     va->SetIndexBuffer(ib);
 
-    auto shader = std::make_shared<graphics::Shader>();
-    shader->LoadFromFile("assets/shaders/default.vert", "assets/shaders/default.frag");
+    // use s_defaultShader directly
 
     // Checkerboard texture
     const int ts = 64;
@@ -141,7 +140,7 @@ static std::shared_ptr<graphics::Mesh> CreateFloorMesh()
     tex->SetFilterLinear(false);  // sharp checkerboard edges
 
     auto mat = std::make_shared<graphics::Material>();
-    mat->shader         = shader;
+    mat->shader         = s_defaultShader;
     mat->diffuseTexture = tex;
     mat->ambientColor   = {0.8f, 0.8f, 0.8f};
     mat->diffuseColor   = {1.0f, 1.0f, 1.0f};
@@ -165,6 +164,9 @@ ApplicationConfig sgkit::CreateApplication()
 
     config.onInit = []() -> bool
     {
+        s_defaultShader = std::make_shared<graphics::Shader>();
+        s_defaultShader->LoadFromFile("assets/shaders/default.vert", "assets/shaders/default.frag");
+
         // Floor
         auto floorMesh = CreateFloorMesh();
         s_floorEntity = GetScene().CreateEntity();
@@ -248,7 +250,7 @@ ApplicationConfig sgkit::CreateApplication()
                 ct->position = ct->position + fwd * zoom * 0.5f;
             }
 
-            if (GetInput().IsMouseButtonDown(1))
+            if (GetInput().IsMouseButtonDown(core::MouseButton::Right))
             {
                 float look = 0.002f;
                 float yaw   = -GetInput().GetMouseDeltaX() * look;

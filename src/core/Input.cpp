@@ -283,22 +283,25 @@ bool Input::IsKeyReleased(KeyCode key) const
 
 // -- Mouse polling --------------------------------------------------
 
-bool Input::IsMouseButtonDown(int button) const
+bool Input::IsMouseButtonDown(MouseButton button) const
 {
-    if (button < 0 || button >= static_cast<int>(k_MouseButtonCount)) return false;
-    return m_currentMouse[button] != 0;
+    int bcode = static_cast<int>(button);
+    if (bcode < 0 || bcode >= static_cast<int>(k_MouseButtonCount)) return false;
+    return m_currentMouse[bcode] != 0;
 }
 
-bool Input::IsMouseButtonPressed(int button) const
+bool Input::IsMouseButtonPressed(MouseButton button) const
 {
-    if (button < 0 || button >= static_cast<int>(k_MouseButtonCount)) return false;
-    return m_currentMouse[button] != 0 && m_previousMouse[button] == 0;
+    int bcode = static_cast<int>(button);
+    if (bcode < 0 || bcode >= static_cast<int>(k_MouseButtonCount)) return false;
+    return m_currentMouse[bcode] != 0 && m_previousMouse[bcode] == 0;
 }
 
-bool Input::IsMouseButtonReleased(int button) const
+bool Input::IsMouseButtonReleased(MouseButton button) const
 {
-    if (button < 0 || button >= static_cast<int>(k_MouseButtonCount)) return false;
-    return m_currentMouse[button] == 0 && m_previousMouse[button] != 0;
+    int bcode = static_cast<int>(button);
+    if (bcode < 0 || bcode >= static_cast<int>(k_MouseButtonCount)) return false;
+    return m_currentMouse[bcode] == 0 && m_previousMouse[bcode] != 0;
 }
 
 float Input::GetMouseX() const       { return m_mouseX; }

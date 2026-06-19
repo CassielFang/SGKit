@@ -228,7 +228,9 @@ bool Texture::LoadBMP(const std::string& path)
     std::vector<uint8_t> pixels(width * height * channels);
     for (int y = 0; y < height; ++y)
     {
-        int srcY = topDown ? y : (height - 1 - y);
+        // BMP is already bottom-up; OpenGL also expects bottom-up.  No flip needed.
+        // Top-down BMPs (negative height in DIB header) get flipped once.
+        int srcY = topDown ? (height - 1 - y) : y;
         const uint8_t* src = pixelData + srcY * rowSize;
         uint8_t* dst = pixels.data() + y * width * channels;
 

@@ -223,6 +223,12 @@ void  RequestQuit()  { g_running = false; }
 
 #ifdef SGK_PLATFORM_WINDOWS
 
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+{
+    SetProcessDPIAware();
+    auto config = sgkit::CreateApplication();
+    return sgkit::Run(config);
+}
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int)
 {
     SetProcessDPIAware();
