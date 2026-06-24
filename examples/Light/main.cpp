@@ -19,12 +19,14 @@ ApplicationConfig sgkit::CreateApplication()
 	cfg.title = "SGKit Light";
 	cfg.width = 1280;
 	cfg.height = 720;
+	cfg.fullscreen = true;
+	cfg.fullscreenBolderless = true;
 
 	framework::Clock clk;
 
 	cfg.onInit = []() -> bool
 		{
-			shader->LoadFromFile("assets/simple.vert", "assets/Light.frag");
+			shader->LoadFromFile("assets/simple.vert", "assets/simple.frag");
 			lightShader->LoadFromFile("assets/light.vert", "assets/light.frag");
 
 			//float flagVertices[] = {
@@ -136,6 +138,7 @@ ApplicationConfig sgkit::CreateApplication()
 			cameraTrans->position = { 0.0f, 0.0f, 5.0f };
 
 			std::printf("Light: already init\n");
+
 			return true;
 		};
 	cfg.onUpdate = [&clk](float dt)
@@ -170,6 +173,12 @@ ApplicationConfig sgkit::CreateApplication()
 					* math::Quaternion::FromEulerAngles(pitch, 0, 0);
 				ct->rotation.Normalize();
 			}
+
+			if (in.IsKeyPressed(core::KeyCode::k_Space)) GetWindow().SetFullscreen(true);
+			if (in.IsKeyPressed(core::KeyCode::k_Z)) GetWindow().SetFullscreen(false);
+			if (in.IsKeyPressed(core::KeyCode::k_Q)) GetWindow().RequestClose();
+			if (in.IsKeyDown(core::KeyCode::k_V)) GetWindow().SetCursorVisible(false);
+			if (in.IsKeyReleased(core::KeyCode::k_V)) GetWindow().SetCursorVisible(true);
 		};
 	cfg.onRender = []()
 		{

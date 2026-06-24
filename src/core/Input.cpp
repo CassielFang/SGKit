@@ -213,7 +213,7 @@ bool Input::OnEvent(unsigned int msg, unsigned long long wParam, long long lPara
         m_mouseDeltaY = newY - m_mouseY;
         m_mouseX = newX;
         m_mouseY = newY;
-        return false;  // don't consume, let window handle it
+        return true;  // don't consume, let window handle it
     }
 
     case WM_MOUSEWHEEL:
@@ -229,12 +229,12 @@ bool Input::OnEvent(unsigned int msg, unsigned long long wParam, long long lPara
         GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT,
                         nullptr, &size, sizeof(RAWINPUTHEADER));
         if (size == 0)
-            return false;
+            return true;
 
         RAWINPUT raw;
         if (GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT,
                             &raw, &size, sizeof(RAWINPUTHEADER)) != size)
-            return false;
+            return true;
 
         if (raw.header.dwType == RIM_TYPEMOUSE)
         {
@@ -245,7 +245,7 @@ bool Input::OnEvent(unsigned int msg, unsigned long long wParam, long long lPara
     }
 
     default:
-        return false;
+        return true;
     }
 }
 

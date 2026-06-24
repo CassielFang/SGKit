@@ -7,17 +7,20 @@ namespace sgkit {
 
 namespace core     { class Window; class Input; }
 namespace graphics { class Renderer; }
-namespace scene   { class Scene; }
+namespace scene    { class Scene; }
 
 struct ApplicationConfig
 {
-    std::string title = "SGKit";
-    int  width       = 1280;
-    int  height      = 720;
-    bool vsync       = true;
-    bool fullscreen  = false;
-    int  glMajor     = 4;
-    int  glMinor     = 6;
+    std::string title         = "SGKit";
+    int  width                = 1280;
+    int  height               = 720;
+    bool resizable            = true;
+    bool vsync                = true;
+    bool fullscreenBolderless = false;
+    bool fullscreen           = false;
+    bool cursorVisible        = true;
+    int  glMajor              = 4;
+    int  glMinor              = 6;
 
     std::function<bool()>           onInit;
     std::function<void(float dt)>   onUpdate;
@@ -40,7 +43,5 @@ scene::Scene&        GetScene();
 
 float GetDeltaTime();
 float GetFPS();
-
-void RequestQuit();
 
 } // namespace sgkit

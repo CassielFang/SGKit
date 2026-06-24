@@ -36,7 +36,6 @@ float  g_totalTime  = 0.0f;
 float  g_fpsTimer   = 0.0f;
 int    g_frameCount = 0;
 float  g_fps        = 0.0f;
-bool   g_running    = false;
 
 static void AttachConsole()
 {
@@ -109,13 +108,16 @@ static int Run(const ApplicationConfig& config)
     // -- Init modules in dependency order ---------------------------------
 
     core::WindowDesc wd;
-    wd.title          = config.title;
-    wd.width          = config.width;
-    wd.height         = config.height;
-    wd.vsync          = config.vsync;
-    wd.fullscreen     = config.fullscreen;
-    wd.glMajorVersion = config.glMajor;
-    wd.glMinorVersion = config.glMinor;
+    wd.title                = config.title;
+    wd.width                = config.width;
+    wd.height               = config.height;
+    wd.resizable            = config.resizable;
+    wd.vsync                = config.vsync;
+    wd.fullscreenBolderless = config.fullscreenBolderless;
+    wd.fullscreen           = config.fullscreen;
+    wd.cursorVisible        = config.cursorVisible;
+    wd.glMajorVersion       = config.glMajor;
+    wd.glMinorVersion       = config.glMinor;
 
     g_window = std::make_unique<core::Window>();
     if (!g_window->Create(wd))
@@ -179,23 +181,23 @@ static int Run(const ApplicationConfig& config)
         }
     }
 
-    g_running = true;
     g_lastFrameTime = framework::Clock::Now();
 
-    while (g_running && g_window->IsRunning())
+    while (true)
     {
         g_window->PollEvents();
 
-        if (!g_window->IsRunning())
-            break;
-
-        if (g_window->IsFullscreen() && g_input->IsKeyPressed(core::KeyCode::k_Escape))
-            g_window->SetFullscreen(false);
+        if (config.fullscreenBolderless && g_window->isActive() && g_window->IsFullscreen())
+            if (g_input->IsKeyPressed(core::KeyCode::k_Escape))
+                g_window->Restore();
 
         CalculateFrameTiming();
 
         if (config.onUpdate)
             config.onUpdate(g_deltaTime);
+
+        if (g_window->IsCloseRequest())
+            break;
 
         g_scene->RecomputeWorldTransforms();
 
@@ -235,7 +237,6 @@ scene::Scene&        GetScene()    { return *g_scene; }
 
 float GetDeltaTime() { return g_deltaTime; }
 float GetFPS()       { return g_fps; }
-void  RequestQuit()  { g_running = false; }
 
 } // namespace sgkit
 
@@ -245,14 +246,30 @@ void  RequestQuit()  { g_running = false; }
 
 #ifdef SGK_PLATFORM_WINDOWS
 
-int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+#ifndef _In_
+#define _In_
+#define _In_opt_
+#endif
+#define UNUSED(P) (P)
+
+int WINAPI WinMain(
+    _In_ HINSTANCE hInstance,
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPSTR lpCmdLine,
+    _In_ int nShowCmd)
 {
+    UNUSED(hInstance); UNUSED(hPrevInstance); UNUSED(lpCmdLine); UNUSED(nShowCmd);
     SetProcessDPIAware();
     auto config = sgkit::CreateApplication();
     return sgkit::Run(config);
 }
-int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int)
+int WINAPI wWinMain(
+    _In_ HINSTANCE hInstance,
+    _In_opt_ HINSTANCE hPrevInstance,
+    _In_ LPWSTR lpCmdLine,
+    _In_ int nShowCmd)
 {
+    UNUSED(hInstance); UNUSED(hPrevInstance); UNUSED(lpCmdLine); UNUSED(nShowCmd);
     SetProcessDPIAware();
     auto config = sgkit::CreateApplication();
     return sgkit::Run(config);

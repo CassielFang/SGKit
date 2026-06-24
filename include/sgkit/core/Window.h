@@ -9,14 +9,16 @@ namespace core {
 
 struct WindowDesc
 {
-    std::string title          = "SGKit";
-    int width                  = 1280;
-    int height                 = 720;
-    bool resizable             = true;
-    bool vsync                 = true;
-    bool fullscreen            = false;
-    int glMajorVersion         = 4;
-    int glMinorVersion         = 6;
+    std::string title            = "SGKit";
+    int width                    = 1280;
+    int height                   = 720;
+    bool resizable               = true;
+    bool vsync                   = true;
+    bool fullscreenBolderless    = false;
+    bool fullscreen              = false;
+    bool cursorVisible           = true;
+    int glMajorVersion           = 4;
+    int glMinorVersion           = 6;
 };
 
 class Window
@@ -35,19 +37,20 @@ public:
     bool IsCreated() const;
 
     void PollEvents();
-    bool IsRunning() const;
-    void RequestClose();
+    void RequestClose(bool request = true);
+    bool IsCloseRequest() const;
 
     void SwapBuffers();
 
     void Maximize();
     void Minimize();
     void Restore();
-
+    bool isActive() const;
     void SetFullscreen(bool enabled);
     bool IsFullscreen() const;
 
-    void SetIMEEnabled(bool enabled);
+    void SetCursorVisible(bool enabled);
+    bool isCursorVisible() const;
 
     bool HasResized() const;
     void ResetResizeFlag();
@@ -64,10 +67,10 @@ public:
     void AddEventHandler(EventHandler handler);
 
     // Called by the platform window procedure. Returns true if handled.
-    bool HandleWindowMessage(unsigned int msg, unsigned long long wParam, long long lParam);
+    int64_t HandleWindowMessage(unsigned int msg, unsigned long long wParam, long long lParam);
 
 private:
-    struct Impl;
+    class Impl;
     std::unique_ptr<Impl> m_impl;
 };
 

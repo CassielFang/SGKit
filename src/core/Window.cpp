@@ -35,23 +35,23 @@ static const wchar_t* k_WindowClassName = L"SGKit_WindowClass";
 
 // -- PIMPL definition ----------------------------------------------
 
-struct sgkit::core::Window::Impl
+class sgkit::core::Window::Impl
 {
+public:
     HWND      hwnd         = nullptr;
     HDC       dc           = nullptr;
     HGLRC     glContext    = nullptr;
     HINSTANCE hInstance    = nullptr;
 
-    int  width            = 0;
-    int  height           = 0;
-    bool isRunning        = false;
-    bool hasGLContext     = false;
-    bool isFullscreen     = false;
-    bool maximizeIsFullscreen = false;  // if true, maximize = borderless fullscreen
+    int  width                = 0;
+    int  height               = 0;
+    bool isCloseRequest       = false;
+    bool hasGLContext         = false;
+    bool isActive             = true;
+    bool isFullscreen         = false;
+    bool fullscreenBolderless = false;  // if true, maximize = borderless fullscreen
     bool viewportDirty        = true;   // true on creation and WM_SIZE
-
-    // IME
-    HIMC defaultIMC = nullptr;
+    bool cursorVisible        = true;
 
     // Pre-fullscreen state (for restore)
     LONG_PTR prevStyle    = 0;
@@ -102,7 +102,6 @@ bool Window::Create(const WindowDesc& desc)
     m_impl->width  = desc.width;
     m_impl->height = desc.height;
     m_impl->hInstance = GetModuleHandle(nullptr);
-    m_impl->isRunning  = false;
 
     // -- 1. Register window class --------------------------------
     WNDCLASSEXW wc = {};
@@ -168,6 +167,19 @@ bool Window::Create(const WindowDesc& desc)
         WinLog("SGKit Window: FAILED CreateWindowExW\n");
         return false;
     }
+
+    g_currentWindow = this;
+
+    ShowWindow(m_impl->hwnd, SW_SHOW);
+    UpdateWindow(m_impl->hwnd);
+
+    m_impl->fullscreenBolderless = desc.fullscreenBolderless;
+    if (desc.fullscreen)
+        Maximize();
+
+    // Disable IME by default (raw game input);
+    ImmReleaseContext(m_impl->hwnd, ImmGetContext(m_impl->hwnd));
+    ImmAssociateContext(m_impl->hwnd, nullptr);
 
     m_impl->dc = GetDC(m_impl->hwnd);
     WinLog("SGKit Window: real window created\n");
@@ -319,20 +331,6 @@ bool Window::Create(const WindowDesc& desc)
     }
 
     m_impl->hasGLContext = true;
-    m_impl->isRunning    = true;
-    g_currentWindow      = this;
-
-    ShowWindow(m_impl->hwnd, SW_SHOW);
-    UpdateWindow(m_impl->hwnd);
-
-    // Disable IME by default (raw game input); user can re-enable with SetIMEEnabled(true)
-    m_impl->defaultIMC = ImmGetContext(m_impl->hwnd);
-    ImmReleaseContext(m_impl->hwnd, m_impl->defaultIMC);
-    SetIMEEnabled(false);
-
-    m_impl->maximizeIsFullscreen = desc.fullscreen;
-    if (desc.fullscreen)
-        SetFullscreen(true);
 
     return true;
 }
@@ -341,8 +339,6 @@ void Window::Destroy()
 {
     if (!m_impl->hwnd)
         return;
-
-    g_currentWindow = nullptr;
 
     if (m_impl->hasGLContext)
     {
@@ -364,7 +360,10 @@ void Window::Destroy()
     DestroyWindow(m_impl->hwnd);
     m_impl->hwnd = nullptr;
 
+    PollEvents();
+
     UnregisterClassW(k_WindowClassName, m_impl->hInstance);
+    g_currentWindow = nullptr;
 }
 
 bool Window::IsCreated() const
@@ -382,14 +381,14 @@ void Window::PollEvents()
     }
 }
 
-bool Window::IsRunning() const
+void Window::RequestClose(bool request)
 {
-    return m_impl->isRunning;
+    m_impl->isCloseRequest = request;
 }
 
-void Window::RequestClose()
+bool Window::IsCloseRequest() const
 {
-    PostMessage(m_impl->hwnd, WM_CLOSE, 0, 0);
+    return m_impl->isCloseRequest;
 }
 
 void Window::SwapBuffers()
@@ -400,12 +399,8 @@ void Window::SwapBuffers()
 
 void Window::Maximize()
 {
-    if (!m_impl->hwnd)
-        return;
-    if (m_impl->maximizeIsFullscreen)
+    if (m_impl->hwnd)
         SetFullscreen(true);
-    else
-        ShowWindow(m_impl->hwnd, SW_MAXIMIZE);
 }
 
 void Window::Minimize()
@@ -417,31 +412,43 @@ void Window::Minimize()
 void Window::Restore()
 {
     if (m_impl->hwnd)
-        ShowWindow(m_impl->hwnd, SW_RESTORE);
+    {
+        if (IsFullscreen())
+            SetFullscreen(false);
+        else
+            ShowWindow(m_impl->hwnd, SW_RESTORE);
+    }
+}
+
+bool Window::isActive() const
+{
+    return m_impl->isActive;
 }
 
 void Window::SetFullscreen(bool enabled)
 {
-    if (!m_impl->hwnd)
-        return;
-    if (m_impl->isFullscreen == enabled)
-        return;
+    if (!m_impl->hwnd || m_impl->isFullscreen == enabled) return;
 
     if (enabled)
     {
         // Save current state
         m_impl->prevStyle = GetWindowLongPtrW(m_impl->hwnd, GWL_STYLE);
         GetWindowRect(m_impl->hwnd, &m_impl->prevRect);
-
+        if (m_impl->fullscreenBolderless)
+        {
+            // Remove borders, cover entire monitor
+            SetWindowLongPtrW(m_impl->hwnd, GWL_STYLE,
+                static_cast<LONG_PTR>(WS_POPUPWINDOW | WS_VISIBLE | WS_MAXIMIZE));
+        }
+        else
+        {
+            SetWindowLongPtrW(m_impl->hwnd, GWL_STYLE, m_impl->prevStyle | WS_MAXIMIZE);
+        }
         // Get monitor dimensions
         HMONITOR monitor = MonitorFromWindow(m_impl->hwnd, MONITOR_DEFAULTTONEAREST);
         MONITORINFO mi = {};
         mi.cbSize = sizeof(mi);
         GetMonitorInfoW(monitor, &mi);
-
-        // Remove borders, cover entire monitor
-        SetWindowLongPtrW(m_impl->hwnd, GWL_STYLE,
-            static_cast<LONG_PTR>(WS_POPUP | WS_VISIBLE));
         SetWindowPos(m_impl->hwnd, HWND_TOP,
             mi.rcMonitor.left, mi.rcMonitor.top,
             mi.rcMonitor.right - mi.rcMonitor.left,
@@ -473,13 +480,16 @@ bool Window::IsFullscreen() const
     return m_impl->isFullscreen;
 }
 
-void Window::SetIMEEnabled(bool enabled)
+void Window::SetCursorVisible(bool enabled)
 {
-    if (!m_impl->hwnd) return;
-    if (enabled)
-        ImmAssociateContext(m_impl->hwnd, m_impl->defaultIMC);
-    else
-        ImmAssociateContext(m_impl->hwnd, nullptr);
+    if (!m_impl->hwnd || m_impl->cursorVisible == enabled) return;
+    m_impl->cursorVisible = enabled;
+    ShowCursor(enabled ? TRUE : FALSE);
+}
+
+bool Window::isCursorVisible() const
+{
+    return m_impl->cursorVisible;
 }
 
 bool Window::HasResized() const
@@ -510,30 +520,38 @@ void Window::AddEventHandler(EventHandler handler)
     m_impl->eventHandlers.push_back(std::move(handler));
 }
 
-bool Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam, long long lParam)
+int64_t Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam, long long lParam)
 {
     // Dispatch to registered event handlers (Input module)
     for (auto& handler : m_impl->eventHandlers)
     {
         if (handler && handler(msg, wParam, lParam))
-            return true;
+            continue;
     }
 
     switch (msg)
     {
     case WM_CLOSE:
-        m_impl->isRunning = false;
-        return true;
+        m_impl->isCloseRequest = true;
+        return 0;
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
 
     case WM_SYSCOMMAND:
-        if (m_impl->maximizeIsFullscreen && (wParam & 0xFFF0) == SC_MAXIMIZE)
+        if ((wParam & 0xFFF0) == SC_MAXIMIZE)
         {
-            SetFullscreen(true);
+            Maximize();
             return true;
         }
-        if (m_impl->maximizeIsFullscreen && (wParam & 0xFFF0) == SC_RESTORE && m_impl->isFullscreen)
+        else if ((wParam & 0xFFF0) == SC_RESTORE)
         {
-            SetFullscreen(false);
+            Restore();
+            return true;
+        }
+        else if ((wParam & 0xFFF0) == SC_MINIMIZE)
+        {
+            Minimize();
             return true;
         }
         break;
@@ -542,10 +560,17 @@ bool Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam, lo
         m_impl->width  = LOWORD(static_cast<LPARAM>(lParam));
         m_impl->height = HIWORD(static_cast<LPARAM>(lParam));
         m_impl->viewportDirty = true;
-        return true;
+        break;
+
+    case WM_SETFOCUS:
+        m_impl->isActive = true;
+        break;
+    case WM_KILLFOCUS:
+        m_impl->isActive = false;
+        break;
     }
 
-    return false;
+    return DefWindowProc(m_impl->hwnd, msg, wParam, lParam);
 }
 
 } // namespace core
@@ -557,18 +582,10 @@ bool Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam, lo
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    sgkit::core::Window* window = g_currentWindow;
-
-    if (window && window->HandleWindowMessage(msg, wParam, lParam))
-        return 0;
-
-    if (msg == WM_DESTROY)
-    {
-        PostQuitMessage(0);
-        return 0;
-    }
-
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+    if (g_currentWindow)
+        return g_currentWindow->HandleWindowMessage(msg, wParam, lParam);
+    else
+        return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
 static bool CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTANCE hInst)
