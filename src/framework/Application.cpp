@@ -17,15 +17,17 @@
 
 #include <glad/glad.h>
 #include <cstdio>
+#include <memory>
 
 namespace sgkit {
 namespace {
 
-// Module singletons
-core::Window        g_window;
-core::Input         g_input;
-graphics::Renderer  g_renderer;
-scene::Scene        g_scene;
+// Module singletons — unique_ptr so destruction order is explicit
+// Scene/Renderer release GL resources before Window tears down the GL context
+std::unique_ptr<core::Window>       g_window;
+std::unique_ptr<core::Input>        g_input;
+std::unique_ptr<graphics::Renderer> g_renderer;
+std::unique_ptr<scene::Scene>       g_scene;
 
 // Timing
 framework::Clock::TimePoint g_lastFrameTime;
@@ -98,11 +100,13 @@ static void Fatal(const char* msg)
 
 } // anonymous namespace
 
-int Run(const ApplicationConfig& config)
+static int Run(const ApplicationConfig& config)
 {
     AttachConsole();
 
     std::printf("SGKit: starting up\n");
+
+    // -- Init modules in dependency order ---------------------------------
 
     core::WindowDesc wd;
     wd.title          = config.title;
@@ -113,9 +117,11 @@ int Run(const ApplicationConfig& config)
     wd.glMajorVersion = config.glMajor;
     wd.glMinorVersion = config.glMinor;
 
-    if (!g_window.Create(wd))
+    g_window = std::make_unique<core::Window>();
+    if (!g_window->Create(wd))
     {
         Fatal("Failed to create window. GPU may not support OpenGL 3.3+.");
+        g_window.reset();
         DetachConsole();
         return 1;
     }
@@ -123,12 +129,12 @@ int Run(const ApplicationConfig& config)
     if (!gladLoadGL())
     {
         Fatal("Failed to load OpenGL functions.");
+        g_window.reset();
         DetachConsole();
         return 1;
     }
 
 #ifdef _DEBUG
-    // OpenGL debug output — logs errors/warnings to console
     if (GLAD_GL_VERSION_4_3 || GLAD_GL_KHR_debug)
     {
         glEnable(GL_DEBUG_OUTPUT);
@@ -144,22 +150,30 @@ int Run(const ApplicationConfig& config)
     std::printf("SGKit: OpenGL %s, GLSL %s\n",
                 glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
 
-    g_renderer.SetClearColor({0.1f, 0.1f, 0.15f, 1.0f});
-    g_renderer.SetDepthTest(true);
-    g_renderer.SetCullFace(true);
-    g_renderer.SetBlend(true);
+    g_renderer = std::make_unique<graphics::Renderer>();
+    g_renderer->SetClearColor({0.1f, 0.1f, 0.15f, 1.0f});
+    g_renderer->SetDepthTest(true);
+    g_renderer->SetCullFace(true);
+    g_renderer->SetBlend(true);
 
-    g_input.Initialize(g_window.GetNativeHandle());
-    g_window.AddEventHandler(
+    g_input = std::make_unique<core::Input>();
+    g_input->Initialize(g_window->GetNativeHandle());
+    g_window->AddEventHandler(
         [](unsigned int msg, unsigned long long wParam, long long lParam) -> bool {
-            return g_input.OnEvent(msg, wParam, lParam);
+            return g_input->OnEvent(msg, wParam, lParam);
         });
+
+    g_scene = std::make_unique<scene::Scene>();
 
     if (config.onInit)
     {
         if (!config.onInit())
         {
             Fatal("onInit() returned false.");
+            g_scene.reset();
+            g_renderer.reset();
+            g_input.reset();
+            g_window.reset();
             DetachConsole();
             return 1;
         }
@@ -168,48 +182,56 @@ int Run(const ApplicationConfig& config)
     g_running = true;
     g_lastFrameTime = framework::Clock::Now();
 
-    while (g_running && g_window.IsRunning())
+    while (g_running && g_window->IsRunning())
     {
-        g_window.PollEvents();
+        g_window->PollEvents();
 
-        if (!g_window.IsRunning())
+        if (!g_window->IsRunning())
             break;
 
-        // Auto-exit fullscreen on Escape
-        if (g_window.IsFullscreen() && g_input.IsKeyPressed(core::KeyCode::k_Escape))
-            g_window.SetFullscreen(false);
+        if (g_window->IsFullscreen() && g_input->IsKeyPressed(core::KeyCode::k_Escape))
+            g_window->SetFullscreen(false);
 
         CalculateFrameTiming();
 
         if (config.onUpdate)
             config.onUpdate(g_deltaTime);
 
-        g_scene.OnUpdate(g_deltaTime);
+        g_scene->RecomputeWorldTransforms();
 
-        g_renderer.Clear();
-        g_renderer.SetViewport(0, 0, g_window.GetWidth(), g_window.GetHeight());
+        g_renderer->Clear();
+
+        if (g_window->HasResized())
+        {
+            g_renderer->SetViewport(0, 0, g_window->GetWidth(), g_window->GetHeight());
+            g_window->ResetResizeFlag();
+        }
 
         if (config.onRender)
             config.onRender();
 
-        g_input.EndFrame();
-        g_window.SwapBuffers();
+        g_input->EndFrame();
+        g_window->SwapBuffers();
     }
 
     if (config.onShutdown)
         config.onShutdown();
 
-    g_input.Shutdown();
-    g_window.Destroy();
-    DetachConsole();
+    // Tear down in reverse dependency order — Scene GL resources
+    // released before Window destroys the GL context.
+    g_scene.reset();
+    g_renderer.reset();
+    g_input.reset();
+    g_window.reset();
 
+    DetachConsole();
     return 0;
 }
 
-core::Window&        GetWindow()   { return g_window; }
-core::Input&         GetInput()    { return g_input; }
-graphics::Renderer&  GetRenderer() { return g_renderer; }
-scene::Scene&        GetScene()    { return g_scene; }
+core::Window&        GetWindow()   { return *g_window; }
+core::Input&         GetInput()    { return *g_input; }
+graphics::Renderer&  GetRenderer() { return *g_renderer; }
+scene::Scene&        GetScene()    { return *g_scene; }
 
 float GetDeltaTime() { return g_deltaTime; }
 float GetFPS()       { return g_fps; }

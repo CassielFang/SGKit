@@ -263,7 +263,7 @@ Matrix4 Matrix4::Inverted() const
     float det = a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
     if (std::fabs(det) < k_Epsilon)
     {
-        return Identity();  // degenerated matrix → return identity
+        return Identity();  // degenerated matrix -> return identity
     }
 
     Matrix4 result;

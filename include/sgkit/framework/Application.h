@@ -30,7 +30,7 @@ struct ApplicationConfig
 ApplicationConfig CreateApplication();
 
 // Called by the engine's platform entry point after CreateApplication().
-int Run(const ApplicationConfig& config);
+// int Run(const ApplicationConfig& config);
 
 // Engine module access — callable from user callbacks.
 core::Window&        GetWindow();

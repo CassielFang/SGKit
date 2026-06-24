@@ -28,7 +28,7 @@
 
 - **Math** — 向量/矩阵/四元数/变换，列主序存储，直通 OpenGL
 - **Threading** — 固定大小线程池，`Enqueue` / `WaitAll`
-- **Window** — Win32 窗口 + WGL OpenGL 上下文（4.6 → 3.3 自动回退），PIMPL 隐藏平台类型
+- **Window** — Win32 窗口 + WGL OpenGL 上下文（4.6 -> 3.3 自动回退），PIMPL 隐藏平台类型
 - **FileIO** — 文件读写 + 路径工具 + BMP 纹理加载器
 - **Input** — 键盘/鼠标轮询（Raw Input + Win32 消息），`IsKeyDown` / `IsKeyPressed` / `IsKeyReleased`
 - **Graphics** — Shader / VBO / VAO / Texture / Material / Mesh / Renderer，RAII 管理 GL 对象
@@ -127,7 +127,7 @@ SGKit/
 |------|-----|
 | 语言 | C++17 |
 | 平台 | Windows 10+（架构预留 Linux/macOS） |
-| 图形 | OpenGL 4.6 Core（自动回退 3.3 → Legacy） |
+| 图形 | OpenGL 4.6 Core（自动回退 3.3 -> Legacy） |
 | 构建 | CMake 3.20+ / Visual Studio 2022 |
 | 唯一第三方依赖 | glad（OpenGL 加载器） |
 
@@ -138,7 +138,7 @@ SGKit/
 ```cmake
 target_include_directories(YourApp PRIVATE path/to/SGKit/include)
 target_link_directories(YourApp PRIVATE path/to/SGKit/lib)
-# Debug → sgkit_d.lib, Release → sgkit.lib。glad 已内嵌，无需单独链接。
+# Debug -> sgkit_d.lib, Release -> sgkit.lib。glad 已内嵌，无需单独链接。
 target_link_libraries(YourApp PRIVATE sgkit_d gdi32 user32 opengl32 imm32)
 ```
 

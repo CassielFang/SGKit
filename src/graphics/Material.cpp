@@ -5,20 +5,13 @@ namespace graphics {
 
 void Material::Apply() const
 {
-    if (!shader) return;
-
-    shader->Bind();
-
-    shader->SetVector3("u_Material.ambient", ambientColor);
-    shader->SetVector3("u_Material.diffuse", diffuseColor);
-    shader->SetVector3("u_Material.specular", specularColor);
-    shader->SetFloat("u_Material.shininess", shininess);
-    shader->SetFloat("u_Material.opacity", opacity);
-
-    if (diffuseTexture)
+    if (shader && diffuse)
     {
-        shader->SetInt("u_DiffuseTexture", 0);
-        diffuseTexture->Bind(0);
+        shader->Bind();
+        shader->SetInt("u_Material.diffuse", 0);
+        diffuse->Bind(0);
+        shader->SetVector3("u_Material.specular", specular);
+        shader->SetFloat("u_Material.shininess", shininess);
     }
 }
 

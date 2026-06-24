@@ -31,7 +31,7 @@ Graphics (Shader/VBO/VAO/Texture with BMP loader/Material/Mesh/Renderer)
   |
 Input (polled keyboard/mouse, Win32 Raw Input + WM messages)
   |
-Window (PIMPL, Win32 + WGL, 4.6→3.3→legacy fallback)
+Window (PIMPL, Win32 + WGL, 4.6->3.3->legacy fallback)
   |
 Math (Vector2/3/4, Matrix4 column-major, Quaternion, Transform)
   |

@@ -26,13 +26,6 @@ public:
     static std::string GetExtension(const std::string& path);
     static std::string GetFilename(const std::string& path);
     static std::string GetFilenameWithoutExtension(const std::string& path);
-
-    // -- Asset resolution -----------------------------------------
-    static void        SetAssetDirectory(const std::string& directory);
-    static std::string GetAssetPath(const std::string& relativePath);
-
-private:
-    static std::string s_assetDirectory;
 };
 
 } // namespace core

@@ -13,10 +13,10 @@ Scene::~Scene() {}
 
 Entity Scene::CreateEntity()
 {
-    if (m_nextEntity >= k_MaxEntities)
-        return k_InvalidEntity;
+    if (m_nextEntity.m_id >= k_MaxEntities)
+        return Entity::Invalid;
 
-    Entity entity = m_nextEntity++;
+    Entity entity = m_nextEntity.m_id++;
     m_aliveEntities.push_back(entity);
     return entity;
 }
@@ -41,20 +41,40 @@ bool Scene::IsAlive(Entity entity) const
            != m_aliveEntities.end();
 }
 
-template<> ComponentPool<Transform>&    Scene::GetPool<Transform>()    { return m_transforms; }
-template<> ComponentPool<Camera>&       Scene::GetPool<Camera>()       { return m_cameras; }
-template<> ComponentPool<Light>&        Scene::GetPool<Light>()        { return m_lights; }
-template<> ComponentPool<MeshRenderer>& Scene::GetPool<MeshRenderer>() { return m_meshRenderers; }
-
-template<> const ComponentPool<Transform>&    Scene::GetPool<Transform>()    const { return m_transforms; }
-template<> const ComponentPool<Camera>&       Scene::GetPool<Camera>()       const { return m_cameras; }
-template<> const ComponentPool<Light>&        Scene::GetPool<Light>()        const { return m_lights; }
-template<> const ComponentPool<MeshRenderer>& Scene::GetPool<MeshRenderer>() const { return m_meshRenderers; }
-
-void Scene::OnUpdate(float deltaTime)
+void Scene::RecomputeWorldTransforms()
 {
-    (void)deltaTime;
-    RecomputeWorldTransforms();
+    if (m_worldMatrices.size() <= m_nextEntity.m_id)
+        m_worldMatrices.resize(static_cast<size_t>(m_nextEntity.m_id) + 1);
+
+    for (Entity& e : m_aliveEntities)
+    {
+        Transform* tf = m_transforms.Get(e);
+        if (tf)
+            m_worldMatrices[e.m_id] = tf->GetLocalMatrix();
+        else
+            m_worldMatrices[e.m_id] = math::Matrix4::Identity();
+    }
+
+    bool changed = true;
+    int maxIterations = 100;
+    while (changed && maxIterations-- > 0)
+    {
+        changed = false;
+        for (Entity& e : m_aliveEntities)
+        {
+            Transform* tf = m_transforms.Get(e);
+            if (!tf || tf->parent == Entity::Invalid) continue;
+
+            math::Matrix4 parentWorld = m_worldMatrices[tf->parent.m_id];
+            math::Matrix4 local = tf->GetLocalMatrix();
+            math::Matrix4 world = parentWorld * local;
+            if (!(m_worldMatrices[e.m_id] == world))
+            {
+                m_worldMatrices[e.m_id] = world;
+                changed = true;
+            }
+        }
+    }
 }
 
 void Scene::OnRender(graphics::Renderer& renderer, Entity cameraEntity,
@@ -64,76 +84,80 @@ void Scene::OnRender(graphics::Renderer& renderer, Entity cameraEntity,
     Transform* camTransform = m_transforms.Get(cameraEntity);
     if (!cam) return;
 
-    float aspect = (viewportHeight > 0)
-        ? static_cast<float>(viewportWidth) / static_cast<float>(viewportHeight) : 1.0f;
+    float aspect = (viewportHeight > 0) ? static_cast<float>(viewportWidth) / static_cast<float>(viewportHeight) : 1.0f;
 
     math::Matrix4 viewMatrix = math::Matrix4::Identity();
     if (camTransform)
         viewMatrix = cam->GetViewMatrix(GetWorldMatrix(cameraEntity));
     math::Matrix4 projMatrix = cam->GetProjectionMatrix(aspect);
+    math::Matrix4 ViewProjection = projMatrix * viewMatrix;
 
     glViewport(0, 0, viewportWidth, viewportHeight);
     renderer.Clear();
 
-    for (Entity entity : m_aliveEntities)
+    Light* light = nullptr;
+    Transform* lightTransform = nullptr;
+
+    for (Entity& e : m_aliveEntities)
     {
-        MeshRenderer* mr = m_meshRenderers.Get(entity);
-        if (!mr || !mr->enabled || !mr->mesh || !mr->mesh->material || !mr->mesh->material->shader)
-            continue;
-        Transform* tf = m_transforms.Get(entity);
-        if (!tf) continue;
+        light = m_lights.Get(e);
+        if (light)
+        {
+            lightTransform = m_transforms.Get(e);
+            break;
+        }
+    }
 
-        math::Matrix4 mvp = projMatrix * viewMatrix * GetWorldMatrix(entity);
+    for (Entity& e : m_aliveEntities)
+    {
+        //MeshRenderer* mr = m_meshRenderers.Get(entity);
+        //if (!mr || !mr->enabled || !mr->mesh || !mr->mesh->material || !mr->mesh->material->shader)
+        //    continue;
+        //Transform* tf = m_transforms.Get(entity);
+        //if (!tf) continue;
 
-        auto& shader = mr->mesh->material->shader;
-        shader->Bind();
-        shader->SetMatrix4("u_ModelViewProjection", mvp);
+        //math::Matrix4 mvp = projMatrix * viewMatrix * GetWorldMatrix(entity);
 
-        mr->mesh->Render();
+        //auto& shader = mr->mesh->material->shader;
+        //shader->Bind();
+        //shader->SetMatrix4("u_ModelViewProjection", mvp);
+
+        //mr->mesh->Render();
+        MeshRenderer* mr = m_meshRenderers.Get(e);
+        if (mr && mr->enabled && mr->mesh && mr->mesh->material && mr->mesh->material->shader) {
+            auto& shader = mr->mesh->material->shader;
+            shader->Bind();
+            shader->SetMatrix4("u_Model", GetWorldMatrix(e));
+            shader->SetMatrix4("u_ViewProjection", ViewProjection);
+            if (light && lightTransform && camTransform)
+            {
+                shader->SetVector3("u_cameraPos", camTransform->position);
+                shader->SetVector3("u_Light.position", lightTransform->position);
+                shader->SetVector3("u_Light.ambient", light->ambient);
+                shader->SetVector3("u_Light.diffuse", light->diffuse);
+                shader->SetVector3("u_Light.specular", light->specular);
+            }
+
+            mr->mesh->Render();
+        }
     }
 }
+
+template<> ComponentPool<Transform>& Scene::GetPool<Transform>()       { return m_transforms; }
+template<> ComponentPool<Camera>& Scene::GetPool<Camera>()             { return m_cameras; }
+template<> ComponentPool<Light>& Scene::GetPool<Light>()               { return m_lights; }
+template<> ComponentPool<MeshRenderer>& Scene::GetPool<MeshRenderer>() { return m_meshRenderers; }
+
+template<> const ComponentPool<Transform>& Scene::GetPool<Transform>()       const { return m_transforms; }
+template<> const ComponentPool<Camera>& Scene::GetPool<Camera>()             const { return m_cameras; }
+template<> const ComponentPool<Light>& Scene::GetPool<Light>()               const { return m_lights; }
+template<> const ComponentPool<MeshRenderer>& Scene::GetPool<MeshRenderer>() const { return m_meshRenderers; }
 
 math::Matrix4 Scene::GetWorldMatrix(Entity entity) const
 {
-    if (entity < m_worldMatrices.size())
-        return m_worldMatrices[entity];
+    if (entity.m_id < m_worldMatrices.size())
+        return m_worldMatrices[entity.m_id];
     return math::Matrix4::Identity();
-}
-
-void Scene::RecomputeWorldTransforms()
-{
-    if (m_worldMatrices.size() <= m_nextEntity)
-        m_worldMatrices.resize(static_cast<size_t>(m_nextEntity) + 1);
-
-    for (Entity e : m_aliveEntities)
-    {
-        Transform* tf = m_transforms.Get(e);
-        if (tf)
-            m_worldMatrices[e] = tf->GetLocalMatrix();
-        else
-            m_worldMatrices[e] = math::Matrix4::Identity();
-    }
-
-    bool changed = true;
-    int maxIterations = 100;
-    while (changed && maxIterations-- > 0)
-    {
-        changed = false;
-        for (Entity e : m_aliveEntities)
-        {
-            Transform* tf = m_transforms.Get(e);
-            if (!tf || tf->parent == k_InvalidEntity) continue;
-
-            math::Matrix4 parentWorld = m_worldMatrices[tf->parent];
-            math::Matrix4 local = tf->GetLocalMatrix();
-            math::Matrix4 world = parentWorld * local;
-            if (!(m_worldMatrices[e] == world))
-            {
-                m_worldMatrices[e] = world;
-                changed = true;
-            }
-        }
-    }
 }
 
 } // namespace scene

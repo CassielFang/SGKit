@@ -146,7 +146,7 @@ Quaternion Quaternion::LookAt(const Vector3& direction, const Vector3& up)
     Vector3 s = Vector3::Cross(up, f).Normalized();
     Vector3 u = Vector3::Cross(f, s);
 
-    // Rotation matrix → quaternion
+    // Rotation matrix -> quaternion
     float trace = s.x + u.y + f.z;
     if (trace > 0.0f)
     {

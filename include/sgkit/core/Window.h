@@ -49,6 +49,9 @@ public:
 
     void SetIMEEnabled(bool enabled);
 
+    bool HasResized() const;
+    void ResetResizeFlag();
+
     int GetWidth() const;
     int GetHeight() const;
     float GetAspectRatio() const;

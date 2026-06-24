@@ -8,13 +8,14 @@
 namespace sgkit {
 namespace scene {
 
-struct Transform
+class Transform
 {
+public:
     math::Vector3    position{0.0f, 0.0f, 0.0f};
     math::Quaternion rotation{};
     math::Vector3    scale{1.0f, 1.0f, 1.0f};
 
-    Entity parent = k_InvalidEntity;
+    Entity parent;
     std::vector<Entity> children;
 
     math::Matrix4 GetLocalMatrix() const
@@ -27,8 +28,9 @@ struct Transform
     }
 };
 
-struct Camera
+class Camera
 {
+public:
     float fovY      = 60.0f;
     float nearPlane = 0.1f;
     float farPlane  = 1000.0f;
@@ -40,23 +42,21 @@ struct Camera
 
     math::Matrix4 GetProjectionMatrix(float aspectRatio) const
     {
-        return math::Matrix4::Perspective(
-            math::ToRadians(fovY), aspectRatio, nearPlane, farPlane);
+        return math::Matrix4::Perspective(math::ToRadians(fovY), aspectRatio, nearPlane, farPlane);
     }
 };
 
-enum class LightType { k_Directional, k_Point };
-
-struct Light
+class Light
 {
-    LightType type      = LightType::k_Directional;
-    math::Vector3 color{1.0f, 1.0f, 1.0f};
-    float intensity     = 1.0f;
-    float range         = 10.0f;
+public:
+    math::Vector3 ambient{ 0.2f, 0.2f, 0.2f };
+    math::Vector3 diffuse{ 0.5f, 0.5f, 0.5f };
+    math::Vector3 specular{ 1.0f, 1.0f, 1.0f };
 };
 
-struct MeshRenderer
+class MeshRenderer
 {
+public:
     std::shared_ptr<graphics::Mesh> mesh;
     bool enabled = true;
 };

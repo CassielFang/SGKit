@@ -19,20 +19,15 @@ public:
     void   DestroyEntity(Entity entity);
     bool   IsAlive(Entity entity) const;
 
-    template<typename T> T&  AddComponent(Entity entity);
+    template<typename T> T*  AddComponent(Entity entity);
     template<typename T> void RemoveComponent(Entity entity);
     template<typename T> T*  GetComponent(Entity entity);
     template<typename T> const T* GetComponent(Entity entity) const;
     template<typename T> bool HasComponent(Entity entity) const;
 
-    template<typename T> ComponentPool<T>&       GetPool();
-    template<typename T> const ComponentPool<T>& GetPool() const;
-
-    void OnUpdate(float deltaTime);
+    void RecomputeWorldTransforms();
     void OnRender(graphics::Renderer& renderer, Entity cameraEntity,
                   int viewportWidth, int viewportHeight);
-
-    math::Matrix4 GetWorldMatrix(Entity entity) const;
 
 private:
     Entity m_nextEntity = 0;
@@ -43,11 +38,14 @@ private:
     ComponentPool<Light>        m_lights;
     ComponentPool<MeshRenderer> m_meshRenderers;
 
-    void RecomputeWorldTransforms();
+    template<typename T> ComponentPool<T>& GetPool();
+    template<typename T> const ComponentPool<T>& GetPool() const;
+
     std::vector<math::Matrix4> m_worldMatrices;
+    math::Matrix4 GetWorldMatrix(Entity entity) const;
 };
 
-template<typename T> T& Scene::AddComponent(Entity e) { return GetPool<T>().Add(e); }
+template<typename T> T* Scene::AddComponent(Entity e) { return GetPool<T>().Add(e); }
 template<typename T> void Scene::RemoveComponent(Entity e) { GetPool<T>().Remove(e); }
 template<typename T> T*  Scene::GetComponent(Entity e) { return GetPool<T>().Get(e); }
 template<typename T> const T* Scene::GetComponent(Entity e) const { return GetPool<T>().Get(e); }

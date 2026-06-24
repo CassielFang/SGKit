@@ -13,55 +13,55 @@ template<typename T>
 class ComponentPool
 {
 public:
-    T& Add(Entity entity)
+    T* Add(Entity entity)
     {
-        size_t idx = entity;
+        size_t idx = entity.m_id;
         EnsureSize(idx + 1);
 
         if (Has(entity))
-            return m_components[m_sparse[idx]];
+            return &m_components[m_sparse[idx]];
 
         m_sparse[idx] = m_components.size();
         m_dense.push_back(entity);
         m_components.emplace_back();
-        return m_components.back();
+        return &m_components.back();
     }
 
     void Remove(Entity entity)
     {
-        if (!Has(entity)) return;
+        if (!Has(entity.m_id)) return;
 
-        size_t idx  = m_sparse[entity];
+        size_t idx  = m_sparse[entity.m_id];
         size_t last = m_components.size() - 1;
         Entity lastEntity = m_dense[last];
 
         // Swap-and-pop
         m_components[idx] = std::move(m_components[last]);
         m_dense[idx]      = lastEntity;
-        m_sparse[lastEntity] = idx;
+        m_sparse[lastEntity.m_id] = idx;
 
         m_components.pop_back();
         m_dense.pop_back();
-        m_sparse[entity] = 0xFFFFFFFF;
+        m_sparse[entity.m_id] = 0xFFFFFFFF;
     }
 
     T* Get(Entity entity)
     {
-        if (!Has(entity)) return nullptr;
-        return &m_components[m_sparse[entity]];
+        if (!Has(entity.m_id)) return nullptr;
+        return &m_components[m_sparse[entity.m_id]];
     }
 
     const T* Get(Entity entity) const
     {
-        if (!Has(entity)) return nullptr;
-        return &m_components[m_sparse[entity]];
+        if (!Has(entity.m_id)) return nullptr;
+        return &m_components[m_sparse[entity.m_id]];
     }
 
     bool Has(Entity entity) const
     {
-        if (entity >= m_sparse.size()) return false;
-        size_t idx = m_sparse[entity];
-        return idx != 0xFFFFFFFF && idx < m_dense.size() && m_dense[idx] == entity;
+        if (entity.m_id >= m_sparse.size()) return false;
+        size_t idx = m_sparse[entity.m_id];
+        return idx != 0xFFFFFFFF && idx < m_dense.size() && m_dense[idx] == entity.m_id;
     }
 
     const std::vector<T>&      GetComponents() const { return m_components; }
@@ -71,8 +71,8 @@ public:
 
 private:
     std::vector<T>      m_components;      // dense component array
-    std::vector<size_t> m_sparse;           // sparse: entity → index
-    std::vector<Entity> m_dense;            // dense: index → entity
+    std::vector<size_t> m_sparse;           // sparse: entity -> index
+    std::vector<Entity> m_dense;            // dense: index -> entity
 
     void EnsureSize(size_t size)
     {

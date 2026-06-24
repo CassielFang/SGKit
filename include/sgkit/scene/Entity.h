@@ -5,10 +5,17 @@
 namespace sgkit {
 namespace scene {
 
-using Entity = uint32_t;
+class Entity {
+public:
+	Entity();
+	Entity(uint32_t id);
+	bool operator==(const Entity& other) const;
+	uint32_t m_id;
+	
+	static const Entity Invalid;
+};
 
-constexpr Entity k_InvalidEntity = 0xFFFFFFFF;
-constexpr Entity k_MaxEntities   = 10000;
+constexpr uint32_t k_MaxEntities = 10000;
 
 } // namespace scene
 } // namespace sgkit

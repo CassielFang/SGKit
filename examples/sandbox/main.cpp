@@ -259,6 +259,7 @@ ApplicationConfig sgkit::CreateApplication()
                              * ct->rotation
                              * math::Quaternion::FromEulerAngles(pitch, 0.0f, 0.0f);
             }
+
         }
 
         if (GetInput().IsKeyPressed(core::KeyCode::k_Space))

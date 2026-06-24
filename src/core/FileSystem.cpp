@@ -7,8 +7,6 @@
 namespace sgkit {
 namespace core {
 
-std::string FileSystem::s_assetDirectory = "assets/";
-
 // -- Read -----------------------------------------------------------
 
 std::optional<std::string> FileSystem::ReadText(const std::string& path)
@@ -109,21 +107,6 @@ std::string FileSystem::GetFilename(const std::string& path)
 std::string FileSystem::GetFilenameWithoutExtension(const std::string& path)
 {
     return std::filesystem::path(path).stem().string();
-}
-
-// -- Asset resolution -----------------------------------------------
-
-void FileSystem::SetAssetDirectory(const std::string& directory)
-{
-    s_assetDirectory = directory;
-    // Ensure trailing separator
-    if (!s_assetDirectory.empty() && s_assetDirectory.back() != '/' && s_assetDirectory.back() != '\\')
-        s_assetDirectory += '/';
-}
-
-std::string FileSystem::GetAssetPath(const std::string& relativePath)
-{
-    return s_assetDirectory + relativePath;
 }
 
 } // namespace core

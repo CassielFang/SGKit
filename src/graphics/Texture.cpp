@@ -224,7 +224,7 @@ bool Texture::LoadBMP(const std::string& path)
     int rowSize = (width * channels + 3) & ~3;
     const uint8_t* pixelData = data->data() + header->dataOffset;
 
-    // Copy pixels (BMP is stored BGR→RGB, bottom-up by default)
+    // Copy pixels (BMP is stored BGR->RGB, bottom-up by default)
     std::vector<uint8_t> pixels(width * height * channels);
     for (int y = 0; y < height; ++y)
     {

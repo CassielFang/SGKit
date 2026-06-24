@@ -28,8 +28,8 @@ public:
 
     // -- Keyboard polling ----------------------------------------
     bool IsKeyDown(KeyCode key) const;
-    bool IsKeyPressed(KeyCode key) const;   // transition: up→down this frame
-    bool IsKeyReleased(KeyCode key) const;  // transition: down→up this frame
+    bool IsKeyPressed(KeyCode key) const;   // transition: up->down this frame
+    bool IsKeyReleased(KeyCode key) const;  // transition: down->up this frame
 
     // -- Mouse polling -------------------------------------------
     bool  IsMouseButtonDown(MouseButton button) const;

@@ -12,7 +12,7 @@ namespace sgkit {
 namespace core {
 
 // ===================================================================
-//  Key mapping: Win32 VK → SGKit KeyCode
+//  Key mapping: Win32 VK -> SGKit KeyCode
 // ===================================================================
 
 KeyCode Input::MapWin32Key(unsigned int vkCode) const

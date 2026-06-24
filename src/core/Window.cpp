@@ -48,6 +48,7 @@ struct sgkit::core::Window::Impl
     bool hasGLContext     = false;
     bool isFullscreen     = false;
     bool maximizeIsFullscreen = false;  // if true, maximize = borderless fullscreen
+    bool viewportDirty        = true;   // true on creation and WM_SIZE
 
     // IME
     HIMC defaultIMC = nullptr;
@@ -181,7 +182,7 @@ bool Window::Create(const WindowDesc& desc)
             0x2001, GL_TRUE,        // WGL_DRAW_TO_WINDOW_ARB
             0x2002, GL_TRUE,        // WGL_SUPPORT_OPENGL_ARB
             0x2011, GL_TRUE,        // WGL_DOUBLE_BUFFER_ARB
-            0x2013, 0x202B,         // WGL_PIXEL_TYPE_ARB → WGL_TYPE_RGBA_ARB
+            0x2013, 0x202B,         // WGL_PIXEL_TYPE_ARB -> WGL_TYPE_RGBA_ARB
             0x2014, 24,             // WGL_COLOR_BITS_ARB
             0x2022, 24,             // WGL_DEPTH_BITS_ARB
             0x2016, 8,              // WGL_STENCIL_BITS_ARB
@@ -264,9 +265,9 @@ bool Window::Create(const WindowDesc& desc)
         const int contextAttribs[] = {
             0x2091, desc.glMajorVersion,
             0x2092, desc.glMinorVersion,
-            0x9126, 0x0001,         // WGL_CONTEXT_PROFILE_MASK → CORE
+            0x9126, 0x0001,         // WGL_CONTEXT_PROFILE_MASK -> CORE
 #ifdef _DEBUG
-            0x2094, 0x0001,         // WGL_CONTEXT_FLAGS → DEBUG
+            0x2094, 0x0001,         // WGL_CONTEXT_FLAGS -> DEBUG
 #endif
             0
         };
@@ -481,6 +482,16 @@ void Window::SetIMEEnabled(bool enabled)
         ImmAssociateContext(m_impl->hwnd, nullptr);
 }
 
+bool Window::HasResized() const
+{
+    return m_impl->viewportDirty;
+}
+
+void Window::ResetResizeFlag()
+{
+    m_impl->viewportDirty = false;
+}
+
 int Window::GetWidth() const  { return m_impl->width; }
 int Window::GetHeight() const { return m_impl->height; }
 
@@ -530,6 +541,7 @@ bool Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam, lo
     case WM_SIZE:
         m_impl->width  = LOWORD(static_cast<LPARAM>(lParam));
         m_impl->height = HIWORD(static_cast<LPARAM>(lParam));
+        m_impl->viewportDirty = true;
         return true;
     }
 
