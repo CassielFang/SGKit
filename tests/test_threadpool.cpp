@@ -1,3 +1,4 @@
+#include <Windows.h>
 #include <sgkit/core/ThreadPool.h>
 
 #include <cstdio>

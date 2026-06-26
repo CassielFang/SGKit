@@ -4,16 +4,15 @@
 #include <sgkit/scene/ComponentPool.h>
 #include <sgkit/scene/Components.h>
 
-#include <sgkit/graphics/Renderer.h>
-
 namespace sgkit {
 namespace scene {
 
 class Scene
 {
 public:
-    Scene();
-    ~Scene();
+    static void Create();
+    static void Destroy();
+    static Scene& instance();
 
     Entity CreateEntity();
     void   DestroyEntity(Entity entity);
@@ -26,10 +25,18 @@ public:
     template<typename T> bool HasComponent(Entity entity) const;
 
     void RecomputeWorldTransforms();
-    void OnRender(graphics::Renderer& renderer, Entity cameraEntity,
-                  int viewportWidth, int viewportHeight);
+
+    void OnRender(Entity cameraEntity);
 
 private:
+    Scene() = default;
+    ~Scene() = default;
+
+    Scene(const Scene&) = delete;
+    Scene& operator=(const Scene&) = delete;
+    Scene(const Scene&&) = delete;
+    Scene& operator=(const Scene&&) = delete;
+
     Entity m_nextEntity = 0;
     std::vector<Entity> m_aliveEntities;
 
@@ -41,6 +48,7 @@ private:
     template<typename T> ComponentPool<T>& GetPool();
     template<typename T> const ComponentPool<T>& GetPool() const;
 
+    int m_width = 0, m_height = 0;
     std::vector<math::Matrix4> m_worldMatrices;
     math::Matrix4 GetWorldMatrix(Entity entity) const;
 };

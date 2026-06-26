@@ -11,31 +11,13 @@
 #include <sgkit/core/Window.h>
 #include <sgkit/core/Input.h>
 #include <sgkit/core/KeyCodes.h>
-#include <sgkit/core/Debug.h>
 #include <sgkit/graphics/Renderer.h>
 #include <sgkit/scene/Scene.h>
 
-#include <glad/glad.h>
 #include <cstdio>
 #include <memory>
 
-namespace sgkit {
-namespace {
-
-// Module singletons — unique_ptr so destruction order is explicit
-// Scene/Renderer release GL resources before Window tears down the GL context
-std::unique_ptr<core::Window>       g_window;
-std::unique_ptr<core::Input>        g_input;
-std::unique_ptr<graphics::Renderer> g_renderer;
-std::unique_ptr<scene::Scene>       g_scene;
-
-// Timing
-framework::Clock::TimePoint g_lastFrameTime;
-float  g_deltaTime  = 0.0f;
-float  g_totalTime  = 0.0f;
-float  g_fpsTimer   = 0.0f;
-int    g_frameCount = 0;
-float  g_fps        = 0.0f;
+using namespace sgkit;
 
 static void AttachConsole()
 {
@@ -60,28 +42,9 @@ static void DetachConsole()
 #endif
 }
 
-static void CalculateFrameTiming()
-{
-    auto now = framework::Clock::Now();
-    auto duration = std::chrono::duration<float>(now - g_lastFrameTime);
-    g_deltaTime = duration.count();
-    g_lastFrameTime = now;
-
-    g_totalTime += g_deltaTime;
-    g_frameCount++;
-
-    g_fpsTimer += g_deltaTime;
-    if (g_fpsTimer >= 1.0f)
-    {
-        g_fps = static_cast<float>(g_frameCount) / g_fpsTimer;
-        g_frameCount = 0;
-        g_fpsTimer = 0.0f;
-    }
-}
-
 static void Fatal(const char* msg)
 {
-    std::fprintf(stderr, "SGKit FATAL: %s\n", msg);
+    std::fprintf(stderr, "[[ SGKit FATAL  ]]: %s\n", msg);
 
 #ifdef SGK_PLATFORM_WINDOWS
     int wlen = MultiByteToWideChar(CP_UTF8, 0, msg, -1, nullptr, 0);
@@ -97,13 +60,9 @@ static void Fatal(const char* msg)
 #endif
 }
 
-} // anonymous namespace
-
-static int Run(const ApplicationConfig& config)
+static int Run(HINSTANCE hInst, const ApplicationConfig& config)
 {
     AttachConsole();
-
-    std::printf("SGKit: starting up\n");
 
     // -- Init modules in dependency order ---------------------------------
 
@@ -119,101 +78,81 @@ static int Run(const ApplicationConfig& config)
     wd.glMajorVersion       = config.glMajor;
     wd.glMinorVersion       = config.glMinor;
 
-    g_window = std::make_unique<core::Window>();
-    if (!g_window->Create(wd))
+    if (!core::Window::Create(hInst, wd))
     {
-        Fatal("Failed to create window. GPU may not support OpenGL 3.3+.");
-        g_window.reset();
+        Fatal("Failed to create window. Please check you device.");
+        core::Window::Destroy();
         DetachConsole();
         return 1;
     }
+    core::Window& window = core::Window::instance();
 
-    if (!gladLoadGL())
+    if (!core::Input::Create(window.GetNativeHandle()))
     {
-        Fatal("Failed to load OpenGL functions.");
-        g_window.reset();
+        Fatal("Failed to initialize input device.");
+        core::Input::Destroy();
+        core::Window::Destroy();
         DetachConsole();
         return 1;
     }
+    core::Input& input = core::Input::instance();
 
-#ifdef _DEBUG
-    if (GLAD_GL_VERSION_4_3 || GLAD_GL_KHR_debug)
-    {
-        glEnable(GL_DEBUG_OUTPUT);
-        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-        glDebugMessageCallback([](GLenum, GLenum type, GLuint, GLenum severity,
-                                  GLsizei, const GLchar* msg, const void*) {
-            if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
-                std::fprintf(stderr, "GL: (%u) %s\n", type, msg);
-        }, nullptr);
-    }
-#endif
+    graphics::Renderer::Create();
+    graphics::Renderer& renderer = graphics::Renderer::instance();
+    renderer.SetClearColor({0.1f, 0.1f, 0.15f, 1.0f});
+    renderer.SetDepthTest(true);
+    renderer.SetCullFace(true);
+    renderer.SetBlend(true);
 
-    std::printf("SGKit: OpenGL %s, GLSL %s\n",
-                glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
-
-    g_renderer = std::make_unique<graphics::Renderer>();
-    g_renderer->SetClearColor({0.1f, 0.1f, 0.15f, 1.0f});
-    g_renderer->SetDepthTest(true);
-    g_renderer->SetCullFace(true);
-    g_renderer->SetBlend(true);
-
-    g_input = std::make_unique<core::Input>();
-    g_input->Initialize(g_window->GetNativeHandle());
-    g_window->AddEventHandler(
-        [](unsigned int msg, unsigned long long wParam, long long lParam) -> bool {
-            return g_input->OnEvent(msg, wParam, lParam);
+    window.AddEventHandler(
+        [&window, &renderer](unsigned int msg, unsigned long long, long long)
+        {
+            if (msg == WM_SIZE)
+                renderer.SetViewport(0, 0, window.GetWidth(), window.GetHeight());
         });
 
-    g_scene = std::make_unique<scene::Scene>();
+    scene::Scene::Create();
+    scene::Scene& scene = scene::Scene::instance();
 
     if (config.onInit)
     {
         if (!config.onInit())
         {
             Fatal("onInit() returned false.");
-            g_scene.reset();
-            g_renderer.reset();
-            g_input.reset();
-            g_window.reset();
+            scene::Scene::Destroy();
+            graphics::Renderer::Destroy();
+            core::Input::Destroy();
+            core::Window::Destroy();
             DetachConsole();
             return 1;
         }
     }
 
-    g_lastFrameTime = framework::Clock::Now();
-
     while (true)
     {
-        g_window->PollEvents();
+        window.PollEvents();
+        input.Update();
 
-        if (config.fullscreenBolderless && g_window->isActive() && g_window->IsFullscreen())
-            if (g_input->IsKeyPressed(core::KeyCode::k_Escape))
-                g_window->Restore();
+        if (config.fullscreenBolderless && window.isActive() && window.IsFullscreen())
+            if (input.IsKeyPressed(core::KeyCode::Escape))
+                window.Restore();
 
-        CalculateFrameTiming();
+        framework::Clock::Update();
 
         if (config.onUpdate)
-            config.onUpdate(g_deltaTime);
+            config.onUpdate();
 
-        if (g_window->IsCloseRequest())
+        if (window.IsCloseRequest())
             break;
 
-        g_scene->RecomputeWorldTransforms();
+        scene.RecomputeWorldTransforms();
 
-        g_renderer->Clear();
-
-        if (g_window->HasResized())
-        {
-            g_renderer->SetViewport(0, 0, g_window->GetWidth(), g_window->GetHeight());
-            g_window->ResetResizeFlag();
-        }
+        renderer.Clear();
 
         if (config.onRender)
             config.onRender();
 
-        g_input->EndFrame();
-        g_window->SwapBuffers();
+        window.SwapBuffers();
     }
 
     if (config.onShutdown)
@@ -221,24 +160,14 @@ static int Run(const ApplicationConfig& config)
 
     // Tear down in reverse dependency order — Scene GL resources
     // released before Window destroys the GL context.
-    g_scene.reset();
-    g_renderer.reset();
-    g_input.reset();
-    g_window.reset();
+    scene::Scene::Destroy();
+    graphics::Renderer::Destroy();
+    core::Input::Destroy();
+    core::Window::Destroy();
 
     DetachConsole();
     return 0;
 }
-
-core::Window&        GetWindow()   { return *g_window; }
-core::Input&         GetInput()    { return *g_input; }
-graphics::Renderer&  GetRenderer() { return *g_renderer; }
-scene::Scene&        GetScene()    { return *g_scene; }
-
-float GetDeltaTime() { return g_deltaTime; }
-float GetFPS()       { return g_fps; }
-
-} // namespace sgkit
 
 // ===================================================================
 //  Platform entry point — inside the library, hidden from user
@@ -258,10 +187,10 @@ int WINAPI WinMain(
     _In_ LPSTR lpCmdLine,
     _In_ int nShowCmd)
 {
-    UNUSED(hInstance); UNUSED(hPrevInstance); UNUSED(lpCmdLine); UNUSED(nShowCmd);
+    UNUSED(hPrevInstance); UNUSED(lpCmdLine); UNUSED(nShowCmd);
     SetProcessDPIAware();
     auto config = sgkit::CreateApplication();
-    return sgkit::Run(config);
+    return Run(hInstance, config);
 }
 int WINAPI wWinMain(
     _In_ HINSTANCE hInstance,
@@ -269,10 +198,10 @@ int WINAPI wWinMain(
     _In_ LPWSTR lpCmdLine,
     _In_ int nShowCmd)
 {
-    UNUSED(hInstance); UNUSED(hPrevInstance); UNUSED(lpCmdLine); UNUSED(nShowCmd);
+    UNUSED(hPrevInstance); UNUSED(lpCmdLine); UNUSED(nShowCmd);
     SetProcessDPIAware();
     auto config = sgkit::CreateApplication();
-    return sgkit::Run(config);
+    return Run(hInstance, config);
 }
 
 #else
@@ -280,6 +209,6 @@ int main(int argc, char** argv)
 {
     (void)argc; (void)argv;
     auto config = sgkit::CreateApplication();
-    return sgkit::Run(config);
+    return sgkit::Run(GetModuleHandle(nullptr), config);
 }
 #endif

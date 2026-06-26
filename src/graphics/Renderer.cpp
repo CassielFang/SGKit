@@ -1,9 +1,32 @@
 #include <sgkit/graphics/Renderer.h>
 
+#include <sgkit/core/DebugOut.h>
 #include <glad/glad.h>
+
+static sgkit::graphics::Renderer* g_Renderer = nullptr;
 
 namespace sgkit {
 namespace graphics {
+
+void Renderer::Create()
+{
+    if (g_Renderer) return;
+    g_Renderer = new Renderer;
+    core::DebugOut("[ SGKit Renderer ]: module created.");
+}
+
+void Renderer::Destroy()
+{
+    if (!g_Renderer) return;
+    delete g_Renderer;
+    g_Renderer = nullptr;
+    core::DebugOut("[ SGKit Renderer ]: module destroyed.");
+}
+
+Renderer& Renderer::instance()
+{
+    return *g_Renderer;
+}
 
 void Renderer::SetClearColor(const math::Vector4& color)
 {
@@ -16,11 +39,6 @@ void Renderer::Clear()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void Renderer::SetViewport(int x, int y, int width, int height)
-{
-    glViewport(x, y, width, height);
-}
-
 void Renderer::Draw(const Mesh& mesh)
 {
     mesh.Render();
@@ -29,6 +47,11 @@ void Renderer::Draw(const Mesh& mesh)
 void Renderer::Draw(const VertexArray& va)
 {
     va.Draw();
+}
+
+void Renderer::SetViewport(int x, int y, int width, int height)
+{
+    glViewport(x, y, width, height);
 }
 
 void Renderer::SetWireframe(bool enabled)

@@ -9,9 +9,10 @@ target_include_directories(sgkit PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-# glad header visible only inside sgkit, not to consumers
+# glad header and resource visible only inside sgkit, not to consumers
 target_include_directories(sgkit PRIVATE
     ${PROJECT_SOURCE_DIR}/external/glad/include
+    ${PROJECT_SOURCE_DIR}/icon
 )
 
 # -- Internal platform macro (sgkit PRIVATE only) -------------------------

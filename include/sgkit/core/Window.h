@@ -24,17 +24,9 @@ struct WindowDesc
 class Window
 {
 public:
-    Window();
-    ~Window();
-
-    Window(const Window&) = delete;
-    Window& operator=(const Window&) = delete;
-    Window(Window&&) = delete;
-    Window& operator=(Window&&) = delete;
-
-    bool Create(const WindowDesc& desc);
-    void Destroy();
-    bool IsCreated() const;
+    static bool Create(void*, const WindowDesc& desc);
+    static void Destroy();
+    static Window& instance();
 
     void PollEvents();
     void RequestClose(bool request = true);
@@ -52,9 +44,6 @@ public:
     void SetCursorVisible(bool enabled);
     bool isCursorVisible() const;
 
-    bool HasResized() const;
-    void ResetResizeFlag();
-
     int GetWidth() const;
     int GetHeight() const;
     float GetAspectRatio() const;
@@ -63,13 +52,21 @@ public:
 
     // Event handler hook for Input module.
     // Returns true if the message was handled.
-    using EventHandler = std::function<bool(unsigned int msg, unsigned long long wParam, long long lParam)>;
+    using EventHandler = std::function<void(unsigned int msg, unsigned long long wParam, long long lParam)>;
     void AddEventHandler(EventHandler handler);
 
     // Called by the platform window procedure. Returns true if handled.
     int64_t HandleWindowMessage(unsigned int msg, unsigned long long wParam, long long lParam);
 
 private:
+    Window();
+    ~Window();
+
+    Window(const Window&) = delete;
+    Window& operator=(const Window&) = delete;
+    Window(Window&&) = delete;
+    Window& operator=(Window&&) = delete;
+
     class Impl;
     std::unique_ptr<Impl> m_impl;
 };

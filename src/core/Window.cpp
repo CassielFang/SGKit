@@ -6,8 +6,9 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <resource.h>
 #include <imm.h>
-#include <gl/GL.h>
+#include <glad/glad.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -46,11 +47,9 @@ public:
     int  width                = 0;
     int  height               = 0;
     bool isCloseRequest       = false;
-    bool hasGLContext         = false;
     bool isActive             = true;
     bool isFullscreen         = false;
     bool fullscreenBolderless = false;  // if true, maximize = borderless fullscreen
-    bool viewportDirty        = true;   // true on creation and WM_SIZE
     bool cursorVisible        = true;
 
     // Pre-fullscreen state (for restore)
@@ -63,15 +62,26 @@ public:
 
 // -- Forward declarations (local helpers) --------------------------
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-static bool     CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTANCE hInst);
-static void     DestroyDummyGLWindow(HWND hwnd, HDC dc, HGLRC rc);
+static bool    CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTANCE hInst);
+static void    DestroyDummyGLWindow(HWND hwnd, HDC dc, HGLRC rc);
+
+#ifdef _DEBUG
+static void WinLog(const char* msg, bool error = false)
+{
+    if (error)
+        std::fprintf(stderr, "[  SGKit Window  ]: %s. (error code: %d)\n", msg, static_cast<int>(GetLastError()));
+    else std::fprintf(stderr, "[  SGKit Window  ]: %s.\n", msg);
+}
+#else
+#define WinLog(...) ((void)0)
+#endif
 
 // WGL extension function types
 typedef HGLRC (WINAPI *PFN_wglCreateContextAttribsARB)(HDC, HGLRC, const int*);
 typedef BOOL (WINAPI *PFN_wglChoosePixelFormatARB)(HDC, const int*, const float*, UINT, int*, UINT*);
 typedef BOOL (WINAPI *PFN_wglSwapIntervalEXT)(int);
 
-// -- External pointer to Window instance (for WindowProc callback) -
+// -- External pointer to Window instance
 
 static sgkit::core::Window* g_currentWindow = nullptr;
 
@@ -86,25 +96,42 @@ Window::Window() : m_impl(std::make_unique<Impl>()) {}
 
 Window::~Window()
 {
-    Destroy();
+    if (!m_impl->hwnd)
+        return;
+
+    wglMakeCurrent(m_impl->dc, nullptr);
+    if (m_impl->glContext)
+    {
+        wglDeleteContext(m_impl->glContext);
+        m_impl->glContext = nullptr;
+    }
+
+    if (m_impl->dc)
+    {
+        ReleaseDC(m_impl->hwnd, m_impl->dc);
+        m_impl->dc = nullptr;
+    }
+
+    DestroyWindow(m_impl->hwnd);
+    m_impl->hwnd = nullptr;
+
+    PollEvents();
+
+    UnregisterClassW(k_WindowClassName, m_impl->hInstance);
 }
 
-static void WinLog(const char* msg)
+bool Window::Create(void* hInst, const WindowDesc& desc)
 {
-    std::fprintf(stderr, "%s", msg);
-}
-
-bool Window::Create(const WindowDesc& desc)
-{
-    if (m_impl->hwnd)
-        Destroy();
+    if (g_currentWindow) return false;
+    g_currentWindow = new Window;
+    std::unique_ptr<Window::Impl>& m_impl = g_currentWindow->m_impl;
 
     m_impl->width  = desc.width;
     m_impl->height = desc.height;
-    m_impl->hInstance = GetModuleHandle(nullptr);
+    m_impl->hInstance = reinterpret_cast<HINSTANCE>(hInst);
 
     // -- 1. Register window class --------------------------------
-    WNDCLASSEXW wc = {};
+    WNDCLASSEX wc = {};
     wc.cbSize        = sizeof(WNDCLASSEXW);
     wc.style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
     wc.lpfnWndProc   = WindowProc;
@@ -112,15 +139,19 @@ bool Window::Create(const WindowDesc& desc)
     wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
     wc.lpszClassName = k_WindowClassName;
 
-    // Load application icon from executable resources (ID 101 = IDI_MAIN_ICON).
+    // Load application icon from executable resources.
     // If the user placed app.ico in icon/ and linked app.rc, this picks it up.
     // On failure the window gets the default icon — no harm.
-    HICON hIcon = LoadIconW(m_impl->hInstance, MAKEINTRESOURCEW(101));
+    HICON hIcon = LoadIconW(m_impl->hInstance, MAKEINTRESOURCEW(IDI_MAIN_ICON));
     wc.hIcon   = hIcon;
     wc.hIconSm = hIcon;
 
-    RegisterClassExW(&wc);
-    WinLog("SGKit Window: class registered\n");
+    if (RegisterClassEx(&wc)) WinLog("window class registered");
+    else
+    {
+        WinLog("failed to register window class", true);
+        return false;
+    }
 
     // -- 2. Calculate window size --------------------------------
     DWORD dwStyle = WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
@@ -138,7 +169,8 @@ bool Window::Create(const WindowDesc& desc)
     HGLRC dummyRc  = nullptr;
     if (!CreateDummyGLWindow(&dummyWnd, &dummyDc, &dummyRc, m_impl->hInstance))
     {
-        WinLog("SGKit Window: FAILED dummy window\n");
+        WinLog("failed to create dummy window", true);
+        DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
         return false;
     }
 
@@ -148,7 +180,7 @@ bool Window::Create(const WindowDesc& desc)
     auto wglCreateContextAttribsARB = (PFN_wglCreateContextAttribsARB)
         wglGetProcAddress("wglCreateContextAttribsARB");
 
-    WinLog("SGKit Window: dummy window created, WGL extensions loaded\n");
+    WinLog("dummy window created, WGL extensions loaded");
 
     // -- 4. Create the real window -------------------------------
     std::wstring wideTitle = ToWideString(desc.title);
@@ -163,26 +195,24 @@ bool Window::Create(const WindowDesc& desc)
 
     if (!m_impl->hwnd)
     {
+        WinLog("failed to create main window", true);
         DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
-        WinLog("SGKit Window: FAILED CreateWindowExW\n");
         return false;
     }
-
-    g_currentWindow = this;
 
     ShowWindow(m_impl->hwnd, SW_SHOW);
     UpdateWindow(m_impl->hwnd);
 
     m_impl->fullscreenBolderless = desc.fullscreenBolderless;
     if (desc.fullscreen)
-        Maximize();
+        g_currentWindow->Maximize();
 
     // Disable IME by default (raw game input);
     ImmReleaseContext(m_impl->hwnd, ImmGetContext(m_impl->hwnd));
     ImmAssociateContext(m_impl->hwnd, nullptr);
 
     m_impl->dc = GetDC(m_impl->hwnd);
-    WinLog("SGKit Window: real window created\n");
+    WinLog("main window created");
 
     // -- 5. Set pixel format --------------------------------------
     bool pixelFormatOk = false;
@@ -213,7 +243,7 @@ bool Window::Create(const WindowDesc& desc)
             if (SetPixelFormat(m_impl->dc, pixelFormat, &pfd))
             {
                 pixelFormatOk = true;
-                WinLog("SGKit Window: pixel format set (with MSAA)\n");
+                WinLog("pixel format set (with MSAA)");
             }
         }
         else
@@ -238,7 +268,7 @@ bool Window::Create(const WindowDesc& desc)
                 if (SetPixelFormat(m_impl->dc, pixelFormat, &pfd))
                 {
                     pixelFormatOk = true;
-                    WinLog("SGKit Window: pixel format set (no MSAA)\n");
+                    WinLog("pixel format set (no MSAA)");
                 }
             }
         }
@@ -260,14 +290,14 @@ bool Window::Create(const WindowDesc& desc)
         if (pf && SetPixelFormat(m_impl->dc, pf, &pfd))
         {
             pixelFormatOk = true;
-            WinLog("SGKit Window: pixel format set (legacy ChoosePixelFormat)\n");
+            WinLog("pixel format set (legacy ChoosePixelFormat)");
         }
     }
 
     if (!pixelFormatOk)
     {
+        WinLog("failed to choose pixel format", true);
         DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
-        WinLog("SGKit Window: FAILED pixel format\n");
         return false;
     }
 
@@ -287,7 +317,7 @@ bool Window::Create(const WindowDesc& desc)
         m_impl->glContext = wglCreateContextAttribsARB(m_impl->dc, 0, contextAttribs);
         if (!m_impl->glContext)
         {
-            WinLog("SGKit Window: 4.x core context failed, trying 3.3\n");
+            WinLog("4.x core context failed, trying 3.3", true);
             // Fall back to 3.3 core
             const int fallbackAttribs[] = {
                 0x2091, 3,
@@ -301,15 +331,15 @@ bool Window::Create(const WindowDesc& desc)
 
     if (!m_impl->glContext)
     {
-        WinLog("SGKit Window: 3.3 context failed, trying legacy\n");
+        WinLog("3.3 context failed, trying legacy", true);
         // Legacy fallback
         m_impl->glContext = wglCreateContext(m_impl->dc);
     }
 
     if (!m_impl->glContext)
     {
+        WinLog("all GL context attempts falied", true);
         DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
-        WinLog("SGKit Window: FAILED all GL context attempts\n");
         return false;
     }
 
@@ -319,7 +349,7 @@ bool Window::Create(const WindowDesc& desc)
     // Make our context current
     wglMakeCurrent(m_impl->dc, m_impl->glContext);
 
-    WinLog("SGKit Window: GL context created and made current\n");
+    WinLog("GL context created and made current");
 
     // -- 7. VSync -------------------------------------------------
     if (desc.vsync)
@@ -330,45 +360,44 @@ bool Window::Create(const WindowDesc& desc)
             wglSwapIntervalEXT(1);
     }
 
-    m_impl->hasGLContext = true;
+    // -- 8. GL ----------------------------------------------------
+    if (!gladLoadGL())
+    {
+        WinLog("failed to load OpenGL functions",true);
+        return false;
+    }
 
+#ifdef _DEBUG
+    if (GLAD_GL_VERSION_4_3 || GLAD_GL_KHR_debug)
+    {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(
+            [](GLenum, GLenum type, GLuint, GLenum severity, GLsizei, const GLchar* msg, const void*)
+            {
+                if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
+                    std::fprintf(stderr, "[GL]              : (%u) %s\n", type, msg);
+            }, nullptr);
+    }
+#endif
+
+    std::fprintf(stderr, "[  SGKit Window  ]: OpenGL version %s, GLSL version %s\n",
+        glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
+    WinLog("module created");
     return true;
 }
 
 void Window::Destroy()
 {
-    if (!m_impl->hwnd)
-        return;
-
-    if (m_impl->hasGLContext)
-    {
-        wglMakeCurrent(m_impl->dc, nullptr);
-        if (m_impl->glContext)
-        {
-            wglDeleteContext(m_impl->glContext);
-            m_impl->glContext = nullptr;
-        }
-        m_impl->hasGLContext = false;
-    }
-
-    if (m_impl->dc)
-    {
-        ReleaseDC(m_impl->hwnd, m_impl->dc);
-        m_impl->dc = nullptr;
-    }
-
-    DestroyWindow(m_impl->hwnd);
-    m_impl->hwnd = nullptr;
-
-    PollEvents();
-
-    UnregisterClassW(k_WindowClassName, m_impl->hInstance);
+    if (!g_currentWindow) return;
+    delete g_currentWindow;
     g_currentWindow = nullptr;
+    WinLog("module destroyed");
 }
 
-bool Window::IsCreated() const
+Window& Window::instance()
 {
-    return m_impl->hwnd != nullptr;
+    return *g_currentWindow;
 }
 
 void Window::PollEvents()
@@ -492,22 +521,12 @@ bool Window::isCursorVisible() const
     return m_impl->cursorVisible;
 }
 
-bool Window::HasResized() const
-{
-    return m_impl->viewportDirty;
-}
-
-void Window::ResetResizeFlag()
-{
-    m_impl->viewportDirty = false;
-}
-
-int Window::GetWidth() const  { return m_impl->width; }
-int Window::GetHeight() const { return m_impl->height; }
+int Window::GetWidth() const  { return m_impl ? m_impl->width : 0; }
+int Window::GetHeight() const { return m_impl ? m_impl->height : 0; }
 
 float Window::GetAspectRatio() const
 {
-    return (m_impl->height > 0) ? (float)m_impl->width / (float)m_impl->height : 1.0f;
+    return (m_impl && m_impl->height > 0) ? (float)m_impl->width / (float)m_impl->height : 1.0f;
 }
 
 void* Window::GetNativeHandle() const
@@ -522,13 +541,6 @@ void Window::AddEventHandler(EventHandler handler)
 
 int64_t Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam, long long lParam)
 {
-    // Dispatch to registered event handlers (Input module)
-    for (auto& handler : m_impl->eventHandlers)
-    {
-        if (handler && handler(msg, wParam, lParam))
-            continue;
-    }
-
     switch (msg)
     {
     case WM_CLOSE:
@@ -559,7 +571,6 @@ int64_t Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam,
     case WM_SIZE:
         m_impl->width  = LOWORD(static_cast<LPARAM>(lParam));
         m_impl->height = HIWORD(static_cast<LPARAM>(lParam));
-        m_impl->viewportDirty = true;
         break;
 
     case WM_SETFOCUS:
@@ -568,6 +579,12 @@ int64_t Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam,
     case WM_KILLFOCUS:
         m_impl->isActive = false;
         break;
+    }
+
+    // Dispatch to registered event handlers
+    for (auto& handler : m_impl->eventHandlers)
+    {
+        if (handler)  handler(msg, wParam, lParam);
     }
 
     return DefWindowProc(m_impl->hwnd, msg, wParam, lParam);
@@ -582,7 +599,7 @@ int64_t Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam,
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (g_currentWindow)
+    if (g_currentWindow && g_currentWindow->GetNativeHandle())
         return g_currentWindow->HandleWindowMessage(msg, wParam, lParam);
     else
         return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -590,8 +607,9 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
 
 static bool CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTANCE hInst)
 {
-    HWND hwnd = CreateWindowExW(
-        0, k_WindowClassName, L"Dummy",
+
+    HWND hwnd = CreateWindow(
+        k_WindowClassName, L"Dummy",
         WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, hInst, nullptr
     );
     if (!hwnd) return false;

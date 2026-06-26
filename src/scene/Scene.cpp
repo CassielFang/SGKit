@@ -1,15 +1,34 @@
 #include <sgkit/scene/Scene.h>
 
-#include <glad/glad.h>
-
+#include <sgkit/core/DebugOut.h>
+#include <sgkit/core/Window.h>
+#include <sgkit/graphics/Renderer.h>
 #include <cstdio>
+
+sgkit::scene::Scene* g_Scene = nullptr;
 
 namespace sgkit {
 namespace scene {
 
-Scene::Scene() {}
+void Scene::Create()
+{
+    if (g_Scene) return;
+    g_Scene = new Scene;
+    core::DebugOut("[  SGKit Scene   ]: module created.");
+}
 
-Scene::~Scene() {}
+void Scene::Destroy()
+{
+    if (!g_Scene) return;
+    delete g_Scene;
+    g_Scene = nullptr;
+    core::DebugOut("[  SGKit Scene   ]: module destroyed.");
+}
+
+Scene& Scene::instance()
+{
+    return *g_Scene;
+}
 
 Entity Scene::CreateEntity()
 {
@@ -77,14 +96,14 @@ void Scene::RecomputeWorldTransforms()
     }
 }
 
-void Scene::OnRender(graphics::Renderer& renderer, Entity cameraEntity,
-                     int viewportWidth, int viewportHeight)
+void Scene::OnRender(Entity cameraEntity)
 {
     Camera* cam = m_cameras.Get(cameraEntity);
     Transform* camTransform = m_transforms.Get(cameraEntity);
     if (!cam) return;
 
-    float aspect = (viewportHeight > 0) ? static_cast<float>(viewportWidth) / static_cast<float>(viewportHeight) : 1.0f;
+    core::Window& window = core::Window::instance();
+    float aspect = static_cast<float>(window.GetWidth()) / static_cast<float>(window.GetHeight());
 
     math::Matrix4 viewMatrix = math::Matrix4::Identity();
     if (camTransform)
@@ -92,8 +111,7 @@ void Scene::OnRender(graphics::Renderer& renderer, Entity cameraEntity,
     math::Matrix4 projMatrix = cam->GetProjectionMatrix(aspect);
     math::Matrix4 ViewProjection = projMatrix * viewMatrix;
 
-    glViewport(0, 0, viewportWidth, viewportHeight);
-    renderer.Clear();
+    graphics::Renderer::instance().Clear();
 
     Light* light = nullptr;
     Transform* lightTransform = nullptr;

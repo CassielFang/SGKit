@@ -11,20 +11,12 @@ namespace core {
 class Input
 {
 public:
-    Input();
-    ~Input();
+    static bool Create(void*);
+    static void Destroy();
+    static Input& instance();
 
-    Input(const Input&) = delete;
-    Input& operator=(const Input&) = delete;
-
-    bool Initialize(void* nativeWindowHandle);
-    void Shutdown();
-
-    // Called by Window's event system
-    bool OnEvent(unsigned int msg, unsigned long long wParam, long long lParam);
-
-    // Must be called once per frame after all input processing
-    void EndFrame();
+    // Call once per frame at the start of the game loop
+    void Update();
 
     // -- Keyboard polling ----------------------------------------
     bool IsKeyDown(KeyCode key) const;
@@ -40,18 +32,23 @@ public:
     float GetMouseY() const;
     float GetMouseDeltaX() const;
     float GetMouseDeltaY() const;
-    float GetScrollDelta() const;
+    float GetScrollDelta() const; // positive when scrolling forward
 
 private:
-    bool RegisterRawInput(void* hwnd);
+    Input() = default;
+    ~Input() = default;
+
+    Input(const Input&) = delete;
+    Input& operator=(const Input&) = delete;
+    Input(const Input&&) = delete;
+    Input& operator=(const Input&&) = delete;
 
     static constexpr size_t k_KeyCount = static_cast<size_t>(KeyCode::k_Count);
     static constexpr size_t k_MouseButtonCount = 5;
 
-    std::array<uint8_t, k_KeyCount>      m_currentKeys{};
-    std::array<uint8_t, k_KeyCount>      m_previousKeys{};
-    std::array<uint8_t, k_MouseButtonCount> m_currentMouse{};
-    std::array<uint8_t, k_MouseButtonCount> m_previousMouse{};
+    int m_current = 0;
+    uint8_t m_Keys[2][k_KeyCount]{};
+    uint8_t m_Mouse[2][k_MouseButtonCount]{};
 
     float m_mouseX        = 0.0f;
     float m_mouseY        = 0.0f;
@@ -59,10 +56,7 @@ private:
     float m_mouseDeltaY   = 0.0f;
     float m_scrollDelta   = 0.0f;
 
-    bool  m_initialized   = false;
-
-    // Platform-specific helpers
-    KeyCode MapWin32Key(unsigned int vkCode) const;
+    void* m_hWindowHandle = nullptr;
 };
 
 } // namespace core

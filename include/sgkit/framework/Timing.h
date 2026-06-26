@@ -16,10 +16,22 @@ public:
     float  GetElapsedSeconds() const;
     double GetElapsedMilliseconds() const;
 
-    static TimePoint Now();
+    static float NowElapsedSeconds();
+    static double NowElapsedMilliseconds();
+    static float GetFrameDeltaSeconds();
+    static float GetFPS();
+    static void Update();
 
 private:
     TimePoint m_start;
+
+    static TimePoint g_startTime;
+    static TimePoint g_nowTime;
+    static TimePoint g_lastFrameTime;
+    static float     g_deltaTime;
+    static float     g_fpsTimer;
+    static int       g_frameCount;
+    static float     g_fps;
 };
 
 } // namespace framework

@@ -20,8 +20,8 @@ public:
     void Destroy();
     bool IsValid() const { return m_fbo != 0; }
 
-    void Bind();
-    void Unbind();
+    void Bind() const;
+    void Unbind() const;
 
     uint32_t GetDepthTexture() const { return m_depthTexture; }
     int GetWidth()  const { return m_width; }
