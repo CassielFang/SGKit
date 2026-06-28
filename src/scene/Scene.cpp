@@ -105,59 +105,42 @@ void Scene::OnRender(Entity cameraEntity)
     core::Window& window = core::Window::instance();
     float aspect = static_cast<float>(window.GetWidth()) / static_cast<float>(window.GetHeight());
 
+    // Build frame-level render context from camera.
+    graphics::RenderContext ctx;
     math::Matrix4 viewMatrix = math::Matrix4::Identity();
     if (camTransform)
+    {
         viewMatrix = cam->GetViewMatrix(GetWorldMatrix(cameraEntity));
+        ctx.cameraPos = camTransform->position;
+    }
     math::Matrix4 projMatrix = cam->GetProjectionMatrix(aspect);
-    math::Matrix4 ViewProjection = projMatrix * viewMatrix;
+    ctx.viewProjection = projMatrix * viewMatrix;
 
-    graphics::Renderer::instance().Clear();
-
-    Light* light = nullptr;
-    Transform* lightTransform = nullptr;
-
+    // Collect the first light into the context.
     for (Entity& e : m_aliveEntities)
     {
-        light = m_lights.Get(e);
+        Light* light = m_lights.Get(e);
         if (light)
         {
-            lightTransform = m_transforms.Get(e);
+            Transform* lt = m_transforms.Get(e);
+            ctx.light.position = lt ? lt->position : math::Vector3{};
+            ctx.light.ambient  = light->ambient;
+            ctx.light.diffuse  = light->diffuse;
+            ctx.light.specular = light->specular;
+            ctx.hasLight = true;
             break;
         }
     }
 
+    graphics::Renderer::instance().Clear();
+
+    // Draw every entity that has a MeshRenderer.
+    // Mesh::Render() handles all uniform setup and the GL draw call.
     for (Entity& e : m_aliveEntities)
     {
-        //MeshRenderer* mr = m_meshRenderers.Get(entity);
-        //if (!mr || !mr->enabled || !mr->mesh || !mr->mesh->material || !mr->mesh->material->shader)
-        //    continue;
-        //Transform* tf = m_transforms.Get(entity);
-        //if (!tf) continue;
-
-        //math::Matrix4 mvp = projMatrix * viewMatrix * GetWorldMatrix(entity);
-
-        //auto& shader = mr->mesh->material->shader;
-        //shader->Bind();
-        //shader->SetMatrix4("u_ModelViewProjection", mvp);
-
-        //mr->mesh->Render();
         MeshRenderer* mr = m_meshRenderers.Get(e);
-        if (mr && mr->enabled && mr->mesh && mr->mesh->material && mr->mesh->material->shader) {
-            auto& shader = mr->mesh->material->shader;
-            shader->Bind();
-            shader->SetMatrix4("u_Model", GetWorldMatrix(e));
-            shader->SetMatrix4("u_ViewProjection", ViewProjection);
-            if (light && lightTransform && camTransform)
-            {
-                shader->SetVector3("u_cameraPos", camTransform->position);
-                shader->SetVector3("u_Light.position", lightTransform->position);
-                shader->SetVector3("u_Light.ambient", light->ambient);
-                shader->SetVector3("u_Light.diffuse", light->diffuse);
-                shader->SetVector3("u_Light.specular", light->specular);
-            }
-
-            mr->mesh->Render();
-        }
+        if (mr && mr->enabled && mr->mesh)
+            mr->mesh->Render(GetWorldMatrix(e), ctx);
     }
 }
 

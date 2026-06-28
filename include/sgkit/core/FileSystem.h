@@ -12,7 +12,7 @@ class FileSystem
 {
 public:
     // -- Read -----------------------------------------------------
-    static std::optional<std::string>       ReadText(const std::string& path);
+    static std::optional<std::string>          ReadText(const std::string& path);
     static std::optional<std::vector<uint8_t>> ReadBinary(const std::string& path);
 
     // -- Write ----------------------------------------------------

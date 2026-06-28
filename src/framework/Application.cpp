@@ -9,8 +9,8 @@
 #include <sgkit/framework/Timing.h>
 
 #include <sgkit/core/Window.h>
+#include <sgkit/core/ThreadPool.h>
 #include <sgkit/core/Input.h>
-#include <sgkit/core/KeyCodes.h>
 #include <sgkit/graphics/Renderer.h>
 #include <sgkit/scene/Scene.h>
 
@@ -62,8 +62,9 @@ static void Fatal(const char* msg)
 
 static int Run(HINSTANCE hInst, const ApplicationConfig& config)
 {
+#ifdef _DEBUG
     AttachConsole();
-
+#endif
     // -- Init modules in dependency order ---------------------------------
 
     core::WindowDesc wd;
@@ -82,17 +83,24 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     {
         Fatal("Failed to create window. Please check you device.");
         core::Window::Destroy();
+#ifdef _DEBUG
         DetachConsole();
+#endif
         return 1;
     }
     core::Window& window = core::Window::instance();
+
+    core::ThreadPool::Create(config.numThreads);
 
     if (!core::Input::Create(window.GetNativeHandle()))
     {
         Fatal("Failed to initialize input device.");
         core::Input::Destroy();
+        core::ThreadPool::Destroy();
         core::Window::Destroy();
+#ifdef _DEBUG
         DetachConsole();
+#endif
         return 1;
     }
     core::Input& input = core::Input::instance();
@@ -122,8 +130,11 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
             scene::Scene::Destroy();
             graphics::Renderer::Destroy();
             core::Input::Destroy();
+            core::ThreadPool::Destroy();
             core::Window::Destroy();
+#ifdef _DEBUG
             DetachConsole();
+#endif
             return 1;
         }
     }
@@ -163,9 +174,12 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     scene::Scene::Destroy();
     graphics::Renderer::Destroy();
     core::Input::Destroy();
+    core::ThreadPool::Destroy();
     core::Window::Destroy();
 
+#ifdef _DEBUG
     DetachConsole();
+#endif
     return 0;
 }
 

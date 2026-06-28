@@ -11,12 +11,9 @@ class Material
 {
 public:
     std::shared_ptr<Shader>  shader;
-
     std::shared_ptr<Texture> diffuse;
     math::Vector3 specular{ 0.5f, 0.5f, 0.5f };
     float shininess = 32.0f;
-    
-    void Apply() const;
 };
 
 } // namespace graphics

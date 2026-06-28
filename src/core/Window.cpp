@@ -9,6 +9,7 @@
 #include <resource.h>
 #include <imm.h>
 #include <glad/glad.h>
+#include <glad/glad_wgl.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -55,6 +56,7 @@ public:
     // Pre-fullscreen state (for restore)
     LONG_PTR prevStyle    = 0;
     RECT     prevRect     = {};
+    RECT     currRect     = {};
 
     // Callbacks for Input module
     std::vector<EventHandler> eventHandlers;
@@ -68,9 +70,12 @@ static void    DestroyDummyGLWindow(HWND hwnd, HDC dc, HGLRC rc);
 #ifdef _DEBUG
 static void WinLog(const char* msg, bool error = false)
 {
+    char buff[512]{};
     if (error)
-        std::fprintf(stderr, "[  SGKit Window  ]: %s. (error code: %d)\n", msg, static_cast<int>(GetLastError()));
-    else std::fprintf(stderr, "[  SGKit Window  ]: %s.\n", msg);
+        sprintf_s(buff, 512, "[  SGKit Window  ]: %s. (error code: %d)\n", msg, static_cast<int>(GetLastError()));
+    else sprintf_s(buff, 512, "[  SGKit Window  ]: %s.\n", msg);
+    std::fprintf(stderr, buff);
+    OutputDebugStringA(buff);
 }
 #else
 #define WinLog(...) ((void)0)
@@ -78,8 +83,8 @@ static void WinLog(const char* msg, bool error = false)
 
 // WGL extension function types
 typedef HGLRC (WINAPI *PFN_wglCreateContextAttribsARB)(HDC, HGLRC, const int*);
-typedef BOOL (WINAPI *PFN_wglChoosePixelFormatARB)(HDC, const int*, const float*, UINT, int*, UINT*);
-typedef BOOL (WINAPI *PFN_wglSwapIntervalEXT)(int);
+typedef BOOL  (WINAPI *PFN_wglChoosePixelFormatARB)(HDC, const int*, const float*, UINT, int*, UINT*);
+typedef BOOL  (WINAPI *PFN_wglSwapIntervalEXT)(int);
 
 // -- External pointer to Window instance
 
@@ -173,19 +178,22 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
         DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
         return false;
     }
-
+    WinLog("dummy window created");
+    
     // Get WGL extension functions
-    auto wglChoosePixelFormatARB = (PFN_wglChoosePixelFormatARB)
-        wglGetProcAddress("wglChoosePixelFormatARB");
-    auto wglCreateContextAttribsARB = (PFN_wglCreateContextAttribsARB)
-        wglGetProcAddress("wglCreateContextAttribsARB");
-
-    WinLog("dummy window created, WGL extensions loaded");
+    if (!gladLoadWGL(dummyDc))
+    {
+        WinLog("failed to load WGL functions", true);
+        DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
+        return false;
+    }
+    // Destroy dummy window — WGL extensions no longer needed
+    DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
 
     // -- 4. Create the real window -------------------------------
     std::wstring wideTitle = ToWideString(desc.title);
 
-    m_impl->hwnd = CreateWindowExW(
+    m_impl->hwnd = CreateWindowEx(
         0, k_WindowClassName,
         wideTitle.c_str(),
         dwStyle,
@@ -196,7 +204,6 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     if (!m_impl->hwnd)
     {
         WinLog("failed to create main window", true);
-        DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
         return false;
     }
 
@@ -217,59 +224,56 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     // -- 5. Set pixel format --------------------------------------
     bool pixelFormatOk = false;
 
-    if (wglChoosePixelFormatARB)
+    // Try with MSAA first
+    const int pixelAttribs[] = {
+        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,       // WGL_DRAW_TO_WINDOW_ARB
+        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,       // WGL_SUPPORT_OPENGL_ARB
+        WGL_DOUBLE_BUFFER_ARB, GL_TRUE,        // WGL_DOUBLE_BUFFER_ARB
+        WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB, // WGL_PIXEL_TYPE_ARB -> WGL_TYPE_RGBA_ARB
+        WGL_COLOR_BITS_ARB,   24,              // WGL_COLOR_BITS_ARB
+        WGL_DEPTH_BITS_ARB,   24,              // WGL_DEPTH_BITS_ARB
+        WGL_STENCIL_BITS_ARB, 8,               // WGL_STENCIL_BITS_ARB
+        WGL_SAMPLES_ARB,      4,               // WGL_SAMPLES_ARB (4x MSAA)
+        0
+    };
+
+    int pixelFormat[32];
+    UINT numFormats;
+    BOOL ok = wglChoosePixelFormatARB(m_impl->dc, pixelAttribs, nullptr, 32,
+                                        pixelFormat, &numFormats);
+    if (ok && numFormats > 0)
     {
-        // Try with MSAA first
-        const int pixelAttribs[] = {
-            0x2001, GL_TRUE,        // WGL_DRAW_TO_WINDOW_ARB
-            0x2002, GL_TRUE,        // WGL_SUPPORT_OPENGL_ARB
-            0x2011, GL_TRUE,        // WGL_DOUBLE_BUFFER_ARB
-            0x2013, 0x202B,         // WGL_PIXEL_TYPE_ARB -> WGL_TYPE_RGBA_ARB
-            0x2014, 24,             // WGL_COLOR_BITS_ARB
-            0x2022, 24,             // WGL_DEPTH_BITS_ARB
-            0x2016, 8,              // WGL_STENCIL_BITS_ARB
-            0x2010, 4,              // WGL_SAMPLES_ARB (4x MSAA)
+        PIXELFORMATDESCRIPTOR pfd;
+        DescribePixelFormat(m_impl->dc, pixelFormat[0], sizeof(PIXELFORMATDESCRIPTOR), &pfd);
+        if (SetPixelFormat(m_impl->dc, pixelFormat[0], &pfd))
+        {
+            pixelFormatOk = true;
+            WinLog("pixel format set (with MSAA)");
+        }
+    }
+    else
+    {
+        // Retry without MSAA
+        const int noMsaAAttribs[] = {
+            WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,       // WGL_DRAW_TO_WINDOW_ARB
+            WGL_SUPPORT_OPENGL_ARB, GL_TRUE,       // WGL_SUPPORT_OPENGL_ARB
+            WGL_DOUBLE_BUFFER_ARB, GL_TRUE,        // WGL_DOUBLE_BUFFER_ARB
+            WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB, // WGL_PIXEL_TYPE_ARB -> WGL_TYPE_RGBA_ARB
+            WGL_COLOR_BITS_ARB,   24,              // WGL_COLOR_BITS_ARB
+            WGL_DEPTH_BITS_ARB,   24,              // WGL_DEPTH_BITS_ARB
+            WGL_STENCIL_BITS_ARB, 8,               // WGL_STENCIL_BITS_ARB
             0
         };
-
-        int pixelFormat;
-        UINT numFormats;
-        BOOL ok = wglChoosePixelFormatARB(m_impl->dc, pixelAttribs, nullptr, 1,
-                                          &pixelFormat, &numFormats);
+        ok = wglChoosePixelFormatARB(m_impl->dc, noMsaAAttribs, nullptr, 32,
+                                        pixelFormat, &numFormats);
         if (ok && numFormats > 0)
         {
-            PIXELFORMATDESCRIPTOR pfd = {};
-            DescribePixelFormat(m_impl->dc, pixelFormat, sizeof(pfd), &pfd);
-            if (SetPixelFormat(m_impl->dc, pixelFormat, &pfd))
+            PIXELFORMATDESCRIPTOR pfd;
+            DescribePixelFormat(m_impl->dc, pixelFormat[0], sizeof(PIXELFORMATDESCRIPTOR), &pfd);
+            if (SetPixelFormat(m_impl->dc, pixelFormat[0], &pfd))
             {
                 pixelFormatOk = true;
-                WinLog("pixel format set (with MSAA)");
-            }
-        }
-        else
-        {
-            // Retry without MSAA
-            const int noMsaAAttribs[] = {
-                0x2001, GL_TRUE,
-                0x2002, GL_TRUE,
-                0x2011, GL_TRUE,
-                0x2013, 0x202B,
-                0x2014, 24,
-                0x2022, 24,
-                0x2016, 8,
-                0
-            };
-            ok = wglChoosePixelFormatARB(m_impl->dc, noMsaAAttribs, nullptr, 1,
-                                         &pixelFormat, &numFormats);
-            if (ok && numFormats > 0)
-            {
-                PIXELFORMATDESCRIPTOR pfd = {};
-                DescribePixelFormat(m_impl->dc, pixelFormat, sizeof(pfd), &pfd);
-                if (SetPixelFormat(m_impl->dc, pixelFormat, &pfd))
-                {
-                    pixelFormatOk = true;
-                    WinLog("pixel format set (no MSAA)");
-                }
+                WinLog("pixel format set (no MSAA)");
             }
         }
     }
@@ -302,31 +306,30 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     }
 
     // -- 6. Create OpenGL context ---------------------------------
-    if (wglCreateContextAttribsARB)
-    {
-        const int contextAttribs[] = {
-            0x2091, desc.glMajorVersion,
-            0x2092, desc.glMinorVersion,
-            0x9126, 0x0001,         // WGL_CONTEXT_PROFILE_MASK -> CORE
+    const int contextAttribs[] = {
+        WGL_CONTEXT_MAJOR_VERSION_ARB, desc.glMajorVersion,
+        WGL_CONTEXT_MINOR_VERSION_ARB, desc.glMinorVersion,
+        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB, // WGL_CONTEXT_PROFILE_MASK -> CORE
 #ifdef _DEBUG
-            0x2094, 0x0001,         // WGL_CONTEXT_FLAGS -> DEBUG
+        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB | WGL_CONTEXT_DEBUG_BIT_ARB,
+#else
+        WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
 #endif
+        0
+    };
+
+    m_impl->glContext = wglCreateContextAttribsARB(m_impl->dc, 0, contextAttribs);
+    if (!m_impl->glContext)
+    {
+        WinLog("4.x core context failed, trying 3.3", true);
+        // Fall back to 3.3 core
+        const int fallbackAttribs[] = {
+            WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+            WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+            WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
             0
         };
-
-        m_impl->glContext = wglCreateContextAttribsARB(m_impl->dc, 0, contextAttribs);
-        if (!m_impl->glContext)
-        {
-            WinLog("4.x core context failed, trying 3.3", true);
-            // Fall back to 3.3 core
-            const int fallbackAttribs[] = {
-                0x2091, 3,
-                0x2092, 3,
-                0x9126, 0x0001,
-                0
-            };
-            m_impl->glContext = wglCreateContextAttribsARB(m_impl->dc, 0, fallbackAttribs);
-        }
+        m_impl->glContext = wglCreateContextAttribsARB(m_impl->dc, 0, fallbackAttribs);
     }
 
     if (!m_impl->glContext)
@@ -343,27 +346,17 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
         return false;
     }
 
-    // Destroy dummy window — WGL extensions no longer needed
-    DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
-
     // Make our context current
     wglMakeCurrent(m_impl->dc, m_impl->glContext);
-
     WinLog("GL context created and made current");
 
     // -- 7. VSync -------------------------------------------------
-    if (desc.vsync)
-    {
-        auto wglSwapIntervalEXT = (PFN_wglSwapIntervalEXT)
-            wglGetProcAddress("wglSwapIntervalEXT");
-        if (wglSwapIntervalEXT)
-            wglSwapIntervalEXT(1);
-    }
+    if (desc.vsync) wglSwapIntervalEXT(1);
 
     // -- 8. GL ----------------------------------------------------
     if (!gladLoadGL())
     {
-        WinLog("failed to load OpenGL functions",true);
+        WinLog("failed to load OpenGL functions", true);
         return false;
     }
 
@@ -376,14 +369,19 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
             [](GLenum, GLenum type, GLuint, GLenum severity, GLsizei, const GLchar* msg, const void*)
             {
                 if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
-                    std::fprintf(stderr, "[GL]              : (%u) %s\n", type, msg);
+                {
+                    char buff[512]{};
+                    sprintf_s(buff, 512, "[       GL       ]: (%u) %s\n", type, msg);
+                    std::fprintf(stderr, buff);
+                    OutputDebugStringA(buff);
+                }
             }, nullptr);
     }
 #endif
 
     std::fprintf(stderr, "[  SGKit Window  ]: OpenGL version %s, GLSL version %s\n",
         glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
-    WinLog("module created");
+    ("module created");
     return true;
 }
 
@@ -513,7 +511,17 @@ void Window::SetCursorVisible(bool enabled)
 {
     if (!m_impl->hwnd || m_impl->cursorVisible == enabled) return;
     m_impl->cursorVisible = enabled;
-    ShowCursor(enabled ? TRUE : FALSE);
+    if (enabled)
+    {
+        ShowCursor(TRUE);
+        ClipCursor(nullptr);
+    }
+    else
+    {
+        ShowCursor(FALSE);
+        GetWindowRect(m_impl->hwnd, &m_impl->currRect);
+        ClipCursor(&m_impl->currRect);
+    }
 }
 
 bool Window::isCursorVisible() const
@@ -615,12 +623,14 @@ static bool CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTAN
     if (!hwnd) return false;
 
     HDC dc = GetDC(hwnd);
-    PIXELFORMATDESCRIPTOR pfd = {};
+    PIXELFORMATDESCRIPTOR pfd{};
     pfd.nSize        = sizeof(PIXELFORMATDESCRIPTOR);
     pfd.nVersion     = 1;
     pfd.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL;
     pfd.iPixelType   = PFD_TYPE_RGBA;
     pfd.cColorBits   = 24;
+    pfd.cAlphaBits   = 8;
+    pfd.cDepthBits   = 24;
 
     int pf = ChoosePixelFormat(dc, &pfd);
     SetPixelFormat(dc, pf, &pfd);

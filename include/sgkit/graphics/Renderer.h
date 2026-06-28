@@ -18,6 +18,7 @@ public:
     void Clear();
 
     void Draw(const Mesh& mesh);
+    void Draw(const Mesh& mesh, const math::Matrix4& model, const RenderContext& ctx);
     void Draw(const VertexArray& va);
 
     void SetViewport(int x, int y, int width, int height);

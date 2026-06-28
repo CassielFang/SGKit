@@ -44,6 +44,11 @@ void Renderer::Draw(const Mesh& mesh)
     mesh.Render();
 }
 
+void Renderer::Draw(const Mesh& mesh, const math::Matrix4& model, const RenderContext& ctx)
+{
+    mesh.Render(model, ctx);
+}
+
 void Renderer::Draw(const VertexArray& va)
 {
     va.Draw();

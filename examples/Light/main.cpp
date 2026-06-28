@@ -4,7 +4,6 @@ using namespace sgkit;
 
 auto shader = std::make_shared<graphics::Shader>();
 auto lightShader = std::make_shared<graphics::Shader>();
-//auto flagMesh = std::make_shared<graphics::Mesh>();
 auto cubeMesh = std::make_shared<graphics::Mesh>();
 auto lightMesh = std::make_shared<graphics::Mesh>();
 

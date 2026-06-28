@@ -1,6 +1,7 @@
 #include <sgkit/graphics/Shader.h>
 #include <sgkit/core/FileSystem.h>
 
+#include <sgkit/core/DebugOut.h>
 #include <glad/glad.h>
 
 #include <cstdio>
@@ -60,8 +61,11 @@ uint32_t Shader::CompileShader(uint32_t type, const std::string& source)
     {
         char infoLog[512];
         glGetShaderInfoLog(id, 512, nullptr, infoLog);
-        std::fprintf(stderr, "SGKit: Shader compilation failed (%s):\n%s\n",
-                     (type == GL_VERTEX_SHADER) ? "vertex" : "fragment", infoLog);
+        if (type == GL_VERTEX_SHADER)
+            core::DebugOut("[ GLSL compiler  ]: shader compilation failed (vertex): ", '\0');
+        else
+            core::DebugOut("[ GLSL compiler  ]: shader compilation failed (fragment): ", '\0');
+        core::DebugOut(infoLog);
         glDeleteShader(id);
         return 0;
     }
@@ -75,7 +79,7 @@ bool Shader::LoadFromFile(const std::string& vertexPath, const std::string& frag
 
     if (!vertSrc || !fragSrc)
     {
-        std::fprintf(stderr, "SGKit: Failed to load shader files\n");
+        core::DebugOut("[  SGKit Shader  ]: failed to load shader files");
         return false;
     }
     return LoadFromSource(*vertSrc, *fragSrc);
@@ -106,7 +110,8 @@ bool Shader::LoadFromSource(const std::string& vertexSource, const std::string& 
     {
         char infoLog[512];
         glGetProgramInfoLog(m_programID, 512, nullptr, infoLog);
-        std::fprintf(stderr, "SGKit: Shader linking failed:\n%s\n", infoLog);
+        core::DebugOut("[ GLSL compiler  ]: shader linking failed: ", '\0');
+        core::DebugOut(infoLog);
         glDeleteProgram(m_programID);
         m_programID = 0;
     }
