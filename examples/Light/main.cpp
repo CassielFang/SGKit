@@ -136,6 +136,16 @@ ApplicationConfig sgkit::CreateApplication()
 			if (in.IsKeyPressed(core::KeyCode::Q)) window.RequestClose();
 			if (in.IsKeyDown(core::KeyCode::V)) window.SetCursorVisible(false);
 			if (in.IsKeyReleased(core::KeyCode::V)) window.SetCursorVisible(true);
+
+			if (!window.isActive())
+			{
+				core::DebugOut("inActive!");
+				if (window.IsCloseRequest())
+				{
+					window.RequestClose(false);
+					core::DebugOut("Denied close.");
+				}
+			}
 		};
 	cfg.onRender = []()
 		{

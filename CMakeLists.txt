@@ -1,25 +1,36 @@
 cmake_minimum_required(VERSION 3.20)
 project(SGKit VERSION 0.1.0 LANGUAGES CXX C)
 
-include(cmake/Platform.cmake)
-include(cmake/CompilerSettings.cmake)
+# -- C++ standard
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# -- glad: OpenGL loader (OBJECT library, linked into sgkit.lib) ----
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/external/glad/src/glad.c")
-    message(FATAL_ERROR "glad not found. Generate: python -m glad --api gl=4.6 --profile core --generator c --out-path external/glad/tmp")
-endif()
-add_subdirectory(external/glad)
+# -- Global definitions
+add_compile_definitions(
+    UNICODE              # Windows API wide-character
+    _UNICODE             # CRT wide-character
+    NOMINMAX             # prevent windows.h min/max macros
+    WINVER=0x0A00        # target Windows 10+
+    _WIN32_WINNT=0x0A00
+)
 
-# -- Engine core ----------------------------------------------------
+# -- Windows system libraries
+set(SGK_PLATFORM_LIBS  kernel32 user32 gdi32 opengl32 imm32)
+
+# -- externals
+add_subdirectory(external)
+
+# -- Engine core
 add_subdirectory(src)
 
-# -- Example projects -----------------------------------------------
+# -- Example projects
 option(SGK_BUILD_EXAMPLES "Build example projects" ON)
 if(SGK_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
-# -- Unit tests -----------------------------------------------------
+# -- Unit tests
 option(SGK_BUILD_TESTS "Build unit tests" ON)
 if(SGK_BUILD_TESTS)
     enable_testing()

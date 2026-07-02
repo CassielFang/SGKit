@@ -31,7 +31,7 @@ int main()
     }
 
     // ---------------------------------------------------------------
-    // 2. TaskHandle<void> — fire-and-forget
+    // 2. TaskHandle<void> - fire-and-forget
     // ---------------------------------------------------------------
     {
         std::atomic<int> val{0};
@@ -82,7 +82,7 @@ int main()
     }
 
     // ---------------------------------------------------------------
-    // 5. Multiple parallel tasks — correct results
+    // 5. Multiple parallel tasks - correct results
     // ---------------------------------------------------------------
     {
         ThreadPool::Create(8);
@@ -117,9 +117,9 @@ int main()
     // ---------------------------------------------------------------
     {
         ThreadPool::Create(4);
-        ThreadPool::Create(8);  // no-op — already created
+        ThreadPool::Create(8);  // no-op - already created
         ThreadPool::Destroy();
-        ThreadPool::Destroy();  // no-op — already destroyed
+        ThreadPool::Destroy();  // no-op - already destroyed
         SGK_CHECK(true, "7. double Create/Destroy is safe");
     }
 
@@ -264,7 +264,7 @@ int main()
     }
 
     // ---------------------------------------------------------------
-    // 14. Zero-thread → auto-detect
+    // 14. Zero-thread -> auto-detect
     // ---------------------------------------------------------------
     {
         ThreadPool::Create(0);

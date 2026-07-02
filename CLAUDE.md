@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SGKit (Straightforward Graphics Kit) — lightweight C++17 3D engine, OpenGL 4.6 Core, only third-party dependency is glad. Target Windows 10+, architecture allows Linux/macOS.
+SGKit (Straightforward Graphics Kit) - lightweight C++17 3D engine, OpenGL 4.6 Core, only third-party dependency is glad. Target Windows 10+, architecture allows Linux/macOS.
 
 ## Build
 
 ```bash
-# VS 2022 or 2026 "Open Folder" — select x64-Debug / x64-Release and Build
+# VS 2022 or 2026 "Open Folder" - select x64-Debug / x64-Release and Build
 
 # Run sandbox (Debug)
 out/build/x64-Debug/examples/sandbox/Debug/sandbox.exe
@@ -48,4 +48,4 @@ Threading (fixed-size thread pool, std::thread)
 - RAII for GL objects, move-only, `std::optional` for failable, `SGK_ASSERT` for programmer errors
 - Column-major Matrix4, `Data()` passes directly to `glUniformMatrix4fv`
 - Platform code: PIMPL in headers, `#ifdef SGK_PLATFORM_WINDOWS` in `.cpp`
-- No `OutputDebugStringA` — use `std::printf`/`fprintf`, console attached via `AllocConsole()` at startup
+- No `OutputDebugStringA` - use `std::printf`/`fprintf`, console attached via `AllocConsole()` at startup

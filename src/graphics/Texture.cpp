@@ -149,7 +149,7 @@ void Texture::SetWrapRepeat(bool repeat)
 }
 
 // ===================================================================
-//  BMP Loader — minimal, uncompressed 24/32-bit BMP only
+//  BMP Loader - minimal, uncompressed 24/32-bit BMP only
 // ===================================================================
 
 #pragma pack(push, 1)

@@ -1,8 +1,13 @@
-# -- Collect sources by module -------------------------------------------
-file(GLOB_RECURSE SGK_SRC
-    math/*.cpp core/*.cpp graphics/*.cpp scene/*.cpp framework/*.cpp)
+# -- Collect sources by module
+file(GLOB_RECURSE SGK_SRC 
+    "math/*.cpp"
+    "core/*.cpp"
+    "graphics/*.cpp"
+    "scene/*.cpp"
+    "framework/*.cpp"
+)
 
-# -- Engine static library ------------------------------------------------
+# -- Engine static library
 add_library(sgkit STATIC ${SGK_SRC})
 
 target_include_directories(sgkit PUBLIC
@@ -10,16 +15,22 @@ target_include_directories(sgkit PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 # glad header and resource visible only inside sgkit, not to consumers
-target_include_directories(sgkit PRIVATE
-    ${PROJECT_SOURCE_DIR}/external/glad/include
-    ${PROJECT_SOURCE_DIR}/icon
-)
+target_include_directories(sgkit PRIVATE ${PROJECT_SOURCE_DIR}/icon)
 
-# -- Internal platform macro (sgkit PRIVATE only) -------------------------
-target_compile_definitions(sgkit PRIVATE SGK_PLATFORM_WINDOWS _WINDOWS)
+# -- Compiler-specific options
+if(MSVC)
+    target_compile_options(sgkit PRIVATE /utf-8 /W4)
 
-# -- Link dependencies ----------------------------------------------------
-# glad is OBJECT -- its .obj objects are linked into this static library
+    target_compile_options(sgkit PRIVATE
+        $<$<CONFIG:Debug>:/Od>
+        $<$<CONFIG:Release>:/O2>
+    )
+endif()
+
+# -- Internal platform macro (sgkit PRIVATE only)
+target_compile_definitions(sgkit PRIVATE _WINDOWS)
+
+# -- Link dependencies
 target_link_libraries(sgkit PUBLIC glad ${SGK_PLATFORM_LIBS})
 
 # -- Output filename: Debug -> sgkit_d.lib, Release -> sgkit.lib ----------

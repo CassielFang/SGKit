@@ -1,4 +1,4 @@
-# -- Unit tests: each .cpp -> standalone CONSOLE executable ----------
+# -- Unit tests: each .cpp -> standalone CONSOLE executable
 file(GLOB TEST_SOURCES *.cpp)
 
 if(TEST_SOURCES)

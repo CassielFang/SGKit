@@ -12,7 +12,7 @@ ThreadPool::ThreadPool(size_t numThreads)
     if (numThreads == 0)
         numThreads = std::thread::hardware_concurrency();
     if (numThreads == 0)
-        numThreads = 4;  // fallback — hardware_concurrency can return 0 per spec
+        numThreads = 4;  // fallback - hardware_concurrency can return 0 per spec
 
     m_workers.reserve(numThreads);
     for (size_t i = 0; i < numThreads; ++i)
@@ -71,6 +71,11 @@ ThreadPool& ThreadPool::instance()
     return *g_ThreadPool;
 }
 
+size_t ThreadPool::PendingTasks() const
+{
+    return m_activeTasks.load();
+}
+
 void ThreadPool::WorkerLoop()
 {
     while (true)
@@ -100,11 +105,6 @@ void ThreadPool::WorkerLoop()
             m_finished.notify_one();
         }
     }
-}
-
-size_t ThreadPool::PendingTasks() const
-{
-    return m_activeTasks.load();
 }
 
 } // namespace core

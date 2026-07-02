@@ -13,7 +13,7 @@
 namespace sgkit {
 namespace core {
 
-/// TaskHandle<T> — async task handle returned by ThreadPool::Enqueue().
+/// TaskHandle<T> - async task handle returned by ThreadPool::Enqueue().
 ///
 /// IsReady() polls, Wait() blocks, Get() blocks + returns the result.
 /// Move-only. Thread-safe for IsReady / Wait; Get() single-use.
@@ -49,7 +49,7 @@ public:
     }
 
     /// Non-blocking poll. Returns false after Get() (future consumed).
-    /// Thread-safe — may be called from any number of threads.
+    /// Thread-safe - may be called from any number of threads.
     bool IsReady() const
     {
         std::lock_guard<std::mutex> lock(m_mutex);
@@ -68,8 +68,8 @@ public:
         return m_future.get();
     }
 
-    /// Block until done. Does not consume — IsReady() still true after.
-    /// Thread-safe — may be called from any number of threads.
+    /// Block until done. Does not consume - IsReady() still true after.
+    /// Thread-safe - may be called from any number of threads.
     void Wait()
     {
         {
@@ -86,7 +86,7 @@ private:
     bool m_consumed = false;
 };
 
-// TaskHandle<void> — same API, Get() returns nothing.
+// TaskHandle<void> - same API, Get() returns nothing.
 template<>
 class TaskHandle<void>
 {
@@ -148,7 +148,7 @@ private:
     bool m_consumed = false;
 };
 
-// ThreadPool — fixed-size thread pool (singleton).
+// ThreadPool - fixed-size thread pool (singleton).
 class ThreadPool
 {
 public:
@@ -184,7 +184,7 @@ private:
     std::atomic<size_t> m_activeTasks{0};
 };
 
-// -- Template implementation ----------------------------------------
+// -- Template implementation
 
 template<typename F, typename... Args>
 auto ThreadPool::Enqueue(F&& f, Args&&... args) -> TaskHandle<decltype(f(args...))>
@@ -210,5 +210,5 @@ auto ThreadPool::Enqueue(F&& f, Args&&... args) -> TaskHandle<decltype(f(args...
     return TaskHandle<ReturnType>(std::move(result));
 }
 
-} // namespace core
-} // namespace sgkit
+}
+}

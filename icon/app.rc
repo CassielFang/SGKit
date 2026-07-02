@@ -1,7 +1,7 @@
 #include <windows.h>
 #include "resource.h"
 
-// Application icon — place app.ico in this directory
+// Application icon - place app.ico in this directory
 IDI_MAIN_ICON ICON "app.ico"
 
 // Optional: version info

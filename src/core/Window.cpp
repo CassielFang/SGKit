@@ -1,6 +1,6 @@
 #include <sgkit/core/Window.h>
 
-#ifdef SGK_PLATFORM_WINDOWS
+#ifdef _WINDOWS
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -81,11 +81,6 @@ static void WinLog(const char* msg, bool error = false)
 #define WinLog(...) ((void)0)
 #endif
 
-// WGL extension function types
-typedef HGLRC (WINAPI *PFN_wglCreateContextAttribsARB)(HDC, HGLRC, const int*);
-typedef BOOL  (WINAPI *PFN_wglChoosePixelFormatARB)(HDC, const int*, const float*, UINT, int*, UINT*);
-typedef BOOL  (WINAPI *PFN_wglSwapIntervalEXT)(int);
-
 // -- External pointer to Window instance
 
 static sgkit::core::Window* g_currentWindow = nullptr;
@@ -146,7 +141,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
 
     // Load application icon from executable resources.
     // If the user placed app.ico in icon/ and linked app.rc, this picks it up.
-    // On failure the window gets the default icon — no harm.
+    // On failure the window gets the default icon - no harm.
     HICON hIcon = LoadIconW(m_impl->hInstance, MAKEINTRESOURCEW(IDI_MAIN_ICON));
     wc.hIcon   = hIcon;
     wc.hIconSm = hIcon;
@@ -187,7 +182,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
         DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
         return false;
     }
-    // Destroy dummy window — WGL extensions no longer needed
+    // Destroy dummy window - WGL extensions no longer needed
     DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
 
     // -- 4. Create the real window -------------------------------
@@ -652,4 +647,4 @@ static void DestroyDummyGLWindow(HWND hwnd, HDC dc, HGLRC rc)
     if (hwnd) DestroyWindow(hwnd);
 }
 
-#endif // SGK_PLATFORM_WINDOWS
+#endif

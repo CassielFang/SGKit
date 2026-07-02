@@ -2,7 +2,7 @@
 
 #include <sgkit/core/DebugOut.h>
 
-#ifdef SGK_PLATFORM_WINDOWS
+#ifdef _WINDOWS
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -18,7 +18,7 @@ namespace sgkit {
 namespace core {
 
 // ===================================================================
-//  VK lookup table  —  KeyCode index → Win32 virtual-key code
+//  VK lookup table  -  KeyCode index → Win32 virtual-key code
 // ===================================================================
 
 static constexpr unsigned int k_KeyCodeToVK[] = {
@@ -98,7 +98,7 @@ bool Input::Create(void* hWindowHandle)
     HWND hwnd = reinterpret_cast<HWND>(hWindowHandle);
     g_Input->m_hWindowHandle = hWindowHandle;
 
-    // Register mouse Raw Input device — needed for scroll polling via GetRawInputBuffer
+    // Register mouse Raw Input device - needed for scroll polling via GetRawInputBuffer
     RAWINPUTDEVICE rid = {};
     rid.usUsagePage = 0x01;  // HID_USAGE_PAGE_GENERIC
     rid.usUsage = 0x02;       // HID_USAGE_GENERIC_MOUSE
@@ -131,7 +131,7 @@ Input& Input::instance()
 }
 
 // ===================================================================
-//  PollScroll — drain buffered Raw Input for wheel data
+//  PollScroll - drain buffered Raw Input for wheel data
 // ===================================================================
 
 static void PollScroll(float& scrollDelta)
@@ -168,7 +168,7 @@ static void PollScroll(float& scrollDelta)
 }
 
 // ===================================================================
-//  Update — called once per frame at the start of the game loop
+//  Update - called once per frame at the start of the game loop
 // ===================================================================
 
 void Input::Update()
@@ -269,4 +269,4 @@ float Input::GetScrollDelta() const  { return m_scrollDelta; }
 } // namespace core
 } // namespace sgkit
 
-#endif // SGK_PLATFORM_WINDOWS
+#endif

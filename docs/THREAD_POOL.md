@@ -29,7 +29,7 @@ Returned by `ThreadPool::Enqueue()`. Holds the eventual result of a single task.
 |---|---|---|---|
 | `IsReady()` | No | `bool` | Any number of times, any thread |
 | `Wait()` | Yes | `void` | Any number of times, any thread |
-| `Get()` | Yes | `T` (or `void`) | **Once only** — consumes the result |
+| `Get()` | Yes | `T` (or `void`) | **Once only** - consumes the result |
 
 ### `bool IsReady() const`
 
@@ -52,7 +52,7 @@ Result r = handle.Get();
 
 Blocks until the task completes, then returns the result (or rethrows if the
 task threw). May only be called once. Calling from multiple threads
-simultaneously on the same handle is not permitted — this matches
+simultaneously on the same handle is not permitted - this matches
 `std::future::get()`'s contract.
 
 ```cpp
@@ -62,7 +62,7 @@ int result = h.Get();       // blocks, returns 1764
 
 ### `void Wait()`
 
-Blocks until the task completes. Does **not** consume the future — `IsReady()`
+Blocks until the task completes. Does **not** consume the future - `IsReady()`
 will still return `true` afterward. May be called multiple times from any
 thread.
 
@@ -85,7 +85,7 @@ h.Wait();
 
 ### Thread-safety
 
-- `IsReady()` and `Wait()` are internally synchronised — safe to call from
+- `IsReady()` and `Wait()` are internally synchronised - safe to call from
   multiple threads concurrently.
 - `Get()` must not be called concurrently with any other method on the same
   handle.
@@ -135,7 +135,7 @@ task and returns a handle whose `IsReady()` is perpetually `false`.
 
 ### `size_t PendingTasks() const`
 
-Lock-free atomic read — approximate count of queued + in-flight tasks.
+Lock-free atomic read - approximate count of queued + in-flight tasks.
 Use for diagnostics only; the value is stale the moment you read it.
 
 ### Destroy()
@@ -212,9 +212,9 @@ This works, but be careful not to create cycles or unbounded recursion.
 
 | Operation | Safe to call concurrently? |
 |---|---|
-| `Enqueue()` from N threads | Yes — mutex protects the queue |
-| `Enqueue()` + `PendingTasks()` | Yes — `PendingTasks` is lock-free |
-| `Enqueue()` during `Destroy()` | Safe — task is silently dropped |
+| `Enqueue()` from N threads | Yes - mutex protects the queue |
+| `Enqueue()` + `PendingTasks()` | Yes - `PendingTasks` is lock-free |
+| `Enqueue()` during `Destroy()` | Safe - task is silently dropped |
 | `Create()` / `Destroy()` | Not meant for concurrent calls; use from main thread |
 
 ### TaskHandle
@@ -224,8 +224,8 @@ This works, but be careful not to create cycles or unbounded recursion.
 | N threads calling `IsReady()` | Yes |
 | N threads calling `Wait()` | Yes |
 | `IsReady()` + `Wait()` | Yes |
-| `Get()` + anything else | No — `Get()` must be the only access at that time |
-| `Get()` after `Get()` | No — single-use |
+| `Get()` + anything else | No - `Get()` must be the only access at that time |
+| `Get()` after `Get()` | No - single-use |
 
 ---
 
@@ -250,8 +250,8 @@ check and `wait()`, causing a deadlock.
 
 | CV | Who waits | Who notifies | Notify under mutex? |
 |---|---|---|---|
-| `m_condition` | Worker threads (waiting for work) | `Enqueue()` / destructor | No (safe — predicate modified under lock) |
-| `m_finished` | Destructor (waiting for drain) | Workers after each task | **Yes** (required — predicate reads atomic `m_activeTasks`) |
+| `m_condition` | Worker threads (waiting for work) | `Enqueue()` / destructor | No (safe - predicate modified under lock) |
+| `m_finished` | Destructor (waiting for drain) | Workers after each task | **Yes** (required - predicate reads atomic `m_activeTasks`) |
 
 For `m_condition`: the worker's `wait()` atomically releases the mutex, and
 `Enqueue()` modifies `m_tasks` under the mutex before notifying. No window for

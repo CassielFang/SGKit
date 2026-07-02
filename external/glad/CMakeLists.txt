@@ -1,4 +1,5 @@
-# -- glad: OpenGL loader -------------------------------------------------
-# OBJECT library -- .obj files are linked directly into sgkit.lib,
-add_library(glad OBJECT src/glad.c src/glad_wgl.c)
-target_include_directories(glad PRIVATE include)   # hidden from consumers
+# -- glad: OpenGL loader
+file(GLOB_RECURSE GLAD_SRC "src/*.c")
+
+add_library(glad STATIC ${GLAD_SRC})
+target_include_directories(glad PUBLIC "include")

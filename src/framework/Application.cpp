@@ -1,4 +1,4 @@
-#ifdef SGK_PLATFORM_WINDOWS
+#ifdef _WINDOWS
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -21,7 +21,7 @@ using namespace sgkit;
 
 static void AttachConsole()
 {
-#if defined(SGK_PLATFORM_WINDOWS) && defined(_DEBUG)
+#if defined(_WINDOWS) && defined(_DEBUG)
     if (AllocConsole())
     {
         FILE* dummy;
@@ -34,7 +34,7 @@ static void AttachConsole()
 
 static void DetachConsole()
 {
-#if defined(SGK_PLATFORM_WINDOWS) && defined(_DEBUG)
+#if defined(_WINDOWS) && defined(_DEBUG)
     fclose(stdout);
     fclose(stderr);
     fclose(stdin);
@@ -46,7 +46,7 @@ static void Fatal(const char* msg)
 {
     std::fprintf(stderr, "[[ SGKit FATAL  ]]: %s\n", msg);
 
-#ifdef SGK_PLATFORM_WINDOWS
+#ifdef _WINDOWS
     int wlen = MultiByteToWideChar(CP_UTF8, 0, msg, -1, nullptr, 0);
     int tlen = MultiByteToWideChar(CP_UTF8, 0, "SGKit Fatal Error", -1, nullptr, 0);
     if (wlen > 0 && tlen > 0)
@@ -139,37 +139,48 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
         }
     }
 
+    bool previousActive = true;
+
     while (true)
     {
         window.PollEvents();
         input.Update();
-
-        if (config.fullscreenBolderless && window.isActive() && window.IsFullscreen())
-            if (input.IsKeyPressed(core::KeyCode::Escape))
-                window.Restore();
-
         framework::Clock::Update();
 
-        if (config.onUpdate)
-            config.onUpdate();
+        if (previousActive)
+        {
+            if (config.fullscreenBolderless && window.isActive() && window.IsFullscreen())
+                if (input.IsKeyPressed(core::KeyCode::Escape))
+                    window.Restore();
 
-        if (window.IsCloseRequest())
-            break;
+            if (config.onUpdate) config.onUpdate();
 
-        scene.RecomputeWorldTransforms();
+            if (window.IsCloseRequest()) break;
 
-        renderer.Clear();
+            scene.RecomputeWorldTransforms();
 
-        if (config.onRender)
-            config.onRender();
+            renderer.Clear();
 
-        window.SwapBuffers();
+            if (config.onRender) config.onRender();
+
+            window.SwapBuffers();
+        }
+        else
+        {
+            if (window.IsCloseRequest())
+            {
+                if (config.onUpdate) config.onUpdate();
+                if (window.IsCloseRequest()) break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        previousActive = window.isActive();
     }
 
     if (config.onShutdown)
         config.onShutdown();
 
-    // Tear down in reverse dependency order — Scene GL resources
+    // Tear down in reverse dependency order - Scene GL resources
     // released before Window destroys the GL context.
     scene::Scene::Destroy();
     graphics::Renderer::Destroy();
@@ -184,10 +195,10 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
 }
 
 // ===================================================================
-//  Platform entry point — inside the library, hidden from user
+//  Platform entry point - inside the library, hidden from user
 // ===================================================================
 
-#ifdef SGK_PLATFORM_WINDOWS
+#ifdef _WINDOWS
 
 #ifndef _In_
 #define _In_

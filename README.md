@@ -1,4 +1,4 @@
-# SGKit — Straightforward Graphics Kit
+# SGKit - Straightforward Graphics Kit
 
 轻量 C++ 3D 渲染引擎，基于 OpenGL，面向学习与实验。
 
@@ -26,14 +26,14 @@
  +-----------+      +-----------+
 ```
 
-- **Math** — 向量/矩阵/四元数/变换，列主序存储，直通 OpenGL
-- **Threading** — 固定大小线程池，`Enqueue` / `WaitAll`
-- **Window** — Win32 窗口 + WGL OpenGL 上下文（4.6 -> 3.3 自动回退），PIMPL 隐藏平台类型
-- **FileIO** — 文件读写 + 路径工具 + BMP 纹理加载器
-- **Input** — 键盘/鼠标轮询（Raw Input + Win32 消息），`IsKeyDown` / `IsKeyPressed` / `IsKeyReleased`
-- **Graphics** — Shader / VBO / VAO / Texture / Material / Mesh / Renderer，RAII 管理 GL 对象
-- **Scene** — 稀疏集 ECS（Entity + ComponentPool<T>），Transform 层级 / Camera / Light / MeshRenderer
-- **Framework** — 胶水层：`WinMain` 内嵌库中，用户只需实现 `CreateApplication()`
+- **Math** - 向量/矩阵/四元数/变换，列主序存储，直通 OpenGL
+- **Threading** - 固定大小线程池，`Enqueue` / `WaitAll`
+- **Window** - Win32 窗口 + WGL OpenGL 上下文（4.6 -> 3.3 自动回退），PIMPL 隐藏平台类型
+- **FileIO** - 文件读写 + 路径工具 + BMP 纹理加载器
+- **Input** - 键盘/鼠标轮询（Raw Input + Win32 消息），`IsKeyDown` / `IsKeyPressed` / `IsKeyReleased`
+- **Graphics** - Shader / VBO / VAO / Texture / Material / Mesh / Renderer，RAII 管理 GL 对象
+- **Scene** - 稀疏集 ECS（Entity + ComponentPool<T>），Transform 层级 / Camera / Light / MeshRenderer
+- **Framework** - 胶水层：`WinMain` 内嵌库中，用户只需实现 `CreateApplication()`
 
 ## 快速开始
 
