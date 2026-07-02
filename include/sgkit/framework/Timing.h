@@ -23,6 +23,11 @@ public:
     static void Update();
 
 private:
+    Clock(const Clock&) = delete;
+    Clock& operator=(const Clock&) = delete;
+    Clock(const Clock&&) = delete;
+    Clock& operator=(const Clock&&) = delete;
+
     TimePoint m_start;
 
     static TimePoint g_startTime;
@@ -34,5 +39,5 @@ private:
     static float     g_fps;
 };
 
-} // namespace framework
-} // namespace sgkit
+}
+}

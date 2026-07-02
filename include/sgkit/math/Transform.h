@@ -19,5 +19,5 @@ public:
     Matrix4 GetLocalMatrix() const;
 };
 
-} // namespace math
-} // namespace sgkit
+}
+}

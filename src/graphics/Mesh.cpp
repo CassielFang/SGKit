@@ -44,5 +44,5 @@ void Mesh::Render() const
     Render(math::Matrix4::Identity(), RenderContext{});
 }
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

@@ -20,15 +20,15 @@ public:
     explicit Vector4(const Vector3& v3, float w = 1.0f) : x(v3.x), y(v3.y), z(v3.z), w(w) {}
     explicit Vector4(const Vector2& v2, float z = 0.0f, float w = 1.0f) : x(v2.x), y(v2.y), z(z), w(w) {}
 
-    // -- Swizzle helpers ---------------------------------------
+    // -- Swizzle helpers
     Vector3 XYZ() const { return {x, y, z}; }
     Vector2 XY()  const { return {x, y}; }
 
-    // -- Element access ----------------------------------------
+    // -- Element access
     float& operator[](int i) { return (&x)[i]; }
     const float& operator[](int i) const { return (&x)[i]; }
 
-    // -- Arithmetic --------------------------------------------
+    // -- Arithmetic
     Vector4 operator+(const Vector4& rhs) const { return {x + rhs.x, y + rhs.y, z + rhs.z, w + rhs.w}; }
     Vector4 operator-(const Vector4& rhs) const { return {x - rhs.x, y - rhs.y, z - rhs.z, w - rhs.w}; }
     Vector4 operator*(float s) const           { return {x * s, y * s, z * s, w * s}; }
@@ -48,7 +48,7 @@ public:
     }
     bool operator!=(const Vector4& rhs) const { return !(*this == rhs); }
 
-    // -- Vector operations -------------------------------------
+    // -- Vector operations
     float LengthSquared() const { return x * x + y * y + z * z + w * w; }
     float Length() const        { return std::sqrt(LengthSquared()); }
 
@@ -82,5 +82,5 @@ public:
 
 inline Vector4 operator*(float s, const Vector4& v) { return v * s; }
 
-} // namespace math
-} // namespace sgkit
+}
+}

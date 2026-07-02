@@ -98,7 +98,7 @@ h.Wait();
 
 | Static method | Notes |
 |---|---|
-| `Create(size_t numThreads)` | Initialise the singleton. Idempotent. `0` → auto-detect. |
+| `Create(size_t numThreads)` | Initialise the singleton. Idempotent. `0` -> auto-detect. |
 | `Destroy()` | Blocks until tasks drain, then destroys. Safe no-op when already destroyed. |
 | `instance()` | Returns singleton reference. Must call `Create()` first. |
 
@@ -236,10 +236,10 @@ This works, but be careful not to create cycles or unbounded recursion.
 ```
 while (true)
     wait(m_condition) until m_stop || task available
-    if m_stop && queue empty → exit
+    if m_stop && queue empty -> exit
     dequeue task
     execute task
-    lock → decrement m_activeTasks → notify m_finished
+    lock -> decrement m_activeTasks -> notify m_finished
 ```
 
 The critical detail: `m_finished.notify_one()` is called **under the mutex**.

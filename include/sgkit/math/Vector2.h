@@ -14,11 +14,11 @@ public:
     Vector2() = default;
     Vector2(float x, float y) : x(x), y(y) {}
 
-    // -- Element access ----------------------------------------
+    // -- Element access
     float& operator[](int i) { return (&x)[i]; }
     const float& operator[](int i) const { return (&x)[i]; }
 
-    // -- Arithmetic operators ----------------------------------
+    // -- Arithmetic operators
     Vector2 operator+(const Vector2& rhs) const { return {x + rhs.x, y + rhs.y}; }
     Vector2 operator-(const Vector2& rhs) const { return {x - rhs.x, y - rhs.y}; }
     Vector2 operator*(float s) const           { return {x * s, y * s}; }
@@ -34,7 +34,7 @@ public:
     bool operator==(const Vector2& rhs) const { return Approximately(x, rhs.x) && Approximately(y, rhs.y); }
     bool operator!=(const Vector2& rhs) const { return !(*this == rhs); }
 
-    // -- Vector operations -------------------------------------
+    // -- Vector operations
     float LengthSquared() const { return x * x + y * y; }
     float Length() const        { return std::sqrt(LengthSquared()); }
 
@@ -62,5 +62,5 @@ public:
 
 inline Vector2 operator*(float s, const Vector2& v) { return v * s; }
 
-} // namespace math
-} // namespace sgkit
+}
+}

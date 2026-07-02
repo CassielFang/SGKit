@@ -5,7 +5,7 @@
 namespace sgkit {
 namespace math {
 
-// -- Comparison ----------------------------------------------------
+// -- Comparison
 
 bool Quaternion::operator==(const Quaternion& rhs) const
 {
@@ -13,7 +13,7 @@ bool Quaternion::operator==(const Quaternion& rhs) const
            Approximately(z, rhs.z) && Approximately(w, rhs.w);
 }
 
-// -- Multiplication ------------------------------------------------
+// -- Multiplication
 
 Quaternion Quaternion::operator*(const Quaternion& rhs) const
 {
@@ -34,7 +34,7 @@ Vector3 Quaternion::operator*(const Vector3& v) const
     return v + (uv * w + uuv) * 2.0f;
 }
 
-// -- Normalise / Conjugate / Inverse -------------------------------
+// -- Normalise / Conjugate / Inverse
 
 Quaternion& Quaternion::Normalize()
 {
@@ -62,7 +62,7 @@ float Quaternion::LengthSquared() const { return x * x + y * y + z * z + w * w; 
 float Quaternion::Length() const { return std::sqrt(LengthSquared()); }
 float Quaternion::Dot(const Quaternion& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }
 
-// -- Euler conversion ----------------------------------------------
+// -- Euler conversion
 
 Vector3 Quaternion::ToEulerAngles() const
 {
@@ -85,7 +85,7 @@ Vector3 Quaternion::ToEulerAngles() const
     return {pitch, yaw, roll};
 }
 
-// -- Static factories ----------------------------------------------
+// -- Static factories
 
 Quaternion Quaternion::Identity() { return {0.0f, 0.0f, 0.0f, 1.0f}; }
 
@@ -174,5 +174,5 @@ Quaternion Quaternion::LookAt(const Vector3& direction, const Vector3& up)
     }
 }
 
-} // namespace math
-} // namespace sgkit
+}
+}

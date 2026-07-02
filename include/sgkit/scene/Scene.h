@@ -55,9 +55,9 @@ private:
 
 template<typename T> T* Scene::AddComponent(Entity e) { return GetPool<T>().Add(e); }
 template<typename T> void Scene::RemoveComponent(Entity e) { GetPool<T>().Remove(e); }
-template<typename T> T*  Scene::GetComponent(Entity e) { return GetPool<T>().Get(e); }
+template<typename T> T* Scene::GetComponent(Entity e) { return GetPool<T>().Get(e); }
 template<typename T> const T* Scene::GetComponent(Entity e) const { return GetPool<T>().Get(e); }
 template<typename T> bool Scene::HasComponent(Entity e) const { return GetPool<T>().Has(e); }
 
-} // namespace scene
-} // namespace sgkit
+}
+}

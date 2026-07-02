@@ -71,5 +71,5 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-} // namespace core
-} // namespace sgkit
+}
+}

@@ -18,12 +18,12 @@ public:
     // Call once per frame at the start of the game loop
     void Update();
 
-    // -- Keyboard polling ----------------------------------------
+    // -- Keyboard polling
     bool IsKeyDown(KeyCode key) const;
     bool IsKeyPressed(KeyCode key) const;   // transition: up->down this frame
     bool IsKeyReleased(KeyCode key) const;  // transition: down->up this frame
 
-    // -- Mouse polling -------------------------------------------
+    // -- Mouse polling
     bool  IsMouseButtonDown(MouseButton button) const;
     bool  IsMouseButtonPressed(MouseButton button) const;
     bool  IsMouseButtonReleased(MouseButton button) const;
@@ -59,5 +59,5 @@ private:
     void* m_hWindowHandle = nullptr;
 };
 
-} // namespace core
-} // namespace sgkit
+}
+}

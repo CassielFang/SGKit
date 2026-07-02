@@ -17,7 +17,7 @@
 #include <vector>
 #include <algorithm>
 
-// -- Helpers ------------------------------------------------------------
+// -- Helpers
 
 static std::wstring ToWideString(const std::string& utf8)
 {
@@ -31,11 +31,9 @@ static std::wstring ToWideString(const std::string& utf8)
     return result;
 }
 
-// -- Constants ------------------------------------------------------------
-
 static const wchar_t* k_WindowClassName = L"SGKit_WindowClass";
 
-// -- PIMPL definition ----------------------------------------------
+// -- PIMPL definition
 
 class sgkit::core::Window::Impl
 {
@@ -50,7 +48,7 @@ public:
     bool isCloseRequest       = false;
     bool isActive             = true;
     bool isFullscreen         = false;
-    bool fullscreenBolderless = false;  // if true, maximize = borderless fullscreen
+    bool fullscreenBolderless = false;
     bool cursorVisible        = true;
 
     // Pre-fullscreen state (for restore)
@@ -62,7 +60,7 @@ public:
     std::vector<EventHandler> eventHandlers;
 };
 
-// -- Forward declarations (local helpers) --------------------------
+// -- Forward declarations (local helpers)
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 static bool    CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTANCE hInst);
 static void    DestroyDummyGLWindow(HWND hwnd, HDC dc, HGLRC rc);
@@ -85,9 +83,7 @@ static void WinLog(const char* msg, bool error = false)
 
 static sgkit::core::Window* g_currentWindow = nullptr;
 
-// ===================================================================
-//  PUBLIC API
-// ===================================================================
+// -- PUBLIC API
 
 namespace sgkit {
 namespace core {
@@ -130,7 +126,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     m_impl->height = desc.height;
     m_impl->hInstance = reinterpret_cast<HINSTANCE>(hInst);
 
-    // -- 1. Register window class --------------------------------
+    // -- 1. Register window class
     WNDCLASSEX wc = {};
     wc.cbSize        = sizeof(WNDCLASSEXW);
     wc.style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
@@ -139,9 +135,11 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     wc.hCursor       = LoadCursor(nullptr, IDC_ARROW);
     wc.lpszClassName = k_WindowClassName;
 
-    // Load application icon from executable resources.
-    // If the user placed app.ico in icon/ and linked app.rc, this picks it up.
-    // On failure the window gets the default icon - no harm.
+    /**
+    * Load application icon from executable resources.
+    * If the user placed app.ico in icon/ and linked app.rc, this picks it up.
+    * On failure the window gets the default icon - no harm.
+    */
     HICON hIcon = LoadIconW(m_impl->hInstance, MAKEINTRESOURCEW(IDI_MAIN_ICON));
     wc.hIcon   = hIcon;
     wc.hIconSm = hIcon;
@@ -153,7 +151,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
         return false;
     }
 
-    // -- 2. Calculate window size --------------------------------
+    // -- 2. Calculate window size
     DWORD dwStyle = WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
     if (desc.resizable)
         dwStyle |= WS_SIZEBOX | WS_MAXIMIZEBOX;
@@ -163,7 +161,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     int winW = rect.right - rect.left;
     int winH = rect.bottom - rect.top;
 
-    // -- 3. Create a dummy GL window to load WGL extensions ------
+    // -- 3. Create a dummy GL window to load WGL extensions
     HWND  dummyWnd = nullptr;
     HDC   dummyDc  = nullptr;
     HGLRC dummyRc  = nullptr;
@@ -185,7 +183,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     // Destroy dummy window - WGL extensions no longer needed
     DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
 
-    // -- 4. Create the real window -------------------------------
+    // -- 4. Create the real window
     std::wstring wideTitle = ToWideString(desc.title);
 
     m_impl->hwnd = CreateWindowEx(
@@ -216,19 +214,19 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     m_impl->dc = GetDC(m_impl->hwnd);
     WinLog("main window created");
 
-    // -- 5. Set pixel format --------------------------------------
+    // -- 5. Set pixel format
     bool pixelFormatOk = false;
 
     // Try with MSAA first
     const int pixelAttribs[] = {
-        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,       // WGL_DRAW_TO_WINDOW_ARB
-        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,       // WGL_SUPPORT_OPENGL_ARB
-        WGL_DOUBLE_BUFFER_ARB, GL_TRUE,        // WGL_DOUBLE_BUFFER_ARB
-        WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB, // WGL_PIXEL_TYPE_ARB -> WGL_TYPE_RGBA_ARB
-        WGL_COLOR_BITS_ARB,   24,              // WGL_COLOR_BITS_ARB
-        WGL_DEPTH_BITS_ARB,   24,              // WGL_DEPTH_BITS_ARB
-        WGL_STENCIL_BITS_ARB, 8,               // WGL_STENCIL_BITS_ARB
-        WGL_SAMPLES_ARB,      4,               // WGL_SAMPLES_ARB (4x MSAA)
+        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+        WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+        WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+        WGL_COLOR_BITS_ARB,   24,
+        WGL_DEPTH_BITS_ARB,   24,
+        WGL_STENCIL_BITS_ARB, 8,
+        WGL_SAMPLES_ARB,      4, // WGL_SAMPLES_ARB (4x MSAA)
         0
     };
 
@@ -250,13 +248,13 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     {
         // Retry without MSAA
         const int noMsaAAttribs[] = {
-            WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,       // WGL_DRAW_TO_WINDOW_ARB
-            WGL_SUPPORT_OPENGL_ARB, GL_TRUE,       // WGL_SUPPORT_OPENGL_ARB
-            WGL_DOUBLE_BUFFER_ARB, GL_TRUE,        // WGL_DOUBLE_BUFFER_ARB
-            WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB, // WGL_PIXEL_TYPE_ARB -> WGL_TYPE_RGBA_ARB
-            WGL_COLOR_BITS_ARB,   24,              // WGL_COLOR_BITS_ARB
-            WGL_DEPTH_BITS_ARB,   24,              // WGL_DEPTH_BITS_ARB
-            WGL_STENCIL_BITS_ARB, 8,               // WGL_STENCIL_BITS_ARB
+            WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+            WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+            WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+            WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+            WGL_COLOR_BITS_ARB,   24,
+            WGL_DEPTH_BITS_ARB,   24,
+            WGL_STENCIL_BITS_ARB, 8,
             0
         };
         ok = wglChoosePixelFormatARB(m_impl->dc, noMsaAAttribs, nullptr, 32,
@@ -300,7 +298,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
         return false;
     }
 
-    // -- 6. Create OpenGL context ---------------------------------
+    // -- 6. Create OpenGL context
     const int contextAttribs[] = {
         WGL_CONTEXT_MAJOR_VERSION_ARB, desc.glMajorVersion,
         WGL_CONTEXT_MINOR_VERSION_ARB, desc.glMinorVersion,
@@ -345,10 +343,10 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     wglMakeCurrent(m_impl->dc, m_impl->glContext);
     WinLog("GL context created and made current");
 
-    // -- 7. VSync -------------------------------------------------
+    // -- 7. VSync
     if (desc.vsync) wglSwapIntervalEXT(1);
 
-    // -- 8. GL ----------------------------------------------------
+    // -- 8. GL
     if (!gladLoadGL())
     {
         WinLog("failed to load OpenGL functions", true);
@@ -593,12 +591,10 @@ int64_t Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam,
     return DefWindowProc(m_impl->hwnd, msg, wParam, lParam);
 }
 
-} // namespace core
-} // namespace sgkit
+}
+}
 
-// ===================================================================
-//  INTERNAL: Window Procedure + Dummy Window
-// ===================================================================
+// -- INTERNAL: Window Procedure + Dummy Window
 
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {

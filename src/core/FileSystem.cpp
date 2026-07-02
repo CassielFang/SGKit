@@ -7,9 +7,11 @@
 namespace sgkit {
 namespace core {
 
-// -- Read -----------------------------------------------------------
+namespace FileSystem {
 
-std::optional<std::string> FileSystem::ReadText(const std::string& path)
+// -- Read
+
+std::optional<std::string> ReadText(const std::string& path)
 {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open())
@@ -28,7 +30,7 @@ std::optional<std::string> FileSystem::ReadText(const std::string& path)
     return content;
 }
 
-std::optional<std::vector<uint8_t>> FileSystem::ReadBinary(const std::string& path)
+std::optional<std::vector<uint8_t>> ReadBinary(const std::string& path)
 {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open())
@@ -47,9 +49,9 @@ std::optional<std::vector<uint8_t>> FileSystem::ReadBinary(const std::string& pa
     return data;
 }
 
-// -- Write ----------------------------------------------------------
+// -- Write
 
-bool FileSystem::WriteText(const std::string& path, const std::string& content)
+bool WriteText(const std::string& path, const std::string& content)
 {
     std::ofstream file(path, std::ios::binary);
     if (!file.is_open())
@@ -59,35 +61,35 @@ bool FileSystem::WriteText(const std::string& path, const std::string& content)
     return file.good();
 }
 
-bool FileSystem::WriteBinary(const std::string& path, const std::vector<uint8_t>& data)
+bool WriteBinary(const std::string& path, const std::vector<uint8_t>& data)
 {
     std::ofstream file(path, std::ios::binary);
     if (!file.is_open())
         return false;
 
     file.write(reinterpret_cast<const char*>(data.data()),
-               static_cast<std::streamsize>(data.size()));
+        static_cast<std::streamsize>(data.size()));
     return file.good();
 }
 
-// -- Query ----------------------------------------------------------
+// -- Query
 
-bool FileSystem::Exists(const std::string& path)
+bool Exists(const std::string& path)
 {
     return std::filesystem::exists(path);
 }
 
-bool FileSystem::IsDirectory(const std::string& path)
+bool IsDirectory(const std::string& path)
 {
     return std::filesystem::is_directory(path);
 }
 
-std::string FileSystem::GetDirectory(const std::string& path)
+std::string GetDirectory(const std::string& path)
 {
     return std::filesystem::path(path).parent_path().string();
 }
 
-std::string FileSystem::GetExtension(const std::string& path)
+std::string GetExtension(const std::string& path)
 {
     std::string ext = std::filesystem::path(path).extension().string();
     // Remove leading dot
@@ -99,15 +101,17 @@ std::string FileSystem::GetExtension(const std::string& path)
     return ext;
 }
 
-std::string FileSystem::GetFilename(const std::string& path)
+std::string GetFilename(const std::string& path)
 {
     return std::filesystem::path(path).filename().string();
 }
 
-std::string FileSystem::GetFilenameWithoutExtension(const std::string& path)
+std::string GetFilenameWithoutExtension(const std::string& path)
 {
     return std::filesystem::path(path).stem().string();
 }
 
-} // namespace core
-} // namespace sgkit
+}
+
+}
+}

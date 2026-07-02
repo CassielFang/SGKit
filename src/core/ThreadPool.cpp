@@ -7,6 +7,55 @@ sgkit::core::ThreadPool* g_ThreadPool = nullptr;
 namespace sgkit {
 namespace core {
 
+TaskHandle<void>::TaskHandle(std::future<void>&& f) : m_future(std::move(f)) {}
+
+TaskHandle<void>::TaskHandle(TaskHandle<void>&& other) noexcept
+    : m_future(std::move(other.m_future))
+    , m_consumed(other.m_consumed)
+{
+    other.m_consumed = true;
+}
+
+TaskHandle<void>& TaskHandle<void>::operator=(TaskHandle<void>&& other) noexcept
+{
+    if (this != &other)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard<std::mutex> otherLock(other.m_mutex);
+        m_future = std::move(other.m_future);
+        m_consumed = other.m_consumed;
+        other.m_consumed = true;
+    }
+    return *this;
+}
+
+bool TaskHandle<void>::IsReady() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_consumed)
+        return false;
+    return m_future.valid() &&
+        m_future.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+}
+
+void TaskHandle<void>::Get()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_consumed = true;
+    m_future.get();
+}
+
+void TaskHandle<void>::Wait()
+{
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_consumed)
+            return;
+    }
+    m_future.wait();
+}
+
+
 ThreadPool::ThreadPool(size_t numThreads)
 {
     if (numThreads == 0)
@@ -30,10 +79,12 @@ ThreadPool::~ThreadPool()
     }
     m_condition.notify_all();
 
-    // wait until every queued / in-flight task completes.
-    // WorkerLoop notifies m_finished under m_mutex, guaranteeing that
-    // when the predicate passes no new tasks can be in flight and the
-    // notification cannot be lost between the predicate check and wait().
+    /**
+    * wait until every queued / in-flight task completes.
+    * WorkerLoop notifies m_finished under m_mutex, guaranteeing that
+    * when the predicate passes no new tasks can be in flight and the
+    * notification cannot be lost between the predicate check and wait().
+    */
     {
         std::unique_lock<std::mutex> lock(m_mutex);
         m_finished.wait(lock, [this] {
@@ -107,5 +158,5 @@ void ThreadPool::WorkerLoop()
     }
 }
 
-} // namespace core
-} // namespace sgkit
+}
+}

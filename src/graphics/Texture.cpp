@@ -148,9 +148,7 @@ void Texture::SetWrapRepeat(bool repeat)
     Unbind();
 }
 
-// ===================================================================
 //  BMP Loader - minimal, uncompressed 24/32-bit BMP only
-// ===================================================================
 
 #pragma pack(push, 1)
 struct BMPHeader
@@ -252,5 +250,5 @@ bool Texture::LoadBMP(const std::string& path)
     return Create(width, height, pixels.data(), internalFormat, format);
 }
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

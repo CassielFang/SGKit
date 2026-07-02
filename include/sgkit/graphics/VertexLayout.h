@@ -41,5 +41,5 @@ private:
     size_t m_stride = 0;
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

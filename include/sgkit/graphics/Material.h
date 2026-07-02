@@ -16,5 +16,5 @@ public:
     float shininess = 32.0f;
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

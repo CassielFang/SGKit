@@ -17,9 +17,7 @@ static sgkit::core::Input* g_Input = nullptr;
 namespace sgkit {
 namespace core {
 
-// ===================================================================
-//  VK lookup table  -  KeyCode index → Win32 virtual-key code
-// ===================================================================
+// VK lookup table  -  KeyCode index -> Win32 virtual-key code
 
 static constexpr unsigned int k_KeyCodeToVK[] = {
     /* Unknown        0 */ 0,
@@ -88,8 +86,6 @@ static constexpr unsigned int k_KeyCodeToVK[] = {
 static_assert(std::size(k_KeyCodeToVK) == static_cast<size_t>(KeyCode::k_Count),
               "k_KeyCodeToVK must match KeyCode enum order");
 
-// ===================================================================
-
 bool Input::Create(void* hWindowHandle)
 {
     if (g_Input) return false;
@@ -101,7 +97,7 @@ bool Input::Create(void* hWindowHandle)
     // Register mouse Raw Input device - needed for scroll polling via GetRawInputBuffer
     RAWINPUTDEVICE rid = {};
     rid.usUsagePage = 0x01;  // HID_USAGE_PAGE_GENERIC
-    rid.usUsage = 0x02;       // HID_USAGE_GENERIC_MOUSE
+    rid.usUsage = 0x02;      // HID_USAGE_GENERIC_MOUSE
     rid.dwFlags = RIDEV_INPUTSINK;  // receive even when window not focused
     rid.hwndTarget = hwnd;
 
@@ -130,9 +126,7 @@ Input& Input::instance()
     return *g_Input;
 }
 
-// ===================================================================
 //  PollScroll - drain buffered Raw Input for wheel data
-// ===================================================================
 
 static void PollScroll(float& scrollDelta)
 {
@@ -167,9 +161,7 @@ static void PollScroll(float& scrollDelta)
     buf = nullptr;
 }
 
-// ===================================================================
 //  Update - called once per frame at the start of the game loop
-// ===================================================================
 
 void Input::Update()
 {
@@ -214,7 +206,7 @@ void Input::Update()
     PollScroll(m_scrollDelta);
 }
 
-// -- Keyboard polling -----------------------------------------------
+// -- Keyboard polling
 
 bool Input::IsKeyDown(KeyCode key) const
 {
@@ -237,7 +229,7 @@ bool Input::IsKeyReleased(KeyCode key) const
     return m_Keys[m_current][idx] == 0 && m_Keys[1 - m_current][idx] != 0;
 }
 
-// -- Mouse polling --------------------------------------------------
+// -- Mouse polling
 
 bool Input::IsMouseButtonDown(MouseButton button) const
 {
@@ -266,7 +258,7 @@ float Input::GetMouseDeltaX() const  { return m_mouseDeltaX; }
 float Input::GetMouseDeltaY() const  { return m_mouseDeltaY; }
 float Input::GetScrollDelta() const  { return m_scrollDelta; }
 
-} // namespace core
-} // namespace sgkit
+}
+}
 
 #endif

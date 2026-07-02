@@ -18,8 +18,6 @@ public:
     VertexBuffer();
     ~VertexBuffer();
 
-    VertexBuffer(const VertexBuffer&) = delete;
-    VertexBuffer& operator=(const VertexBuffer&) = delete;
     VertexBuffer(VertexBuffer&& other) noexcept;
     VertexBuffer& operator=(VertexBuffer&& other) noexcept;
 
@@ -36,9 +34,12 @@ public:
     bool     IsValid() const   { return m_handle != 0; }
 
 private:
+    VertexBuffer(const VertexBuffer&) = delete;
+    VertexBuffer& operator=(const VertexBuffer&) = delete;
+
     uint32_t m_handle = 0;
     size_t   m_size   = 0;
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

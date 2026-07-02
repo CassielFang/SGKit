@@ -11,8 +11,6 @@ public:
     Framebuffer();
     ~Framebuffer();
 
-    Framebuffer(const Framebuffer&) = delete;
-    Framebuffer& operator=(const Framebuffer&) = delete;
     Framebuffer(Framebuffer&&) noexcept;
     Framebuffer& operator=(Framebuffer&&) noexcept;
 
@@ -28,11 +26,14 @@ public:
     int GetHeight() const { return m_height; }
 
 private:
-    uint32_t m_fbo         = 0;
+    Framebuffer(const Framebuffer&) = delete;
+    Framebuffer& operator=(const Framebuffer&) = delete;
+
+    uint32_t m_fbo = 0;
     uint32_t m_depthTexture = 0;
     int m_width  = 0;
     int m_height = 0;
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

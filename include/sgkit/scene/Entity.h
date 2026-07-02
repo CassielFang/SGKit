@@ -17,5 +17,5 @@ public:
 
 constexpr uint32_t k_MaxEntities = 10000;
 
-} // namespace scene
-} // namespace sgkit
+}
+}

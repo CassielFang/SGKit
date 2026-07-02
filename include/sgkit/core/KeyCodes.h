@@ -51,5 +51,5 @@ enum class KeyCode : uint16_t
     k_Count
 };
 
-} // namespace core
-} // namespace sgkit
+}
+}

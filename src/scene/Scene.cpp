@@ -161,5 +161,5 @@ math::Matrix4 Scene::GetWorldMatrix(Entity entity) const
     return math::Matrix4::Identity();
 }
 
-} // namespace scene
-} // namespace sgkit
+}
+}

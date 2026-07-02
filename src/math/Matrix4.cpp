@@ -6,7 +6,7 @@
 namespace sgkit {
 namespace math {
 
-// -- Construct / Set -----------------------------------------------
+// -- Construct / Set
 
 Matrix4::Matrix4()
 {
@@ -140,7 +140,7 @@ Matrix4& Matrix4::SetLookAt(const Vector3& eye, const Vector3& target, const Vec
     return *this;
 }
 
-// -- Comparison ----------------------------------------------------
+// -- Comparison
 
 bool Matrix4::operator==(const Matrix4& rhs) const
 {
@@ -151,7 +151,7 @@ bool Matrix4::operator==(const Matrix4& rhs) const
     return true;
 }
 
-// -- Matrix multiplication -----------------------------------------
+// -- Matrix multiplication
 
 Matrix4 Matrix4::operator*(const Matrix4& rhs) const
 {
@@ -194,7 +194,7 @@ Vector3 Matrix4::TransformDirection(const Vector3& v) const
     return {r.x, r.y, r.z};
 }
 
-// -- Transpose -----------------------------------------------------
+// -- Transpose
 
 Matrix4& Matrix4::Transpose()
 {
@@ -217,7 +217,7 @@ Matrix4 Matrix4::Transposed() const
     return result;
 }
 
-// -- Determinant ---------------------------------------------------
+// -- Determinant
 
 float Matrix4::Determinant() const
 {
@@ -237,7 +237,7 @@ float Matrix4::Determinant() const
     return a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
 }
 
-// -- Inverted -------------------------------------------------------
+// -- Inverted
 
 Matrix4& Matrix4::Invert()
 {
@@ -292,7 +292,7 @@ Matrix4 Matrix4::Inverted() const
     return result;
 }
 
-// -- Static factories ----------------------------------------------
+// -- Static factories
 
 Matrix4 Matrix4::Identity() { Matrix4 m; m.SetIdentity(); return m; }
 Matrix4 Matrix4::Zero()     { Matrix4 m; m.SetZero();     return m; }
@@ -317,5 +317,5 @@ Matrix4 Matrix4::LookAt(const Vector3& eye, const Vector3& target, const Vector3
     Matrix4 m; m.SetLookAt(eye, target, up); return m;
 }
 
-} // namespace math
-} // namespace sgkit
+}
+}

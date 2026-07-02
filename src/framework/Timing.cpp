@@ -68,5 +68,5 @@ void Clock::Update()
     }
 }
 
-} // namespace framework
-} // namespace sgkit
+}
+}

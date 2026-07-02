@@ -87,5 +87,5 @@ void Framebuffer::Unbind() const
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

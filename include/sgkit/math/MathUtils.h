@@ -5,7 +5,7 @@
 namespace sgkit {
 namespace math {
 
-// -- Scalar constants ----------------------------------------------
+// -- Scalar constants
 constexpr float k_Pi        = 3.1415927f;
 constexpr float k_TwoPi     = 6.2831855f;
 constexpr float k_HalfPi    = 1.5707963f;
@@ -33,5 +33,5 @@ inline T Lerp(T a, T b, float t)
     return a + (b - a) * t;
 }
 
-} // namespace math
-} // namespace sgkit
+}
+}

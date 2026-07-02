@@ -6,8 +6,8 @@
 namespace sgkit {
 namespace graphics {
 
-/// GPU-ready light data extracted from scene::Light.
-/// Kept in graphics namespace so Mesh doesn't depend on scene types.
+// GPU-ready light data extracted from scene::Light.
+// Kept in graphics namespace so Mesh doesn't depend on scene types.
 struct LightUniforms
 {
     math::Vector3 position{0.0f, 0.0f, 0.0f};
@@ -16,8 +16,8 @@ struct LightUniforms
     math::Vector3 specular{1.0f, 1.0f, 1.0f};
 };
 
-/// Per-frame drawing context.
-/// Built by Scene from camera / light components, consumed by Mesh::Render().
+// Per-frame drawing context.
+// Built by Scene from camera / light components, consumed by Mesh::Render().
 struct RenderContext
 {
     math::Matrix4 viewProjection = math::Matrix4::Identity();
@@ -26,5 +26,5 @@ struct RenderContext
     bool hasLight = false;
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

@@ -7,12 +7,14 @@
 namespace sgkit {
 namespace math {
 
-// Column-major 4x4 matrix (matches OpenGL convention).
-// Elements are indexed as m[col][row]:
-//   m[0][0] m[1][0] m[2][0] m[3][0]    (column 0)
-//   m[0][1] m[1][1] m[2][1] m[3][1]    (column 1)
-//   m[0][2] m[1][2] m[2][2] m[3][2]    (column 2)
-//   m[0][3] m[1][3] m[2][3] m[3][3]    (column 3)
+/**
+* Column-major 4x4 matrix (matches OpenGL convention).
+* Elements are indexed as m[col][row]:
+*   m[0][0] m[1][0] m[2][0] m[3][0]    (column 0)
+*   m[0][1] m[1][1] m[2][1] m[3][1]    (column 1)
+*   m[0][2] m[1][2] m[2][2] m[3][2]    (column 2)
+*   m[0][3] m[1][3] m[2][3] m[3][3]    (column 3)
+*/
 class Matrix4
 {
 public:
@@ -20,25 +22,25 @@ public:
 
     Matrix4();
 
-    // -- Raw data access (for passing to OpenGL) ----------------
+    // -- Raw data access (for passing to OpenGL)
     const float* Data() const { return &m[0][0]; }
     float* Data()             { return &m[0][0]; }
 
-    // -- Element access ----------------------------------------
+    // -- Element access
     float& operator()(int col, int row)       { return m[col][row]; }
     float  operator()(int col, int row) const { return m[col][row]; }
 
-    // -- Comparison --------------------------------------------
+    // -- Comparison
     bool operator==(const Matrix4& rhs) const;
     bool operator!=(const Matrix4& rhs) const { return !(*this == rhs); }
 
-    // -- Arithmetic --------------------------------------------
+    // -- Arithmetic
     Matrix4 operator*(const Matrix4& rhs) const;
     Vector4 operator*(const Vector4& v) const;
     Vector3 TransformPoint(const Vector3& v) const;
     Vector3 TransformDirection(const Vector3& v) const;
 
-    // -- Initialization ----------------------------------------
+    // -- Initialization
     Matrix4& SetIdentity();
     Matrix4& SetZero();
     Matrix4& SetTranslate(float x, float y, float z);
@@ -52,7 +54,7 @@ public:
     Matrix4& SetOrthographic(float left, float right, float bottom, float top, float nearZ, float farZ);
     Matrix4& SetLookAt(const Vector3& eye, const Vector3& target, const Vector3& up);
 
-    // -- Operations --------------------------------------------
+    // -- Operations
     Matrix4& Transpose();
     Matrix4 Transposed() const;
 
@@ -61,7 +63,7 @@ public:
 
     float Determinant() const;
 
-    // -- Static factories --------------------------------------
+    // -- Static factories
     static Matrix4 Identity();
     static Matrix4 Zero();
     static Matrix4 Translate(const Vector3& v);
@@ -74,5 +76,5 @@ public:
     static Matrix4 LookAt(const Vector3& eye, const Vector3& target, const Vector3& up);
 };
 
-} // namespace math
-} // namespace sgkit
+}
+}

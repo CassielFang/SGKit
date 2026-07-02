@@ -11,8 +11,6 @@ public:
     IndexBuffer();
     ~IndexBuffer();
 
-    IndexBuffer(const IndexBuffer&) = delete;
-    IndexBuffer& operator=(const IndexBuffer&) = delete;
     IndexBuffer(IndexBuffer&& other) noexcept;
     IndexBuffer& operator=(IndexBuffer&& other) noexcept;
 
@@ -27,9 +25,12 @@ public:
     bool     IsValid() const   { return m_handle != 0; }
 
 private:
+    IndexBuffer(const IndexBuffer&) = delete;
+    IndexBuffer& operator=(const IndexBuffer&) = delete;
+
     uint32_t m_handle = 0;
     size_t   m_count  = 0;
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

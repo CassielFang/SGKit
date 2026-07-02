@@ -21,8 +21,6 @@ public:
     VertexArray();
     ~VertexArray();
 
-    VertexArray(const VertexArray&) = delete;
-    VertexArray& operator=(const VertexArray&) = delete;
     VertexArray(VertexArray&& other) noexcept;
     VertexArray& operator=(VertexArray&& other) noexcept;
 
@@ -41,10 +39,13 @@ public:
     bool     IsValid() const   { return m_handle != 0; }
 
 private:
+    VertexArray(const VertexArray&) = delete;
+    VertexArray& operator=(const VertexArray&) = delete;
+
     uint32_t m_handle = 0;
     std::shared_ptr<VertexBuffer> m_vertexBuffer;
     std::shared_ptr<IndexBuffer>  m_indexBuffer;
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

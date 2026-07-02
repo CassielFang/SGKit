@@ -45,18 +45,8 @@ static void DetachConsole()
 static void Fatal(const char* msg)
 {
     std::fprintf(stderr, "[[ SGKit FATAL  ]]: %s\n", msg);
-
 #ifdef _WINDOWS
-    int wlen = MultiByteToWideChar(CP_UTF8, 0, msg, -1, nullptr, 0);
-    int tlen = MultiByteToWideChar(CP_UTF8, 0, "SGKit Fatal Error", -1, nullptr, 0);
-    if (wlen > 0 && tlen > 0)
-    {
-        std::wstring wmsg(wlen - 1, L'\0');
-        std::wstring wtitle(tlen - 1, L'\0');
-        MultiByteToWideChar(CP_UTF8, 0, msg, -1, wmsg.data(), wlen);
-        MultiByteToWideChar(CP_UTF8, 0, "SGKit Fatal Error", -1, wtitle.data(), tlen);
-        MessageBoxW(nullptr, wmsg.c_str(), wtitle.c_str(), MB_OK | MB_ICONERROR);
-    }
+    MessageBoxA(nullptr, msg, "SGKit Fatal Error", MB_OK | MB_ICONERROR);
 #endif
 }
 
@@ -65,7 +55,7 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
 #ifdef _DEBUG
     AttachConsole();
 #endif
-    // -- Init modules in dependency order ---------------------------------
+    // -- Init modules in dependency order
 
     core::WindowDesc wd;
     wd.title                = config.title;
@@ -194,9 +184,7 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     return 0;
 }
 
-// ===================================================================
 //  Platform entry point - inside the library, hidden from user
-// ===================================================================
 
 #ifdef _WINDOWS
 

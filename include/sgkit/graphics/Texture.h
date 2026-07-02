@@ -23,8 +23,6 @@ public:
     Texture();
     ~Texture();
 
-    Texture(const Texture&) = delete;
-    Texture& operator=(const Texture&) = delete;
     Texture(Texture&& other) noexcept;
     Texture& operator=(Texture&& other) noexcept;
 
@@ -47,6 +45,9 @@ public:
     bool     IsValid() const     { return m_handle != 0; }
 
 private:
+    Texture(const Texture&) = delete;
+    Texture& operator=(const Texture&) = delete;
+
     uint32_t m_handle   = 0;
     int      m_width    = 0;
     int      m_height   = 0;
@@ -55,5 +56,5 @@ private:
     bool LoadBMP(const std::string& path);
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

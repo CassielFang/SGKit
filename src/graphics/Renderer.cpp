@@ -98,5 +98,5 @@ void Renderer::SetCullFace(bool enabled)
     }
 }
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

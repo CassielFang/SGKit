@@ -1,4 +1,4 @@
-# -- Sandbox: basic scene (cubes + floor + camera controls) ----------
+# -- Sandbox: basic scene (cubes + floor + camera controls)
 add_executable(sandbox WIN32 main.cpp ${CMAKE_SOURCE_DIR}/icon/app.rc)
 target_link_libraries(sandbox PRIVATE sgkit)
 

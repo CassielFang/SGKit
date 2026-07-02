@@ -39,5 +39,5 @@ private:
     math::Vector4 m_clearColor{0.1f, 0.1f, 0.15f, 1.0f};
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

@@ -29,5 +29,5 @@ VertexLayout& VertexLayout::PushUInt(int location, int count, bool normalized)
     return Push(location, count, AttribType::UnsignedInt, sizeof(uint32_t), normalized);
 }
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

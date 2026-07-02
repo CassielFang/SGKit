@@ -141,5 +141,5 @@ void VertexArray::Draw(DrawMode mode) const
     Unbind();
 }
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

@@ -61,5 +61,5 @@ public:
     bool enabled = true;
 };
 
-} // namespace scene
-} // namespace sgkit
+}
+}

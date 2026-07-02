@@ -16,8 +16,6 @@ public:
     Shader();
     ~Shader();
 
-    Shader(const Shader&) = delete;
-    Shader& operator=(const Shader&) = delete;
     Shader(Shader&& other) noexcept;
     Shader& operator=(Shader&& other) noexcept;
 
@@ -30,7 +28,7 @@ public:
     uint32_t GetHandle() const { return m_programID; }
     bool IsValid() const { return m_programID != 0; }
 
-    // -- Uniform helpers ------------------------------------------
+    // -- Uniform helpers
     void SetInt(const std::string& name, int value);
     void SetFloat(const std::string& name, float value);
     void SetVector2(const std::string& name, const math::Vector2& value);
@@ -39,6 +37,9 @@ public:
     void SetMatrix4(const std::string& name, const math::Matrix4& value);
 
 private:
+    Shader(const Shader&) = delete;
+    Shader& operator=(const Shader&) = delete;
+
     uint32_t m_programID = 0;
 
     int GetUniformLocation(const std::string& name) const;
@@ -48,5 +49,5 @@ private:
     void Release();
 };
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

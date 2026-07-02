@@ -17,16 +17,16 @@ public:
     Vector3(float x, float y, float z) : x(x), y(y), z(z) {}
     explicit Vector3(const Vector2& v2, float z = 0.0f) : x(v2.x), y(v2.y), z(z) {}
 
-    // -- Swizzle helpers ---------------------------------------
+    // -- Swizzle helpers
     Vector2 XY() const { return {x, y}; }
     Vector2 XZ() const { return {x, z}; }
     Vector2 YZ() const { return {y, z}; }
 
-    // -- Element access ----------------------------------------
+    // -- Element access
     float& operator[](int i) { return (&x)[i]; }
     const float& operator[](int i) const { return (&x)[i]; }
 
-    // -- Arithmetic --------------------------------------------
+    // -- Arithmetic
     Vector3 operator+(const Vector3& rhs) const { return {x + rhs.x, y + rhs.y, z + rhs.z}; }
     Vector3 operator-(const Vector3& rhs) const { return {x - rhs.x, y - rhs.y, z - rhs.z}; }
     Vector3 operator*(float s) const           { return {x * s, y * s, z * s}; }
@@ -45,7 +45,7 @@ public:
     }
     bool operator!=(const Vector3& rhs) const { return !(*this == rhs); }
 
-    // -- Vector operations -------------------------------------
+    // -- Vector operations
     float LengthSquared() const { return x * x + y * y + z * z; }
     float Length() const        { return std::sqrt(LengthSquared()); }
 
@@ -93,5 +93,5 @@ public:
 
 inline Vector3 operator*(float s, const Vector3& v) { return v * s; }
 
-} // namespace math
-} // namespace sgkit
+}
+}

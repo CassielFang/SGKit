@@ -172,5 +172,5 @@ void Shader::SetMatrix4(const std::string& name, const math::Matrix4& value)
     glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, value.Data());
 }
 
-} // namespace graphics
-} // namespace sgkit
+}
+}

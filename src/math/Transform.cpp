@@ -43,5 +43,5 @@ Matrix4 Transform::GetLocalMatrix() const
     return t * r * s;
 }
 
-} // namespace math
-} // namespace sgkit
+}
+}

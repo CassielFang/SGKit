@@ -80,5 +80,5 @@ void VertexBuffer::SetData(const void* data, size_t sizeInBytes, size_t offset) 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-} // namespace graphics
-} // namespace sgkit
+}
+}
