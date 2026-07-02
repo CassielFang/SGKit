@@ -19,9 +19,10 @@
 
 using namespace sgkit;
 
+#ifdef _DEBUG
 static void AttachConsole()
 {
-#if defined(_WINDOWS) && defined(_DEBUG)
+#ifdef _WINDOWS
     if (AllocConsole())
     {
         FILE* dummy;
@@ -34,13 +35,17 @@ static void AttachConsole()
 
 static void DetachConsole()
 {
-#if defined(_WINDOWS) && defined(_DEBUG)
+#ifdef _WINDOWS
     fclose(stdout);
     fclose(stderr);
     fclose(stdin);
     FreeConsole();
 #endif
 }
+#else
+#define AttachConsole() (void(0))
+#define DetachConsole() (void(0))
+#endif
 
 static void Fatal(const char* msg)
 {
@@ -52,9 +57,7 @@ static void Fatal(const char* msg)
 
 static int Run(HINSTANCE hInst, const ApplicationConfig& config)
 {
-#ifdef _DEBUG
     AttachConsole();
-#endif
     // -- Init modules in dependency order
 
     core::WindowDesc wd;
@@ -73,9 +76,7 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     {
         Fatal("Failed to create window. Please check you device.");
         core::Window::Destroy();
-#ifdef _DEBUG
         DetachConsole();
-#endif
         return 1;
     }
     core::Window& window = core::Window::instance();
@@ -88,9 +89,7 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
         core::Input::Destroy();
         core::ThreadPool::Destroy();
         core::Window::Destroy();
-#ifdef _DEBUG
         DetachConsole();
-#endif
         return 1;
     }
     core::Input& input = core::Input::instance();
@@ -178,9 +177,7 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     core::ThreadPool::Destroy();
     core::Window::Destroy();
 
-#ifdef _DEBUG
     DetachConsole();
-#endif
     return 0;
 }
 

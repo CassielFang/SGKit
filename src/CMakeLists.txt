@@ -40,22 +40,14 @@ set_target_properties(sgkit PROPERTIES
 )
 
 # -- Copy .lib (and .pdb) to lib/ for standalone distribution ------------------------
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 add_custom_command(TARGET sgkit POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_SOURCE_DIR}/lib
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:sgkit>
         ${CMAKE_SOURCE_DIR}/lib/
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE_DIR:sgkit>/$<TARGET_FILE_BASE_NAME:sgkit>.pdb
-        ${CMAKE_SOURCE_DIR}/lib/
+    COMMAND ${CMAKE_COMMAND} -E
+        $<IF:$<CONFIG:Debug>,copy_if_different,true>
+        $<IF:$<CONFIG:Debug>,$<TARGET_FILE_DIR:sgkit>/$<TARGET_FILE_BASE_NAME:sgkit>.pdb,true>
+        $<IF:$<CONFIG:Debug>,${CMAKE_SOURCE_DIR}/lib/,true>
+)
 
-)
-else()
-add_custom_command(TARGET sgkit POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_SOURCE_DIR}/lib
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:sgkit>
-        ${CMAKE_SOURCE_DIR}/lib/
-)
-endif()

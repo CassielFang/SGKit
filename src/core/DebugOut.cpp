@@ -25,6 +25,9 @@ void DebugOut(int code, char end)
     OutputDebugStringA(buff);
 #endif
 }
+#else
+void DebugOut([[maybe_unused]] const char* str, [[maybe_unused]] char end) {}
+void DebugOut([[maybe_unused]] int code, [[maybe_unused]] char end) {}
 #endif
 
 }
