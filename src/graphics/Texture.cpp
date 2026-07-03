@@ -2,11 +2,9 @@
 #include <sgkit/core/FileSystem.h>
 
 #include <glad/glad.h>
+#include <stb/stb_image.h>
 
 #include <cstdio>
-#include <cstring>
-#include <fstream>
-#include <vector>
 
 namespace sgkit {
 namespace graphics {
@@ -58,13 +56,66 @@ void Texture::Destroy()
 
 bool Texture::LoadFromFile(const std::string& path)
 {
-    std::string ext = core::FileSystem::GetExtension(path);
+    // Read the whole file into memory first (stbi can also load from file directly,
+    // but going through FileSystem keeps asset-path resolution consistent).
+    auto fileData = core::FileSystem::ReadBinary(path);
+    if (!fileData)
+    {
+        std::fprintf(stderr, "SGKit: Failed to read texture: %s\n", path.c_str());
+        return false;
+    }
 
-    if (ext == "bmp")
-        return LoadBMP(path);
+    // stb_image flips the image so that the first row is the bottom row
+    // (OpenGL convention).  Must be called before every stbi_load* call.
+    stbi_set_flip_vertically_on_load(true);
 
-    std::fprintf(stderr, "SGKit: Unsupported texture format: %s\n", ext.c_str());
-    return false;
+    int width, height, channels;
+    unsigned char* pixels = stbi_load_from_memory(
+        fileData->data(),
+        static_cast<int>(fileData->size()),
+        &width, &height, &channels,
+        0);  // 0 = desired_channels → keep original
+
+    if (!pixels)
+    {
+        std::fprintf(stderr, "SGKit: stb_image failed: %s  (%s)\n",
+                     stbi_failure_reason(), path.c_str());
+        return false;
+    }
+
+    TexDataFormat format;
+    TexInternalDataFormat internalFormat;
+    switch (channels)
+    {
+    case 1:
+        format         = TexDataFormat::Alpha;
+        internalFormat = TexInternalDataFormat::Alpha;
+        break;
+    case 3:
+        format         = TexDataFormat::RGB;
+        internalFormat = TexInternalDataFormat::RGB8;
+        break;
+    case 4:
+        format         = TexDataFormat::RGBA;
+        internalFormat = TexInternalDataFormat::RGBA8;
+        break;
+    default:
+        std::fprintf(stderr, "SGKit: Unexpected channel count %d: %s\n",
+                     channels, path.c_str());
+        stbi_image_free(pixels);
+        return false;
+    }
+
+    bool ok = Create(width, height, pixels, internalFormat, format);
+    stbi_image_free(pixels);
+
+    if (ok)
+    {
+        m_channels = channels;
+        std::printf("SGKit: Loaded texture  %s  (%dx%d, %d ch)\n",
+                    path.c_str(), width, height, channels);
+    }
+    return ok;
 }
 
 bool Texture::Create(int width, int height, const void* data,
@@ -75,29 +126,30 @@ bool Texture::Create(int width, int height, const void* data,
     GLenum internalFmt = 0;
     switch (internalFormat)
     {
-    case TexInternalDataFormat::Alpha: internalFmt = GL_ALPHA; break;
-    case TexInternalDataFormat::RGB: internalFmt = GL_RGB; break;
+    case TexInternalDataFormat::Alpha:   internalFmt = GL_ALPHA;   break;
+    case TexInternalDataFormat::RGB:     internalFmt = GL_RGB;     break;
     case TexInternalDataFormat::R3_G3_B2: internalFmt = GL_R3_G3_B2; break;
-    case TexInternalDataFormat::RGB4: internalFmt = GL_RGB4; break;
-    case TexInternalDataFormat::RGB5: internalFmt = GL_RGB5; break;
-    case TexInternalDataFormat::RGB8: internalFmt = GL_RGB8; break;
-    case TexInternalDataFormat::RGB10: internalFmt = GL_RGB10; break;
-    case TexInternalDataFormat::RGB12: internalFmt = GL_RGB12; break;
-    case TexInternalDataFormat::RGB16: internalFmt = GL_RGB16; break;
-    case TexInternalDataFormat::RGBA: internalFmt = GL_RGBA; break;
+    case TexInternalDataFormat::RGB4:    internalFmt = GL_RGB4;    break;
+    case TexInternalDataFormat::RGB5:    internalFmt = GL_RGB5;    break;
+    case TexInternalDataFormat::RGB8:    internalFmt = GL_RGB8;    break;
+    case TexInternalDataFormat::RGB10:   internalFmt = GL_RGB10;   break;
+    case TexInternalDataFormat::RGB12:   internalFmt = GL_RGB12;   break;
+    case TexInternalDataFormat::RGB16:   internalFmt = GL_RGB16;   break;
+    case TexInternalDataFormat::RGBA:    internalFmt = GL_RGBA;    break;
     case TexInternalDataFormat::RGB5_A1: internalFmt = GL_RGB5_A1; break;
-    case TexInternalDataFormat::RGBA8: internalFmt = GL_RGBA8; break;
-    case TexInternalDataFormat::RGB10_A2: internalFmt = GL_RGB10_A2; break;
-    case TexInternalDataFormat::RGBA12: internalFmt = GL_RGBA12; break;
-    case TexInternalDataFormat::RGBA16: internalFmt = GL_RGBA16; break;
+    case TexInternalDataFormat::RGBA8:   internalFmt = GL_RGBA8;   break;
+    case TexInternalDataFormat::RGB10_A2:internalFmt = GL_RGB10_A2;break;
+    case TexInternalDataFormat::RGBA12:  internalFmt = GL_RGBA12;  break;
+    case TexInternalDataFormat::RGBA16:  internalFmt = GL_RGBA16;  break;
     default: internalFmt = GL_RGBA8;
     }
+
     GLenum fmt = 0;
     switch (format)
     {
     case TexDataFormat::Alpha: fmt = GL_ALPHA; break;
-    case TexDataFormat::RGB: fmt = GL_RGB; break;
-    case TexDataFormat::RGBA: fmt = GL_RGBA; break;
+    case TexDataFormat::RGB:   fmt = GL_RGB;   break;
+    case TexDataFormat::RGBA:  fmt = GL_RGBA;  break;
     default: fmt = GL_RGBA;
     }
 
@@ -142,6 +194,11 @@ void Texture::Unbind() const
     }
 }
 
+void Texture::SetSlot(uint32_t slot)
+{
+    m_slot = slot;
+}
+
 void Texture::SetFilterLinear(bool linear) const
 {
     if (!m_handle) return;
@@ -165,127 +222,10 @@ void Texture::SetWrapRepeat(bool repeat) const
     Unbind();
 }
 
-int Texture::GetWidth() const
-{
-    return m_width;
-}
-
-int Texture::GetHeight() const
-{
-    return m_height;
-}
-
-uint32_t Texture::GetHandle() const
-{
-    return m_handle;
-}
-
-bool Texture::IsValid() const
-{
-    return m_handle != 0;
-}
-
-//  BMP Loader - minimal, uncompressed 24/32-bit BMP only
-
-#pragma pack(push, 1)
-struct BMPHeader
-{
-    uint16_t signature;   // 'BM'
-    uint32_t fileSize;
-    uint16_t reserved1;
-    uint16_t reserved2;
-    uint32_t dataOffset;
-};
-
-struct BMPInfoHeader
-{
-    uint32_t size;
-    int32_t  width;
-    int32_t  height;
-    uint16_t planes;
-    uint16_t bitCount;
-    uint32_t compression;
-    uint32_t imageSize;
-    int32_t  xPixelsPerMeter;
-    int32_t  yPixelsPerMeter;
-    uint32_t colorsUsed;
-    uint32_t colorsImportant;
-};
-#pragma pack(pop)
-
-bool Texture::LoadBMP(const std::string& path)
-{
-    auto data = core::FileSystem::ReadBinary(path);
-    if (!data)
-    {
-        std::fprintf(stderr, "SGKit: Failed to read BMP file: %s\n", path.c_str());
-        return false;
-    }
-
-    if (data->size() < sizeof(BMPHeader) + sizeof(BMPInfoHeader))
-    {
-        std::fprintf(stderr, "SGKit: BMP file too small\n");
-        return false;
-    }
-
-    const BMPHeader* header = reinterpret_cast<const BMPHeader*>(data->data());
-    if (header->signature != 0x4D42)  // 'BM'
-    {
-        std::fprintf(stderr, "SGKit: Not a valid BMP file\n");
-        return false;
-    }
-
-    const BMPInfoHeader* info = reinterpret_cast<const BMPInfoHeader*>(
-        data->data() + sizeof(BMPHeader));
-
-    if (info->compression != 0)
-    {
-        std::fprintf(stderr, "SGKit: Only uncompressed BMP is supported\n");
-        return false;
-    }
-
-    int width    = info->width;
-    int height   = std::abs(info->height);
-    bool topDown = info->height < 0;
-    int channels = info->bitCount / 8;
-
-    if (channels != 3 && channels != 4)
-    {
-        std::fprintf(stderr, "SGKit: Only 24/32-bit BMP is supported\n");
-        return false;
-    }
-
-    // BMP rows are 4-byte aligned
-    int rowSize = (width * channels + 3) & ~3;
-    const uint8_t* pixelData = data->data() + header->dataOffset;
-
-    // Copy pixels (BMP is stored BGR->RGB, bottom-up by default)
-    std::vector<uint8_t> pixels(width * height * channels);
-    for (int y = 0; y < height; ++y)
-    {
-        // BMP is already bottom-up; OpenGL also expects bottom-up.  No flip needed.
-        // Top-down BMPs (negative height in DIB header) get flipped once.
-        int srcY = topDown ? (height - 1 - y) : y;
-        const uint8_t* src = pixelData + srcY * rowSize;
-        uint8_t* dst = pixels.data() + y * width * channels;
-
-        for (int x = 0; x < width; ++x)
-        {
-            dst[x * channels + 0] = src[x * channels + 2];  // R
-            dst[x * channels + 1] = src[x * channels + 1];  // G
-            dst[x * channels + 2] = src[x * channels + 0];  // B
-            if (channels == 4)
-                dst[x * channels + 3] = src[x * channels + 3];  // A
-        }
-    }
-
-    TexDataFormat format =
-        (channels == 4) ? TexDataFormat::RGBA : TexDataFormat::RGB;
-    TexInternalDataFormat internalFormat =
-        (channels == 4) ? TexInternalDataFormat::RGBA8 : TexInternalDataFormat::RGB8;
-
-    return Create(width, height, pixels.data(), internalFormat, format);
-}
+int Texture::GetWidth() const  { return m_width; }
+int Texture::GetHeight() const { return m_height; }
+uint32_t Texture::GetHandle() const { return m_handle; }
+bool Texture::IsValid() const { return m_handle != 0; }
 
 }
 }

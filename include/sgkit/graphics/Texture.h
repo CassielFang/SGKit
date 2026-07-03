@@ -56,8 +56,6 @@ private:
     int      m_channels;
 
     static uint32_t g_currentHandle;
-    
-    bool LoadBMP(const std::string& path);
 };
 
 }

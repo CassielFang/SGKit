@@ -31,7 +31,7 @@ endif()
 target_compile_definitions(sgkit PRIVATE _WINDOWS)
 
 # -- Link dependencies
-target_link_libraries(sgkit PUBLIC glad ${SGK_PLATFORM_LIBS})
+target_link_libraries(sgkit PRIVATE glad stb ${SGK_PLATFORM_LIBS})
 
 # -- Output filename: Debug -> sgkit_d.lib, Release -> sgkit.lib ----------
 set_target_properties(sgkit PROPERTIES
