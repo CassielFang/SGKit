@@ -1,7 +1,7 @@
 # -- Collect sources by module
 file(GLOB_RECURSE SGK_SRC 
-    "math/*.cpp"
     "core/*.cpp"
+    "math/*.cpp"
     "graphics/*.cpp"
     "scene/*.cpp"
     "framework/*.cpp"
@@ -11,11 +11,11 @@ file(GLOB_RECURSE SGK_SRC
 add_library(sgkit STATIC ${SGK_SRC})
 
 target_include_directories(sgkit PUBLIC
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 # glad header and resource visible only inside sgkit, not to consumers
-target_include_directories(sgkit PRIVATE ${PROJECT_SOURCE_DIR}/icon)
+target_include_directories(sgkit PRIVATE ${CMAKE_SOURCE_DIR}/icon)
 
 # -- Compiler-specific options
 if(MSVC)

@@ -5,7 +5,11 @@
 namespace sgkit {
 namespace graphics {
 
-VertexBuffer::VertexBuffer() = default;
+uint32_t VertexBuffer::g_currentHandle = 0;
+
+VertexBuffer::VertexBuffer()
+    : m_handle(0)
+    , m_size(0) {}
 
 VertexBuffer::~VertexBuffer()
 {
@@ -64,12 +68,20 @@ void VertexBuffer::Destroy()
 
 void VertexBuffer::Bind() const
 {
-    glBindBuffer(GL_ARRAY_BUFFER, m_handle);
+    if (g_currentHandle != m_handle)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, m_handle);
+        g_currentHandle = m_handle;
+    }
 }
 
 void VertexBuffer::Unbind() const
 {
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    if (g_currentHandle != 0)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        g_currentHandle = 0;
+    }
 }
 
 void VertexBuffer::SetData(const void* data, size_t sizeInBytes, size_t offset) const
@@ -78,6 +90,21 @@ void VertexBuffer::SetData(const void* data, size_t sizeInBytes, size_t offset) 
     glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offset),
                     static_cast<GLsizeiptr>(sizeInBytes), data);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+uint32_t VertexBuffer::GetHandle() const
+{
+    return m_handle;
+}
+
+size_t VertexBuffer::GetSize() const
+{
+    return m_size;
+}
+
+bool VertexBuffer::IsValid() const
+{
+    return m_handle != 0;
 }
 
 }

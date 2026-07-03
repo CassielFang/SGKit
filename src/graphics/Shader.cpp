@@ -1,18 +1,15 @@
 #include <sgkit/graphics/Shader.h>
-#include <sgkit/core/FileSystem.h>
 
+#include <sgkit/core/FileSystem.h>
 #include <sgkit/core/DebugOut.h>
 #include <glad/glad.h>
-
-#include <cstdio>
-#include <fstream>
-#include <sstream>
-#include <vector>
 
 namespace sgkit {
 namespace graphics {
 
-Shader::Shader() = default;
+uint32_t Shader::g_currentID = 0;
+
+Shader::Shader() : m_programID(0) {}
 
 Shader::~Shader()
 {
@@ -61,10 +58,15 @@ uint32_t Shader::CompileShader(uint32_t type, const std::string& source)
     {
         char infoLog[512];
         glGetShaderInfoLog(id, 512, nullptr, infoLog);
-        if (type == GL_VERTEX_SHADER)
-            core::DebugOut("[ GLSL compiler  ]: shader compilation failed (vertex): ", '\0');
-        else
-            core::DebugOut("[ GLSL compiler  ]: shader compilation failed (fragment): ", '\0');
+        switch (type)
+        {
+        case GL_VERTEX_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (vertex): ", '\0'); break;
+        case GL_FRAGMENT_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (fragment): ", '\0'); break;
+        case GL_TESS_CONTROL_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (tess controll): ", '\0'); break;
+        case GL_TESS_EVALUATION_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (tess evaluation): ", '\0'); break;
+        case GL_COMPUTE_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (compute): ", '\0'); break;
+        default: core::DebugOut("[ GLSL compiler  ]: shader compilation failed: ", '\0');
+        }
         core::DebugOut(infoLog);
         glDeleteShader(id);
         return 0;
@@ -123,15 +125,33 @@ bool Shader::LoadFromSource(const std::string& vertexSource, const std::string& 
 
 void Shader::Bind() const
 {
-    glUseProgram(m_programID);
+    if (g_currentID != m_programID)
+    {
+        glUseProgram(m_programID);
+        g_currentID = m_programID;
+    }
 }
 
 void Shader::Unbind() const
 {
-    glUseProgram(0);
+    if (g_currentID != 0)
+    {
+        glUseProgram(0);
+        g_currentID = 0;
+    }
 }
 
-int Shader::GetUniformLocation(const std::string& name) const
+uint32_t Shader::GetHandle() const
+{
+    return m_programID;
+}
+
+bool Shader::IsValid() const
+{
+    return m_programID != 0;
+}
+
+int Shader::GetUniformLocation(const std::string& name)
 {
     auto it = m_uniformCache.find(name);
     if (it != m_uniformCache.end())

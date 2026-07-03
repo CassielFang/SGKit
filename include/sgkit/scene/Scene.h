@@ -3,6 +3,8 @@
 #include <sgkit/scene/Entity.h>
 #include <sgkit/scene/ComponentPool.h>
 #include <sgkit/scene/Components.h>
+#include <sgkit/graphics/RenderQueue.h>
+#include <sgkit/graphics/Renderer.h>
 
 namespace sgkit {
 namespace scene {
@@ -25,8 +27,20 @@ public:
     template<typename T> bool HasComponent(Entity entity) const;
 
     void RecomputeWorldTransforms();
+    math::Matrix4 GetWorldMatrix(Entity entity) const;
 
-    void OnRender(Entity cameraEntity);
+    /**
+    * Build a draw-call queue from the current scene state.
+    * The queue is NOT sorted yet - call Sort() on it afterwards,
+    * or use Render() which does everything in one call.
+    */
+    graphics::RenderQueue BuildRenderQueue();
+
+    // Collect every active Light component into LightData for the renderer.
+    std::vector<graphics::LightData> CollectLights();
+
+    // One-call convenience: build queue, sort, set frame data, clear, draw.
+    void Render(Entity cameraEntity);
 
 private:
     Scene() = default;
@@ -34,8 +48,8 @@ private:
 
     Scene(const Scene&) = delete;
     Scene& operator=(const Scene&) = delete;
-    Scene(const Scene&&) = delete;
-    Scene& operator=(const Scene&&) = delete;
+    Scene(Scene&&) = delete;
+    Scene& operator=(Scene&&) = delete;
 
     Entity m_nextEntity = 0;
     std::vector<Entity> m_aliveEntities;
@@ -48,9 +62,7 @@ private:
     template<typename T> ComponentPool<T>& GetPool();
     template<typename T> const ComponentPool<T>& GetPool() const;
 
-    int m_width = 0, m_height = 0;
     std::vector<math::Matrix4> m_worldMatrices;
-    math::Matrix4 GetWorldMatrix(Entity entity) const;
 };
 
 template<typename T> T* Scene::AddComponent(Entity e) { return GetPool<T>().Add(e); }

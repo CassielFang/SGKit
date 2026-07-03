@@ -5,34 +5,36 @@
 namespace sgkit {
 namespace graphics {
 
-class Framebuffer
+class FrameBuffer
 {
 public:
-    Framebuffer();
-    ~Framebuffer();
+    FrameBuffer();
+    ~FrameBuffer();
 
-    Framebuffer(Framebuffer&&) noexcept;
-    Framebuffer& operator=(Framebuffer&&) noexcept;
+    FrameBuffer(FrameBuffer&&) noexcept;
+    FrameBuffer& operator=(FrameBuffer&&) noexcept;
 
     bool Create(int width, int height);
     void Destroy();
-    bool IsValid() const { return m_fbo != 0; }
+    bool IsValid() const;
 
     void Bind() const;
     void Unbind() const;
 
-    uint32_t GetDepthTexture() const { return m_depthTexture; }
-    int GetWidth()  const { return m_width; }
-    int GetHeight() const { return m_height; }
+    uint32_t GetDepthTexture() const;
+    int GetWidth() const;
+    int GetHeight() const;
 
 private:
-    Framebuffer(const Framebuffer&) = delete;
-    Framebuffer& operator=(const Framebuffer&) = delete;
+    FrameBuffer(const FrameBuffer&) = delete;
+    FrameBuffer& operator=(const FrameBuffer&) = delete;
 
-    uint32_t m_fbo = 0;
-    uint32_t m_depthTexture = 0;
-    int m_width  = 0;
-    int m_height = 0;
+    uint32_t m_fbo;
+    uint32_t m_depthTexture;
+    int m_width;
+    int m_height;
+
+    static uint32_t g_currentFBO;
 };
 
 }

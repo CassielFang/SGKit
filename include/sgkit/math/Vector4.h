@@ -31,8 +31,8 @@ public:
     // -- Arithmetic
     Vector4 operator+(const Vector4& rhs) const { return {x + rhs.x, y + rhs.y, z + rhs.z, w + rhs.w}; }
     Vector4 operator-(const Vector4& rhs) const { return {x - rhs.x, y - rhs.y, z - rhs.z, w - rhs.w}; }
-    Vector4 operator*(float s) const           { return {x * s, y * s, z * s, w * s}; }
-    Vector4 operator/(float s) const           { return {x / s, y / s, z / s, w / s}; }
+    Vector4 operator*(float s) const            { return {x * s, y * s, z * s, w * s}; }
+    Vector4 operator/(float s) const            { return {x / s, y / s, z / s, w / s}; }
 
     Vector4& operator+=(const Vector4& rhs) { x += rhs.x; y += rhs.y; z += rhs.z; w += rhs.w; return *this; }
     Vector4& operator-=(const Vector4& rhs) { x -= rhs.x; y -= rhs.y; z -= rhs.z; w -= rhs.w; return *this; }

@@ -29,16 +29,18 @@ public:
 
     void SetData(const void* data, size_t sizeInBytes, size_t offset = 0) const;
 
-    uint32_t GetHandle() const { return m_handle; }
-    size_t   GetSize() const   { return m_size; }
-    bool     IsValid() const   { return m_handle != 0; }
+    uint32_t GetHandle() const;
+    size_t   GetSize() const;
+    bool     IsValid() const;
 
 private:
     VertexBuffer(const VertexBuffer&) = delete;
     VertexBuffer& operator=(const VertexBuffer&) = delete;
 
-    uint32_t m_handle = 0;
-    size_t   m_size   = 0;
+    uint32_t m_handle;
+    size_t   m_size;
+
+    static uint32_t g_currentHandle;
 };
 
 }

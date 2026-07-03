@@ -29,5 +29,15 @@ VertexLayout& VertexLayout::PushUInt(int location, int count, bool normalized)
     return Push(location, count, AttribType::UnsignedInt, sizeof(uint32_t), normalized);
 }
 
+size_t VertexLayout::GetStride() const
+{
+    return m_stride;
+}
+
+const std::vector<VertexAttribute>& VertexLayout::GetAttributes() const
+{
+    return m_attributes;
+}
+
 }
 }

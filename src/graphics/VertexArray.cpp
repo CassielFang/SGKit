@@ -7,7 +7,9 @@
 namespace sgkit {
 namespace graphics {
 
-VertexArray::VertexArray() = default;
+uint32_t VertexArray::g_currentHandle = 0;
+
+VertexArray::VertexArray() : m_handle(0) {}
 
 VertexArray::~VertexArray()
 {
@@ -54,12 +56,20 @@ void VertexArray::Destroy()
 
 void VertexArray::Bind() const
 {
-    glBindVertexArray(m_handle);
+    if (g_currentHandle != m_handle)
+    {
+        glBindVertexArray(m_handle);
+        g_currentHandle = m_handle;
+    }
 }
 
 void VertexArray::Unbind() const
 {
-    glBindVertexArray(0);
+    if (g_currentHandle != 0)
+    {
+        glBindVertexArray(0);
+        g_currentHandle = 0;
+    }
 }
 
 void VertexArray::AddVertexBuffer(std::shared_ptr<VertexBuffer> vb, const VertexLayout& layout)
@@ -139,6 +149,16 @@ void VertexArray::Draw(DrawMode mode) const
         glDrawArrays(mode_gl, 0, static_cast<GLsizei>(m_vertexBuffer->GetSize() / sizeof(float) / 3));
     }
     Unbind();
+}
+
+uint32_t VertexArray::GetHandle() const
+{
+    return m_handle;
+}
+
+bool VertexArray::IsValid() const
+{
+    return m_handle != 0;
 }
 
 }

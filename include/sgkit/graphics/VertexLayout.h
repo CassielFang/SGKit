@@ -33,8 +33,8 @@ public:
     VertexLayout& PushFloat(int location, int count, bool normalized = false);
     VertexLayout& PushUInt(int location, int count, bool normalized = false);
 
-    size_t GetStride() const { return m_stride; }
-    const std::vector<VertexAttribute>& GetAttributes() const { return m_attributes; }
+    size_t GetStride() const;
+    const std::vector<VertexAttribute>& GetAttributes() const;
 
 private:
     std::vector<VertexAttribute> m_attributes;

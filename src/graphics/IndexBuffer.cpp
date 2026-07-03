@@ -5,7 +5,11 @@
 namespace sgkit {
 namespace graphics {
 
-IndexBuffer::IndexBuffer() = default;
+uint32_t IndexBuffer::g_currentHandle = 0;
+
+IndexBuffer::IndexBuffer()
+    : m_handle(0)
+    , m_count(0) {}
 
 IndexBuffer::~IndexBuffer()
 {
@@ -65,12 +69,35 @@ void IndexBuffer::Destroy()
 
 void IndexBuffer::Bind() const
 {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_handle);
+    if (g_currentHandle != m_handle)
+    {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_handle);
+        g_currentHandle = m_handle;
+    }
 }
 
 void IndexBuffer::Unbind() const
 {
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    if (g_currentHandle != 0)
+    {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        g_currentHandle = 0;
+    }
+}
+
+uint32_t IndexBuffer::GetHandle() const
+{
+    return m_handle;
+}
+
+size_t IndexBuffer::GetCount() const
+{
+    return m_count;
+}
+
+bool IndexBuffer::IsValid() const
+{
+    return m_handle != 0;
 }
 
 }

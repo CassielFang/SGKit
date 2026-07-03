@@ -20,16 +20,18 @@ public:
     void Bind() const;
     void Unbind() const;
 
-    uint32_t GetHandle() const { return m_handle; }
-    size_t   GetCount() const  { return m_count; }
-    bool     IsValid() const   { return m_handle != 0; }
+    uint32_t GetHandle() const;
+    size_t   GetCount() const;
+    bool     IsValid() const;
 
 private:
     IndexBuffer(const IndexBuffer&) = delete;
     IndexBuffer& operator=(const IndexBuffer&) = delete;
 
-    uint32_t m_handle = 0;
-    size_t   m_count  = 0;
+    uint32_t m_handle;
+    size_t   m_count;
+
+    static uint32_t g_currentHandle;
 };
 
 }

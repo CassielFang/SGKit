@@ -2,9 +2,6 @@
 
 #include <sgkit/core/KeyCodes.h>
 
-#include <array>
-#include <cstdint>
-
 namespace sgkit {
 namespace core {
 
@@ -35,7 +32,7 @@ public:
     float GetScrollDelta() const; // positive when scrolling forward
 
 private:
-    Input() = default;
+    Input();
     ~Input() = default;
 
     Input(const Input&) = delete;
@@ -44,19 +41,19 @@ private:
     Input& operator=(const Input&&) = delete;
 
     static constexpr size_t k_KeyCount = static_cast<size_t>(KeyCode::k_Count);
-    static constexpr size_t k_MouseButtonCount = 5;
+    static constexpr size_t k_MouseButtonCount = static_cast<size_t>(MouseButton::k_Count);
 
-    int m_current = 0;
-    uint8_t m_Keys[2][k_KeyCount]{};
-    uint8_t m_Mouse[2][k_MouseButtonCount]{};
+    int m_current;
+    uint8_t m_Keys[2][k_KeyCount];
+    uint8_t m_Mouse[2][k_MouseButtonCount];
 
-    float m_mouseX        = 0.0f;
-    float m_mouseY        = 0.0f;
-    float m_mouseDeltaX   = 0.0f;
-    float m_mouseDeltaY   = 0.0f;
-    float m_scrollDelta   = 0.0f;
+    float m_mouseX;
+    float m_mouseY;
+    float m_mouseDeltaX;
+    float m_mouseDeltaY;
+    float m_scrollDelta;
 
-    void* m_hWindowHandle = nullptr;
+    void* m_hWindowHandle;
 };
 
 }

@@ -7,7 +7,7 @@ namespace core {
 
 enum class MouseButton : uint16_t
 {
-    Left = 0, Right, Middle, Back, Forward
+    Left = 0, Right, Middle, Back, Forward, k_Count
 };
 
 enum class KeyCode : uint16_t

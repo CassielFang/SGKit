@@ -1,18 +1,24 @@
-#include <sgkit/graphics/Framebuffer.h>
+#include <sgkit/graphics/FrameBuffer.h>
 
 #include <glad/glad.h>
 
 namespace sgkit {
 namespace graphics {
 
-Framebuffer::Framebuffer() = default;
+uint32_t FrameBuffer::g_currentFBO = 0;
 
-Framebuffer::~Framebuffer()
+FrameBuffer::FrameBuffer()
+    : m_fbo(0)
+    , m_depthTexture(0)
+    , m_width(0)
+    , m_height(0) {}
+
+FrameBuffer::~FrameBuffer()
 {
     Destroy();
 }
 
-Framebuffer::Framebuffer(Framebuffer&& other) noexcept
+FrameBuffer::FrameBuffer(FrameBuffer&& other) noexcept
     : m_fbo(other.m_fbo), m_depthTexture(other.m_depthTexture),
       m_width(other.m_width), m_height(other.m_height)
 {
@@ -20,7 +26,7 @@ Framebuffer::Framebuffer(Framebuffer&& other) noexcept
     other.m_depthTexture = 0;
 }
 
-Framebuffer& Framebuffer::operator=(Framebuffer&& other) noexcept
+FrameBuffer& FrameBuffer::operator=(FrameBuffer&& other) noexcept
 {
     if (this != &other)
     {
@@ -35,7 +41,7 @@ Framebuffer& Framebuffer::operator=(Framebuffer&& other) noexcept
     return *this;
 }
 
-bool Framebuffer::Create(int width, int height)
+bool FrameBuffer::Create(int width, int height)
 {
     Destroy();
 
@@ -65,26 +71,53 @@ bool Framebuffer::Create(int width, int height)
     bool ok = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    if (!ok)
-        Destroy();
+    if (!ok) Destroy();
 
     return ok;
 }
 
-void Framebuffer::Destroy()
+void FrameBuffer::Destroy()
 {
     if (m_depthTexture) { glDeleteTextures(1, &m_depthTexture); m_depthTexture = 0; }
     if (m_fbo)          { glDeleteFramebuffers(1, &m_fbo); m_fbo = 0; }
 }
 
-void Framebuffer::Bind() const
+bool FrameBuffer::IsValid() const
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
+    return m_fbo != 0;
 }
 
-void Framebuffer::Unbind() const
+void FrameBuffer::Bind() const
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (g_currentFBO != m_fbo)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
+        g_currentFBO = m_fbo;
+    }
+}
+
+void FrameBuffer::Unbind() const
+{
+    if (g_currentFBO != 0)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        g_currentFBO = 0;
+    }
+}
+
+uint32_t FrameBuffer::GetDepthTexture() const
+{ 
+    return m_depthTexture;
+}
+
+int FrameBuffer::GetWidth()  const 
+{
+    return m_width;
+}
+
+int FrameBuffer::GetHeight() const
+{
+    return m_height;
 }
 
 }

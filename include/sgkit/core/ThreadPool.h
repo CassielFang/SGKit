@@ -48,7 +48,7 @@ private:
 
     mutable std::mutex m_mutex;
     mutable std::future<T> m_future;
-    bool m_consumed = false;
+    bool m_consumed;
 };
 
 // TaskHandle<void> - same API, Get() returns nothing.
@@ -73,7 +73,7 @@ private:
 
     mutable std::mutex m_mutex;
     mutable std::future<void> m_future;
-    bool m_consumed = false;
+    bool m_consumed;
 };
 
 // ThreadPool - fixed-size thread pool (singleton).
@@ -108,8 +108,8 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_condition;
     std::condition_variable m_finished;
-    std::atomic<bool> m_stop{false};
-    std::atomic<size_t> m_activeTasks{0};
+    std::atomic<bool> m_stop;
+    std::atomic<size_t> m_activeTasks;
 };
 
 }

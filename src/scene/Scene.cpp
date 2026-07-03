@@ -2,7 +2,7 @@
 
 #include <sgkit/core/DebugOut.h>
 #include <sgkit/core/Window.h>
-#include <sgkit/graphics/Renderer.h>
+
 #include <cstdio>
 
 sgkit::scene::Scene* g_Scene = nullptr;
@@ -96,53 +96,85 @@ void Scene::RecomputeWorldTransforms()
     }
 }
 
-void Scene::OnRender(Entity cameraEntity)
+math::Matrix4 Scene::GetWorldMatrix(Entity entity) const
 {
-    Camera* cam = m_cameras.Get(cameraEntity);
-    Transform* camTransform = m_transforms.Get(cameraEntity);
-    if (!cam) return;
+    if (entity.m_id < m_worldMatrices.size())
+        return m_worldMatrices[entity.m_id];
+    return math::Matrix4::Identity();
+}
 
-    core::Window& window = core::Window::instance();
-    float aspect = static_cast<float>(window.GetWidth()) / static_cast<float>(window.GetHeight());
+// -- Render pipeline
 
-    // Build frame-level render context from camera.
-    graphics::RenderContext ctx;
-    math::Matrix4 viewMatrix = math::Matrix4::Identity();
-    if (camTransform)
+graphics::RenderQueue Scene::BuildRenderQueue()
+{
+    graphics::RenderQueue queue;
+
+    for (Entity e : m_aliveEntities)
     {
-        viewMatrix = cam->GetViewMatrix(GetWorldMatrix(cameraEntity));
-        ctx.cameraPos = camTransform->position;
+        MeshRenderer* mr = m_meshRenderers.Get(e);
+        if (mr && mr->enabled && mr->mesh)
+            queue.Submit(mr->mesh, GetWorldMatrix(e));
     }
-    math::Matrix4 projMatrix = cam->GetProjectionMatrix(aspect);
-    ctx.viewProjection = projMatrix * viewMatrix;
 
-    // Collect the first light into the context.
-    for (Entity& e : m_aliveEntities)
+    return queue;
+}
+
+std::vector<graphics::LightData> Scene::CollectLights()
+{
+    std::vector<graphics::LightData> lights;
+
+    for (Entity e : m_aliveEntities)
     {
         Light* light = m_lights.Get(e);
         if (light)
         {
             Transform* lt = m_transforms.Get(e);
-            ctx.light.position = lt ? lt->position : math::Vector3{};
-            ctx.light.ambient  = light->ambient;
-            ctx.light.diffuse  = light->diffuse;
-            ctx.light.specular = light->specular;
-            ctx.hasLight = true;
-            break;
+
+            graphics::LightData data;
+            data.position = lt ? lt->position : math::Vector3{};
+            data.ambient  = light->ambient;
+            data.diffuse  = light->diffuse;
+            data.specular = light->specular;
+            lights.push_back(data);
         }
     }
 
-    graphics::Renderer::instance().Clear();
-
-    // Draw every entity that has a MeshRenderer.
-    // Mesh::Render() handles all uniform setup and the GL draw call.
-    for (Entity& e : m_aliveEntities)
-    {
-        MeshRenderer* mr = m_meshRenderers.Get(e);
-        if (mr && mr->enabled && mr->mesh)
-            mr->mesh->Render(GetWorldMatrix(e), ctx);
-    }
+    return lights;
 }
+
+void Scene::Render(Entity cameraEntity)
+{
+    Camera*    cam          = m_cameras.Get(cameraEntity);
+    Transform* camTransform = m_transforms.Get(cameraEntity);
+    if (!cam) return;
+
+    // 1. Build and sort the render queue.
+    graphics::RenderQueue queue = BuildRenderQueue();
+    math::Vector3 cameraPos = camTransform ? camTransform->position : math::Vector3{0.0f, 0.0f, 0.0f};
+    queue.Sort(cameraPos);
+
+    // 2. Camera matrices.
+    core::Window& window = core::Window::instance();
+    float aspect = static_cast<float>(window.GetWidth()) / static_cast<float>(window.GetHeight());
+
+    math::Matrix4 viewMatrix = math::Matrix4::Identity();
+    if (camTransform)
+        viewMatrix = cam->GetViewMatrix(GetWorldMatrix(cameraEntity));
+    math::Matrix4 projMatrix = cam->GetProjectionMatrix(aspect);
+
+    // 3. Feed frame data to the renderer.
+    graphics::Renderer& renderer = graphics::Renderer::instance();
+    renderer.SetViewProjection(projMatrix * viewMatrix);
+    renderer.SetCameraPosition(cameraPos);
+    renderer.SetAmbientLight({0.1f, 0.1f, 0.15f});
+    renderer.SetLights(CollectLights());
+
+    // 4. Draw.
+    renderer.Clear();
+    renderer.Execute(queue);
+}
+
+// -- Template specialisations
 
 template<> ComponentPool<Transform>& Scene::GetPool<Transform>()       { return m_transforms; }
 template<> ComponentPool<Camera>& Scene::GetPool<Camera>()             { return m_cameras; }
@@ -153,13 +185,6 @@ template<> const ComponentPool<Transform>& Scene::GetPool<Transform>()       con
 template<> const ComponentPool<Camera>& Scene::GetPool<Camera>()             const { return m_cameras; }
 template<> const ComponentPool<Light>& Scene::GetPool<Light>()               const { return m_lights; }
 template<> const ComponentPool<MeshRenderer>& Scene::GetPool<MeshRenderer>() const { return m_meshRenderers; }
-
-math::Matrix4 Scene::GetWorldMatrix(Entity entity) const
-{
-    if (entity.m_id < m_worldMatrices.size())
-        return m_worldMatrices[entity.m_id];
-    return math::Matrix4::Identity();
-}
 
 }
 }

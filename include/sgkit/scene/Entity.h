@@ -5,7 +5,8 @@
 namespace sgkit {
 namespace scene {
 
-class Entity {
+class Entity
+{
 public:
 	Entity();
 	Entity(uint32_t id);

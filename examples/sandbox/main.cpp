@@ -268,8 +268,7 @@ ApplicationConfig sgkit::CreateApplication()
 
     config.onRender = []()
     {
-        GetScene().OnRender(GetRenderer(), s_cameraEntity,
-                            GetWindow().GetWidth(), GetWindow().GetHeight());
+        GetScene().Render(s_cameraEntity);
     };
 
     return config;

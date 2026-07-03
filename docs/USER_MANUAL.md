@@ -70,7 +70,7 @@ Framework 是引擎的入口层，把平台细节（`WinMain`,消息循环,控�
 | `glMinor` | `int` | `6` | 请求的 OpenGL 次版本号--引擎依次尝试 4.6 -> 3.3 -> Legacy，只要任一成功即启动 |
 | `onInit` | `function<bool()>` | - | 引擎完成窗口+GL+输入初始化后调用。**返回 `false` 表示初始化失败，程序退出** |
 | `onUpdate` | `function<void(float)>` | - | 每帧调用一次，参数 `dt` 为上一帧到本帧的间隔（秒）。`dt` 值与 `GetDeltaTime()` 完全相同，只是省去手动获取 |
-| `onRender` | `function<void()>` | - | 每帧调用一次，紧接在 `onUpdate` 之后。通常在此调用 `GetScene().OnRender(...)` |
+| `onRender` | `function<void()>` | - | 每帧调用一次，紧接在 `onUpdate` 之后。通常在此调用 `Scene::instance().Render(cameraEntity)` |
 | `onShutdown` | `function<void()>` | - | 窗口关闭后,引擎销毁前调用一次，用于清理用户资源 |
 
 ### 引擎全局函数
@@ -509,67 +509,134 @@ tex->GetWidth(), tex->GetHeight();
 
 ### Material
 
-材质 = Shader + 纹理 + 颜色/反光度参数。控制物体对光照的响应程度。
+材质 = Shader + 纹理 + 渲染状态。控制物体的外观和 GPU 状态（混合模式、剔除面、深度写入等）。渲染状态被 Renderer 在执行 RenderQueue 时读取，决定 GL 管线如何绘制该材质。
 
 ```cpp
 auto mat = std::make_shared<Material>();
-mat->shader         = myShader;          // 必须--着色器程序
-mat->diffuseTexture = myTex;            // 可选--漫反射纹理
+mat->shader   = myShader;    // 必须 - 着色器程序
+mat->diffuse  = myTex;       // 可选 - 漫反射纹理（绑定到单元 0）
+mat->specular = {0.5f, 0.5f, 0.5f};
+mat->shininess = 32.0f;
 
-mat->ambientColor  = {0.2f, 0.2f, 0.2f};  // 环境光反射率（暗面基底颜色）
-mat->diffuseColor  = {0.8f, 0.8f, 0.8f};  // 漫反射率（亮面主色）
-mat->specularColor = {1.0f, 1.0f, 1.0f};  // 高光颜色
-mat->shininess     = 64.0f;                // 高光锐度--越大高光越集中越小
-mat->opacity       = 1.0f;                 // 不透明度
-
-mat->Apply();  // 绑定 shader + 上传 material uniform + 绑定纹理到单元 0
-// 通常不直接调用 Apply()，而是通过 Mesh::Render() 间接调用
+// 渲染状态（决定"怎么画"）
+mat->blendMode = BlendMode::Opaque;      // Opaque / AlphaBlend / Additive
+mat->cullMode  = CullMode::Back;         // Back / Front / None
+mat->depthMode = DepthMode::ReadWrite;   // ReadWrite / ReadOnly / None
+mat->renderQueue = 0;                    // 同混合模式内的排序偏移（越大越靠后画）
 ```
+
+**渲染状态说明**：
+
+| 枚举 | 值 | 含义 |
+|------|-----|------|
+| `BlendMode::Opaque` | 不透明 | 关闭混合，写入深度 |
+| `BlendMode::AlphaBlend` | Alpha 混合 | `glBlendFunc(SRC_ALPHA, ONE_MINUS_SRC_ALPHA)`，自动进入透明队列 |
+| `BlendMode::Additive` | 叠加混合 | `glBlendFunc(SRC_ALPHA, ONE)`，适合粒子/光晕 |
+| `CullMode::Back` | 剔除背面 | 默认，逆时针面不渲染 |
+| `CullMode::Front` | 剔除正面 | 用于翻转几何体 |
+| `CullMode::None` | 双面渲染 | 树叶、纸片等 |
+| `DepthMode::ReadWrite` | 读写深度 | 默认 |
+| `DepthMode::ReadOnly` | 只读深度 | 粒子等不写深度的物体 |
+| `DepthMode::None` | 无深度测试 | UI 等始终绘制在最上层的元素 |
+
+Material 不再有 `Apply()` 方法 - 渲染时的状态绑定由 `Renderer::ExecuteBatch()` 内部处理。
 
 ### Mesh
 
-渲染单元 = VAO（几何数据）+ Material（外观）。
+纯数据容器 - 把 VAO（几何）和 Material（外观）打包在一起。不再有 `Render()` 方法，渲染逻辑已移至 Renderer。
 
 ```cpp
 auto mesh = std::make_shared<Mesh>();
-mesh->vertexArray = va;
-mesh->material    = mat;
-
-mesh->Render();  // = material->Apply() + vertexArray->Draw()
+mesh->vertexArray = va;   // 共享的几何数据
+mesh->material    = mat;  // 共享的材质
+// 就这样 - 没有 Render() 方法
 ```
+
+Mesh 只是一个"标签"，表示"用这种材质画这个几何"。多个 Entity 可以共享同一个 Mesh（引用相同的 VAO + Material），引擎内部会按 (Shader, Material, VAO) 自动合并为同一批次，减少 GL 状态切换。
+
+### RenderQueue
+
+由 Scene 构建、Renderer 执行的渲染命令队列。按 (Shader -> Material -> VAO) 分组为 Batch，执行时每条 Batch 只需一次状态切换。
+
+用户一般不直接操作 RenderQueue，但底层 graphics 用户可手动构建：
+
+```cpp
+graphics::RenderQueue queue;
+
+// 提交网格实例（自动合并同 Shader+Material+VAO 的实例）
+queue.Submit(mesh1, worldMatrix1);
+queue.Submit(mesh1, worldMatrix2);  // 同 mesh -> 合并到同批次
+queue.Submit(mesh2, worldMatrix3);  // 不同 shader -> 新批次
+
+// 排序：opaque 按材质键排序，transparent 按深度排序
+queue.Sort(cameraPos);
+
+// 交给 Renderer 执行
+renderer.Execute(queue);
+```
+
+**两队列设计**：
+- `GetOpaqueBatches()` - 不透明队列，按 (Shader*, Material*, VAO*) 排序以最小化状态切换
+- `GetTransparentBatches()` - 半透明队列（BlendMode 非 Opaque 的材质），按深度从远到近排序确保混合正确
 
 ### Renderer
 
-全局渲染器，管理清屏,视口和 GL 状态开关。通过 `GetRenderer()` 获取。
+全局渲染器，管理清屏、视口、GL 状态，以及帧级渲染数据（摄像机、光源）。通过 `GetRenderer()` 获取。
 
 ```cpp
 auto& r = GetRenderer();
 
-r.SetClearColor({0.1f, 0.1f, 0.15f, 1.0f});  // 设置清屏色（RGBA）
-r.Clear();                                      // 清除颜色 + 深度缓冲
+// -- 清屏与视口
+r.SetClearColor({0.1f, 0.1f, 0.15f, 1.0f});
+r.Clear();                                // 清除颜色 + 深度缓冲
+r.SetViewport(0, 0, w, h);
 
-r.SetViewport(0, 0, w, h);                      // 设置渲染视口（左下角 + 宽高）
+// -- GL 状态控制（底层 graphics 用户使用）
+r.SetDepthTest(true);   // 深度测试开关
+r.SetCullFace(true);    // 背面剔除开关
+r.SetBlend(true);       // 混合开关
+r.SetWireframe(true);   // 线框模式
 
-// GL 状态控制
-r.SetDepthTest(true);   // 开启深度测试（默认）--物体前后遮挡正确
-r.SetDepthTest(false);  // 关闭--后画的覆盖先画的
-r.SetCullFace(true);    // 开启背面剔除（默认）--逆时针面不渲染
-r.SetCullFace(false);   // 关闭--双面渲染
-r.SetBlend(true);       // 开启混合--透明物体需要
-r.SetBlend(false);      // 关闭混合
-r.SetWireframe(true);   // 线框模式--调试用
-r.SetWireframe(false);  // 回到实体填充
+// -- 帧级数据设置（替代旧的 RenderContext）
+r.SetViewProjection(viewProj);             // 视图×投影矩阵
+r.SetCameraPosition(cameraPos);            // 摄像机世界坐标
+r.SetAmbientLight({0.1f, 0.1f, 0.15f});  // 环境光颜色
+r.SetLights(lightDataVec);                // 多光源数据（见 LightData）
 
-r.Draw(mesh);           // 画一个完整 Mesh
-r.Draw(va);             // 直接画 VAO（绕过 Material，适用特殊 shader）
+// -- 执行渲染队列（Scene 用户通常不直接调用）
+r.Execute(queue);     // 两 pass：opaque -> transparent
+
+// -- 底层绘制（绕过 Scene，直接用 graphics）
+r.Draw(va);           // 直接绘制 VAO（不设置任何 uniform/状态）
 ```
 
-### Framebuffer
+**两 Pass 渲染流程** (`Execute` 内部)：
+
+| Pass | 深度缓冲 | 混合 | 顺序 |
+|------|----------|------|------|
+| Opaque | 读写 | 关闭 | 按 (Shader, Material, VAO) 排序 -> 最小化状态切换 |
+| Transparent | 只读 | 开启 | 按深度从远到近排序 -> 确保半透明混合正确 |
+
+每 Batch 内：ApplyBatchState（应用材质的 blend/cull/depth）-> SetFrameUniforms -> 逐个实例 set u_Model + Draw。
+
+**LightData** - Renderer 使用的光源数据结构：
+```cpp
+Graphics::LightData light;
+light.position = {0.8f, 1.0f, 1.2f};
+light.ambient  = {0.2f, 0.2f, 0.2f};
+light.diffuse  = {0.5f, 0.5f, 0.5f};
+light.specular = {1.0f, 1.0f, 1.0f};
+// 传给 Renderer: renderer.SetLights({light1, light2, ...});
+```
+
+Shader 中可通过 `u_LightCount` + `u_Lights[i].position/ambient/diffuse/specular` 访问多光源。向后兼容：单光源 shader 仍可使用 `u_Light.position/ambient/diffuse/specular`（取首光源）。
+
+### FrameBuffer
 
 离屏渲染目标。当前实现为深度专用 FBO（用于阴影贴图），后续可扩展颜色附件。
 
 ```cpp
-Framebuffer fbo;
+FrameBuffer fbo;
 bool ok = fbo.Create(2048, 2048);    // 创建 2048×2048 深度纹理 FBO
 // 内部：GL_DEPTH_COMPONENT + GL_FLOAT，NEAREST 过滤，CLAMP_TO_BORDER 环绕（边界值=1.0）
 
@@ -681,11 +748,11 @@ tf.GetLocalMatrix();               // 仅自身的 Scale->Rotate->Translate
 scene.GetWorldMatrix(entity);      // 考虑父子层级累乘的世界矩阵
 ```
 
-**OnUpdate 行为**：引擎每帧调用 `scene.OnUpdate(dt)` -> 内部调用 `RecomputeWorldTransforms()`。算法：先重置所有实体为 local 矩阵，然后从根到叶迭代累乘 parent * local，直到稳定（最多 100 轮迭代）。
+**Transform 更新**：引擎主循环每帧调用 `scene.RecomputeWorldTransforms()`，算法：先重置所有实体为 local 矩阵，然后从根到叶迭代累乘 parent * local，直到稳定（最多 100 轮迭代）。
 
 ### scene::Camera
 
-场景摄像机。渲染时选取一个 camera entity 传给 `scene.OnRender(renderer, cameraEntity, ...)`。
+场景摄像机。渲染时选取一个 camera entity 传给 `scene.Render(cameraEntity)`。
 
 ```cpp
 auto& cam = scene.AddComponent<scene::Camera>(entity);
@@ -693,31 +760,24 @@ cam.fovY      = 60.0f;    // 垂直视场角（度），透视投影参数
 cam.nearPlane = 0.1f;     // 近裁剪平面（<此距离的物体不可见）
 cam.farPlane  = 1000.0f;  // 远裁剪平面（>此距离的物体不可见）
 
-// 内部使用（OnRender 自动调用）
+// 内部使用（Render 自动调用）
 cam.GetViewMatrix(worldMatrix);          // world 矩阵的逆 -> 视图矩阵
 cam.GetProjectionMatrix(aspectRatio);   // 透视投影矩阵
 ```
 
 ### scene::Light
 
-内建光源组件。`OnRender` 遍历 Light 组件收集光源并传给 shader。
+光源组件。支持**多光源** - `Scene::Render()` 调用 `CollectLights()` 遍历所有 Light 组件，全部传给 Renderer。不再限制为单个光源。
 
 ```cpp
 auto& light = scene.AddComponent<scene::Light>(entity);
-
-// 方向光（平行光）--太阳
-light.type = LightType::k_Directional;
-// Transform.position 存光照方向--指向光源。例 {0.3, 1.0, 0.4}.Normalized() 表示右上方来的光
-light.color     = {1.0f, 0.95f, 0.8f};  // 暖白色
-light.intensity = 1.0f;
-
-// 点光源--有位置有范围
-light.type      = LightType::k_Point;
-// Transform.position 存世界空间位置
-light.color     = {1.0f, 0.6f, 0.3f};  // 橙色
-light.intensity = 2.0f;
-light.range     = 8.0f;                // 光照最大半径
+light.ambient  = {0.2f, 0.2f, 0.2f};  // 环境光分量
+light.diffuse  = {0.5f, 0.5f, 0.5f};  // 漫反射分量
+light.specular = {1.0f, 1.0f, 1.0f};  // 镜面反射分量
+// 位置从 Transform 组件读取：Transform::position
 ```
+
+有 Light 组件的实体通常也需要 Transform 组件（提供世界坐标位置）。引擎每帧调用 `Scene::CollectLights()` 将所有活跃光源收集为 `vector<LightData>`，传给 Renderer 后在 Shader 中通过 `u_Lights[i]` 访问。
 
 ### scene::MeshRenderer
 
@@ -729,20 +789,46 @@ mr.mesh    = myMesh;   // shared_ptr<Mesh>
 mr.enabled = true;     // 设为 false 则跳过渲染
 ```
 
-### OnRender 渲染流程
+### Render - 渲染流程
 
-`scene.OnRender(renderer, cameraEntity, w, h)` 内部执行：
-1. 用 camera entity 的 Transform + Camera 组件计算 view 和 projection 矩阵
-2. 遍历所有实体：跳过无 MeshRenderer,无 Transform 或不可用的
-3. 对每个可渲染实体计算 MVP，设置 shader uniform（model/view/projection 矩阵）
-4. 调用 `mesh->Render()` -> `material->Apply()` + `vertexArray->Draw()`
+`scene.Render(cameraEntity)` 内部执行（替代旧的 OnRender）：
 
-**用户需要在自己的 `onRender` 中调用**：
+1. **BuildRenderQueue()** - 遍历所有 MeshRenderer 组件，按 (Shader*, Material*, VAO*) 三元组将实体分组为 RenderBatch。相同组的实体合并到同一批次
+2. **Sort()** - Opaque 批次按材质键排序以最小化 GL 状态切换；Transparent 批次按到摄像机的深度从远到近排序
+3. **CollectLights()** - 遍历所有 Light 组件，收集为 `vector<LightData>`
+4. 设置 Renderer 帧数据（ViewProjection、CameraPosition、Lights）
+5. **renderer.Clear()** -> **renderer.Execute(queue)** - 两 pass 渲染
+
+**性能优势**：假设场景 100 个实体使用 2 个 Shader，旧 OnRender 切换 Shader 最多 100 次，新 Render 只需 2 次。
+
+**用户在自己的 `onRender` 中调用**：
 ```cpp
-config.onRender = []() {
-    GetScene().OnRender(GetRenderer(), cameraEntity,
-                        GetWindow().GetWidth(), GetWindow().GetHeight());
+cfg.onRender = []() {
+    scene::Scene::instance().Render(cameraEntity);
 };
+```
+
+**高级用法**：用户可以手动控制每一步：
+```cpp
+// 手动构建队列（可在 Submit 前做 culling）
+graphics::RenderQueue queue = scene.BuildRenderQueue();
+queue.Sort(cameraPos);
+
+auto& renderer = graphics::Renderer::instance();
+renderer.SetViewProjection(vp);
+renderer.SetLights(scene.CollectLights());
+renderer.Clear();
+renderer.Execute(queue);
+```
+
+也可以在完全不使用 Scene 的情况下直接用 graphics 层渲染：
+```cpp
+graphics::RenderQueue queue;
+queue.Submit(myMesh, worldMatrix);
+queue.Sort(cameraPos);
+
+graphics::Renderer::instance().SetViewProjection(vp);
+graphics::Renderer::instance().Execute(queue);
 ```
 
 ---
@@ -779,7 +865,7 @@ SGKit/
 │   ├── math/      Vector2/3/4, Matrix4, Quaternion, Transform, MathUtils
 │   ├── core/      Window, Input, KeyCodes, FileSystem, ThreadPool
 │   ├── graphics/  Shader, VertexBuffer, IndexBuffer, VertexLayout, VertexArray,
-│   │              Texture, Material, Mesh, Renderer, Framebuffer
+│   │              Texture, Material, Mesh, Renderer, RenderQueue, FrameBuffer
 │   ├── scene/     Entity, ComponentPool, Components(Transform/Camera/Light/MeshRenderer), Scene
 │   └── framework/ Application(Config), Timing
 ├── src/                       # 实现（按模块对应）
@@ -808,4 +894,10 @@ SGKit/
 - 顶点属性 location：`0=Position(vec3), 1=Normal(vec3), 2=TexCoord(vec2)`
 - 矩阵 uniform 用 `SetMatrix4(name, mat)`，内部调用 `glUniformMatrix4fv(..., 1, GL_FALSE, mat.Data())`
 - 纹理采样器通过 `SetInt(name, slot)` 指向 `GL_TEXTURE0 + slot`，配合 `texture.Bind(slot)`
-- 默认约定：`u_DiffuseTexture` 绑定到单元 0
+- 引擎自动设置的 uniform（RenderQueue 执行时绑定）：
+  - `u_Model` - 模型矩阵（每实例）
+  - `u_ViewProjection` - 视图×投影矩阵（每帧）
+  - `u_cameraPos` - 摄像机世界位置（每帧）
+  - `u_LightCount` - 活跃光源数量，`u_Lights[i].position/ambient/diffuse/specular`（每帧）
+  - `u_Light.*` - 向后兼容的首光源数据（每帧）
+  - `u_Material.diffuse` - 漫反射纹理（纹理单元 0），`u_Material.specular` / `u_Material.shininess`（每批次）

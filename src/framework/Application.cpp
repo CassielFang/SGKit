@@ -148,8 +148,6 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
 
             scene.RecomputeWorldTransforms();
 
-            renderer.Clear();
-
             if (config.onRender) config.onRender();
 
             window.SwapBuffers();

@@ -6,7 +6,9 @@ namespace sgkit {
 namespace core {
 
 template<typename T>
-TaskHandle<T>::TaskHandle(std::future<T>&& f) : m_future(std::move(f)) {}
+TaskHandle<T>::TaskHandle(std::future<T>&& f)
+    : m_future(std::move(f))
+    , m_consumed(false) {}
 
 template<typename T>
 TaskHandle<T>::TaskHandle(TaskHandle&& other) noexcept

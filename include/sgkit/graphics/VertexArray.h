@@ -35,16 +35,18 @@ public:
 
     void Draw(DrawMode mode = DrawMode::Triangles) const;
 
-    uint32_t GetHandle() const { return m_handle; }
-    bool     IsValid() const   { return m_handle != 0; }
+    uint32_t GetHandle() const;
+    bool     IsValid() const;
 
 private:
     VertexArray(const VertexArray&) = delete;
     VertexArray& operator=(const VertexArray&) = delete;
 
-    uint32_t m_handle = 0;
+    uint32_t m_handle;
     std::shared_ptr<VertexBuffer> m_vertexBuffer;
     std::shared_ptr<IndexBuffer>  m_indexBuffer;
+
+    static uint32_t g_currentHandle;
 };
 
 }

@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <windowsx.h>
 
+#include <array>
 #include <cstring>
 
 static sgkit::core::Input* g_Input = nullptr;
@@ -85,6 +86,17 @@ static constexpr unsigned int k_KeyCodeToVK[] = {
 };
 static_assert(std::size(k_KeyCodeToVK) == static_cast<size_t>(KeyCode::k_Count),
               "k_KeyCodeToVK must match KeyCode enum order");
+
+Input::Input()
+    : m_current(0)
+    , m_Keys()
+    , m_Mouse()
+    , m_mouseX(0.0f)
+    , m_mouseY(0.0f)
+    , m_mouseDeltaX(0.0f)
+    , m_mouseDeltaY(0.0f)
+    , m_scrollDelta(0.0f)
+    , m_hWindowHandle(nullptr) {}
 
 bool Input::Create(void* hWindowHandle)
 {

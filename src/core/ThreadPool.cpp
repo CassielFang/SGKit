@@ -7,7 +7,9 @@ sgkit::core::ThreadPool* g_ThreadPool = nullptr;
 namespace sgkit {
 namespace core {
 
-TaskHandle<void>::TaskHandle(std::future<void>&& f) : m_future(std::move(f)) {}
+TaskHandle<void>::TaskHandle(std::future<void>&& f)
+    : m_future(std::move(f))
+    , m_consumed(false) {}
 
 TaskHandle<void>::TaskHandle(TaskHandle<void>&& other) noexcept
     : m_future(std::move(other.m_future))
@@ -56,7 +58,7 @@ void TaskHandle<void>::Wait()
 }
 
 
-ThreadPool::ThreadPool(size_t numThreads)
+ThreadPool::ThreadPool(size_t numThreads) : m_stop(false), m_activeTasks(0)
 {
     if (numThreads == 0)
         numThreads = std::thread::hardware_concurrency();

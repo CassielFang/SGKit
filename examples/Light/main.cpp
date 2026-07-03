@@ -95,6 +95,7 @@ ApplicationConfig sgkit::CreateApplication()
 
             std::printf("Light: already init\n");
 
+            // graphics::Renderer::instance().SetClearColor({ 1.0f, 0.0f, 0.0f, 1.0f });
             return true;
         };
     cfg.onUpdate = [&]()
@@ -149,7 +150,7 @@ ApplicationConfig sgkit::CreateApplication()
         };
     cfg.onRender = []()
         {
-            scene::Scene::instance().OnRender(cameraEntity);
+            scene::Scene::instance().Render(cameraEntity);
         };
     cfg.onShutdown = []()
         {

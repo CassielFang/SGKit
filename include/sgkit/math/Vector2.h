@@ -21,8 +21,8 @@ public:
     // -- Arithmetic operators
     Vector2 operator+(const Vector2& rhs) const { return {x + rhs.x, y + rhs.y}; }
     Vector2 operator-(const Vector2& rhs) const { return {x - rhs.x, y - rhs.y}; }
-    Vector2 operator*(float s) const           { return {x * s, y * s}; }
-    Vector2 operator/(float s) const           { return {x / s, y / s}; }
+    Vector2 operator*(float s) const            { return {x * s, y * s}; }
+    Vector2 operator/(float s) const            { return {x / s, y / s}; }
 
     Vector2& operator+=(const Vector2& rhs) { x += rhs.x; y += rhs.y; return *this; }
     Vector2& operator-=(const Vector2& rhs) { x -= rhs.x; y -= rhs.y; return *this; }

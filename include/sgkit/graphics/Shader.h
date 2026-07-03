@@ -2,7 +2,6 @@
 
 #include <string>
 #include <cstdint>
-#include <memory>
 #include <unordered_map>
 
 #include <sgkit/math/Matrix4.h>
@@ -25,8 +24,8 @@ public:
     void Bind() const;
     void Unbind() const;
 
-    uint32_t GetHandle() const { return m_programID; }
-    bool IsValid() const { return m_programID != 0; }
+    uint32_t GetHandle() const;
+    bool IsValid() const;
 
     // -- Uniform helpers
     void SetInt(const std::string& name, int value);
@@ -40,10 +39,11 @@ private:
     Shader(const Shader&) = delete;
     Shader& operator=(const Shader&) = delete;
 
-    uint32_t m_programID = 0;
+    uint32_t m_programID;
+    static uint32_t g_currentID;
 
-    int GetUniformLocation(const std::string& name) const;
-    mutable std::unordered_map<std::string, int> m_uniformCache;
+    std::unordered_map<std::string, int> m_uniformCache;
+    int GetUniformLocation(const std::string& name);
 
     static uint32_t CompileShader(uint32_t type, const std::string& source);
     void Release();

@@ -11,7 +11,14 @@
 namespace sgkit {
 namespace graphics {
 
-Texture::Texture() = default;
+uint32_t Texture::g_currentHandle = 0;
+
+Texture::Texture(uint32_t slot)
+    : m_handle(0)
+    , m_slot(slot)
+    , m_width(0)
+    , m_height(0)
+    , m_channels(0) {}
 
 Texture::~Texture()
 {
@@ -19,7 +26,7 @@ Texture::~Texture()
 }
 
 Texture::Texture(Texture&& other) noexcept
-    : m_handle(other.m_handle), m_width(other.m_width),
+    : m_handle(other.m_handle), m_slot(other.m_slot), m_width(other.m_width),
       m_height(other.m_height), m_channels(other.m_channels)
 {
     other.m_handle = 0;
@@ -31,6 +38,7 @@ Texture& Texture::operator=(Texture&& other) noexcept
     {
         Destroy();
         m_handle   = other.m_handle;
+        m_slot     = other.m_slot;
         m_width    = other.m_width;
         m_height   = other.m_height;
         m_channels = other.m_channels;
@@ -114,18 +122,27 @@ bool Texture::Create(int width, int height, const void* data,
     return true;
 }
 
-void Texture::Bind(int slot) const
+void Texture::Bind() const
 {
-    glActiveTexture(GL_TEXTURE0 + slot);
-    glBindTexture(GL_TEXTURE_2D, m_handle);
+    if (g_currentHandle != m_handle)
+    {
+        glActiveTexture(GL_TEXTURE0 + m_slot);
+        glBindTexture(GL_TEXTURE_2D, m_handle);
+        g_currentHandle = m_handle;
+    }
 }
 
 void Texture::Unbind() const
 {
-    glBindTexture(GL_TEXTURE_2D, 0);
+    if (g_currentHandle != 0)
+    {
+        glActiveTexture(GL_TEXTURE0 + m_slot);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        g_currentHandle = 0;
+    }
 }
 
-void Texture::SetFilterLinear(bool linear)
+void Texture::SetFilterLinear(bool linear) const
 {
     if (!m_handle) return;
     GLint filter = linear ? GL_LINEAR : GL_NEAREST;
@@ -137,7 +154,7 @@ void Texture::SetFilterLinear(bool linear)
     Unbind();
 }
 
-void Texture::SetWrapRepeat(bool repeat)
+void Texture::SetWrapRepeat(bool repeat) const
 {
     if (!m_handle) return;
     GLint wrap = repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE;
@@ -146,6 +163,26 @@ void Texture::SetWrapRepeat(bool repeat)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
     Unbind();
+}
+
+int Texture::GetWidth() const
+{
+    return m_width;
+}
+
+int Texture::GetHeight() const
+{
+    return m_height;
+}
+
+uint32_t Texture::GetHandle() const
+{
+    return m_handle;
+}
+
+bool Texture::IsValid() const
+{
+    return m_handle != 0;
 }
 
 //  BMP Loader - minimal, uncompressed 24/32-bit BMP only

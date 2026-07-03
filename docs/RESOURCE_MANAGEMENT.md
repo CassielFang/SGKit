@@ -10,11 +10,12 @@
 
 第二层：GL 原子资源（析构函数调用 glDelete*）
   VertexBuffer(VBO), IndexBuffer(EBO), VertexArray(VAO),
-  Shader, Texture, Framebuffer(FBO+深度纹理)
+  Shader, Texture, FrameBuffer(FBO+深度纹理)
 
 第三层：组合对象（shared_ptr 成员，自身无 GL 句柄）
-  Material -- 持有 Shader + Texture
-  Mesh     -- 持有 VertexArray + Material
+  Material    -- 持有 Shader + Texture + 渲染状态枚举
+  Mesh        -- 纯数据容器：持有 VertexArray + Material
+  RenderQueue -- 帧级绘制批次容器，无 GL 资源
 
 第四层：Scene ECS
   MeshRenderer -- 持有 shared_ptr<Mesh>
@@ -72,15 +73,17 @@ g_window.reset();    // (4) 销毁 GL 上下文（wglDeleteContext 等）
 | VertexArray | GLuint array | `glDeleteVertexArrays(1, &m_handle)` |
 | Shader | GLuint program | `glDeleteProgram(m_programID)` |
 | Texture | GLuint texture | `glDeleteTextures(1, &m_handle)` |
-| Framebuffer | GLuint FBO + 深度纹理 | `glDeleteFramebuffers` + `glDeleteTextures` |
+| FrameBuffer | GLuint FBO + 深度纹理 | `glDeleteFramebuffers` + `glDeleteTextures` |
 
 使用 `shared_ptr` 管理，允许多个 Material 共享同一个 Shader 或 Texture。
 
 ### 第三层：组合对象
 
-**Material**：持有 `shared_ptr<Shader>` + `shared_ptr<Texture>`。无自定义析构，成员自动释放。
+**Material**：持有 `shared_ptr<Shader>` + `shared_ptr<Texture>` + 渲染状态枚举（blendMode, cullMode, depthMode）。无自定义析构，成员自动释放。
 
-**Mesh**：持有 `shared_ptr<VertexArray>` + `shared_ptr<Material>`。无自定义析构。
+**Mesh**：纯数据容器，持有 `shared_ptr<VertexArray>` + `shared_ptr<Material>`。无 Render() 方法，渲染逻辑已移至 Renderer::ExecuteBatch()。无自定义析构。
+
+**RenderQueue**：帧级数据结构（RenderBatch 向量），由 Scene::BuildRenderQueue() 构建，由 Renderer::Execute() 消费。不持有任何 GL 句柄。
 
 ### 第四层：Scene
 
@@ -128,6 +131,7 @@ g_window.reset();
 |----------|---------|---------|
 | 平台句柄 | `unique_ptr<Window>` | `g_window.reset()` |
 | GL 原子（VBO, VAO, Shader 等） | `shared_ptr` + RAII 析构 | MeshRenderer 池清空 |
+| 组合对象（Material, Mesh, RenderQueue） | `shared_ptr` 或值 | 跟随 GL 原子析构 |
 | Scene 组件 | ECS 池值存储 | `g_scene.reset()` |
 | 引擎全局 | `unique_ptr`（显式顺序） | 反序 reset |
 | 用户自持 shared_ptr | 用户负责 | `onShutdown` 回调 |
