@@ -1,6 +1,6 @@
 # SGKit 用户手册
 
-SGKit（Straightforward Graphics Kit）是一个 C++ 3D 渲染引擎。核心依赖仅有 glad（OpenGL 加载器），其余全部基于 C++ 标准库 + Win32 平台 API。列主序矩阵,RAII 管理 GL 对象,稀疏集 ECS。
+SGKit（Straightforward Graphics Kit）是一个 C++ 3D 渲染引擎。核心第三方依赖仅有 glad（OpenGL 加载器）+ stb_image（纹理加载），其余全部基于 C++20 标准库 + Win32 平台 API。列主序矩阵,RAII 管理 GL 对象,稀疏集 ECS。
 
 ---
 
@@ -34,10 +34,10 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
         // 初始化：创建场景,加载资源
         return true;
     };
-    cfg.onUpdate = [](float dt) {
+    cfg.onUpdate = []() {
         // 每帧逻辑
-        if (sgkit::GetInput().IsKeyPressed(sgkit::core::KeyCode::k_Escape))
-            sgkit::RequestQuit();
+        if (sgkit::core::Input::instance().IsKeyPressed(sgkit::core::KeyCode::Escape))
+            sgkit::core::Window::instance().RequestClose();
     };
     cfg.onRender = []() {
         // 渲染
@@ -47,7 +47,7 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
 }
 ```
 
-不需要继承类,不需要写 `WinMain`,不需要 `#include <windows.h>`。引擎内部已包含 `WinMain`，它负责创建窗口,加载 OpenGL,初始化输入,然后调用你的回调。四个回调中可以通过 `GetWindow()`,`GetInput()`,`GetRenderer()`,`GetScene()` 访问引擎模块。
+不需要继承类,不需要写 `WinMain`,不需要 `#include <windows.h>`。引擎内部已包含 `WinMain`，它负责创建窗口,加载 OpenGL,初始化各模块，然后调用你的回调。各引擎模块均为单例，通过 `::instance()` 访问：`core::Window::instance()`、`core::Input::instance()`、`scene::Renderer::instance()`、`scene::Scene::instance()`。
 
 ---
 
@@ -64,28 +64,33 @@ Framework 是引擎的入口层，把平台细节（`WinMain`,消息循环,控�
 | `title` | `std::string` | `"SGKit"` | 窗口标题（UTF-8，内部自动转 UTF-16 传给 `CreateWindowExW`） |
 | `width` | `int` | `1280` | 窗口客户区宽度（像素） |
 | `height` | `int` | `720` | 窗口客户区高度（像素） |
+| `resizable` | `bool` | `true` | 是否允许用户拖拽边框调整窗口大小 |
 | `vsync` | `bool` | `true` | 是否垂直同步--开启后帧率锁定到显示器刷新率，防止画面撕裂 |
-| `fullscreen` | `bool` | `false` | 若为 `true`，窗口创建后立即进入无边框全屏模式；此后最大化按钮也自动变为全屏 |
+| `fullscreenBolderless` | `bool` | `false` | 无边框全屏窗口（覆盖整个显示器但不改变分辨率） |
+| `fullscreen` | `bool` | `false` | 若为 `true`，窗口创建后立即进入独占全屏模式 |
+| `cursorVisible` | `bool` | `true` | 是否显示鼠标光标（设为 false 可用于 FPS 相机） |
 | `glMajor` | `int` | `4` | 请求的 OpenGL 主版本号 |
 | `glMinor` | `int` | `6` | 请求的 OpenGL 次版本号--引擎依次尝试 4.6 -> 3.3 -> Legacy，只要任一成功即启动 |
-| `onInit` | `function<bool()>` | - | 引擎完成窗口+GL+输入初始化后调用。**返回 `false` 表示初始化失败，程序退出** |
-| `onUpdate` | `function<void(float)>` | - | 每帧调用一次，参数 `dt` 为上一帧到本帧的间隔（秒）。`dt` 值与 `GetDeltaTime()` 完全相同，只是省去手动获取 |
-| `onRender` | `function<void()>` | - | 每帧调用一次，紧接在 `onUpdate` 之后。通常在此调用 `Scene::instance().Render(cameraEntity)` |
-| `onShutdown` | `function<void()>` | - | 窗口关闭后,引擎销毁前调用一次，用于清理用户资源 |
+| `numThreads` | `size_t` | `4` | 线程池工作线程数 |
+| `onInit` | `function<bool()>` | - | 引擎完成各模块初始化后调用。**返回 `false` 表示初始化失败，程序退出** |
+| `onUpdate` | `function<void()>` | - | 每帧调用一次。如需帧间隔时间，使用 `framework::Clock::GetFrameDeltaSeconds()` |
+| `onRender` | `function<void()>` | - | 每帧调用一次，紧接在 `onUpdate` 和 `RecomputeWorldTransforms()` 之后。通常在此调用 `scene::Scene::instance().Render(cameraEntity)` |
+| `onShutdown` | `function<void()>` | - | 窗口关闭后、引擎销毁前调用一次，用于清理用户资源 |
 
-### 引擎全局函数
+### 引擎模块访问
 
-这些函数在回调中任意位置均可调用，它们访问的是引擎内部维护的全局单例。
+各模块均为全局单例，通过静态方法 `::instance()` 访问。生命周期由引擎自动管理（`Create` 在 `onInit` 之前，`Destroy` 在 `onShutdown` 之后）。
 
-| 函数 | 返回类型 | 作用 |
+| 访问方式 | 返回类型 | 作用 |
 |------|----------|------|
-| `GetWindow()` | `core::Window&` | 获取窗口对象，可查询尺寸,设置全屏,关闭窗口等 |
-| `GetInput()` | `core::Input&` | 获取输入对象，可轮询键盘/鼠标/滚轮状态 |
-| `GetRenderer()` | `graphics::Renderer&` | 获取渲染器，可清屏,切换状态（线框,深度测试等） |
-| `GetScene()` | `scene::Scene&` | 获取场景对象，所有实体和组件的容器 |
-| `GetDeltaTime()` | `float` | 返回当前帧间隔（秒）。和 `onUpdate` 的 `dt` 参数值相同，方便在 `onRender` 或其他函数中使用 |
-| `GetFPS()` | `float` | 返回每秒帧数，每秒更新一次 |
-| `RequestQuit()` | `void` | 请求退出主循环。调用后当前帧会完整执行完毕，然后程序正常退出 |
+| `core::Window::instance()` | `core::Window&` | 获取窗口对象，可查询尺寸、设置全屏、关闭窗口等 |
+| `core::Input::instance()` | `core::Input&` | 获取输入对象，可轮询键盘/鼠标/滚轮状态 |
+| `scene::Renderer::instance()` | `scene::Renderer&` | 获取渲染器，可清屏、切换状态（线框、深度测试等） |
+| `scene::Scene::instance()` | `scene::Scene&` | 获取场景对象，所有实体和组件的容器 |
+| `core::ThreadPool::instance()` | `core::ThreadPool&` | 获取线程池，用于异步任务提交 |
+| `framework::Clock::GetFrameDeltaSeconds()` | `float` | 返回当前帧间隔（秒） |
+| `framework::Clock::GetFPS()` | `float` | 返回每秒帧数，每秒更新一次 |
+| `core::Window::instance().RequestClose()` | `void` | 请求退出主循环。调用后当前帧完整执行完毕，程序正常退出 |
 
 ---
 
@@ -230,18 +235,7 @@ Quaternion::Slerp(a, b, t)                     // 球面线性插值--两个朝�
 Quaternion::LookAt(direction, up)              // 朝向向量->四元数
 ```
 
-### math::Transform
-
-纯 CPU 的 TRS 变换结构体，与 Scene 无关。
-
-```cpp
-Transform tf;
-tf.position = {0, 0, 0};        // 位移
-tf.rotation = Quaternion{};      // 旋转（默认朝向）
-tf.scale    = {1, 1, 1};        // 缩放
-Matrix4 local = tf.GetLocalMatrix();  // 计算 Scale->Rotate->Translate 矩阵
-// 等价于 Matrix4::Translate(pos) * rotation矩阵 * Matrix4::Scale(s)
-```
+> 完整数学模块 API 参见 [`docs/MATH_MODULE.md`](MATH_MODULE.md)。
 
 ---
 
@@ -249,12 +243,12 @@ Matrix4 local = tf.GetLocalMatrix();  // 计算 Scale->Rotate->Translate 矩阵
 
 ### Window
 
-窗口与 OpenGL 上下文的封装。由引擎创建和销毁，用户通过 `GetWindow()` 引用。
+窗口与 OpenGL 上下文的封装。由引擎创建和销毁，用户通过 `core::Window::instance()` 引用。
 
 **背景**：PIMPL 模式把 Win32 类型（`HWND`,`HDC`,`HGLRC`）隐藏在不透明 `Impl` 中，用户代码不需要包含 `<windows.h>`。
 
 ```cpp
-auto& w = GetWindow();
+auto& w = core::Window::instance();
 
 // 状态查询
 w.GetWidth()          // 客户区宽度（像素）
@@ -288,12 +282,12 @@ w.SetIMEEnabled(true)   // 重新启用输入法。聊天框,文本框等需要�
 **关键概念**：`IsKeyDown` 查询"当前是否按住"，`IsKeyPressed`/`IsKeyReleased` 查询"本帧变化"（上升沿/下降沿）。这三者的区别对实现"按一下跳一下"而非"按住连跳"至关重要。
 
 ```cpp
-auto& in = GetInput();
+auto& in = core::Input::instance();
 
 // 键盘：三态机制
-in.IsKeyDown(KeyCode::k_W)          // 是否处于按下状态（持续触发）
-in.IsKeyPressed(KeyCode::k_Space)    // 本帧刚按下--从"未按下"变为"按下"的那一帧才返回 true
-in.IsKeyReleased(KeyCode::k_E)      // 本帧刚松开--从"按下"变为"未按下"的那一帧才返回 true
+in.IsKeyDown(KeyCode::W)          // 是否处于按下状态（持续触发）
+in.IsKeyPressed(KeyCode::Space)    // 本帧刚按下--从"未按下"变为"按下"的那一帧才返回 true
+in.IsKeyReleased(KeyCode::E)      // 本帧刚松开--从"按下"变为"未按下"的那一帧才返回 true
 
 // 鼠标按键
 in.IsMouseButtonDown(0)             // 0=左键 1=右键 2=中键 3=侧键(后退) 4=侧键(前进)
@@ -316,16 +310,16 @@ in.GetScrollDelta()                 // 本帧滚轮增量。正值=向上滚，�
 `sgkit::core::KeyCode`，底层映射自 Win32 虚拟键码。
 
 ```
-字母:    k_A ~ k_Z
+字母:    A ~ Z
 数字:    k_0 ~ k_9
-控制:    k_Escape, k_Enter, k_Tab, k_Backspace, k_Insert, k_Delete
-方向:    k_Left, k_Right, k_Up, k_Down
-翻页:    k_PageUp, k_PageDown, k_Home, k_End
-功能:    k_F1 ~ k_F25
-修饰:    k_LeftShift/RightShift, k_LeftCtrl/RightCtrl, k_LeftAlt/RightAlt, k_LeftSuper/RightSuper
-小键盘:  k_KeyPad0 ~ k_KeyPad9, k_KeyPadDecimal, k_KeyPadDivide, k_KeyPadMultiply, k_KeyPadSubtract, k_KeyPadAdd, k_KeyPadEnter
-鼠标:    k_MouseLeft, k_MouseRight, k_MouseMiddle, k_MouseButton4, k_MouseButton5
-符号:    k_Space, k_Comma, k_Minus, k_Period, k_Slash, k_Semicolon, k_Equal, k_LeftBracket, k_Backslash, k_RightBracket, k_GraveAccent
+控制:    Escape, Enter, Tab, Backspace, Insert, Delete
+方向:    Left, Right, Up, Down
+翻页:    PageUp, PageDown, Home, End
+功能:    F1 ~ F25
+修饰:    LeftShift/RightShift, LeftCtrl/RightCtrl, LeftAlt/RightAlt, LeftSuper/RightSuper
+小键盘:  KeyPad0 ~ KeyPad9, KeyPadDecimal, KeyPadDivide, KeyPadMultiply, KeyPadSubtract, KeyPadAdd, KeyPadEnter
+鼠标:    MouseButton::Left, MouseButton::Right, MouseButton::Middle, MouseButton::Back, MouseButton::Forward
+符号:    Space, Comma, Minus, Period, Slash, Semicolon, Equal, LeftBracket, Backslash, RightBracket, GraveAccent
 ```
 
 ### FileSystem
@@ -344,36 +338,38 @@ FileSystem::WriteText("log.txt", "hello");             // -> bool
 FileSystem::WriteBinary("out.bin", byteArray);
 
 // 路径工具
-FileSystem::Exists("path")                             // 文件/目录是否存在
-FileSystem::IsDirectory("path")                        // 是否为目录
-FileSystem::GetDirectory("a/b/c.txt")                  // -> "a/b"
-FileSystem::GetExtension("shader.vert")                // -> "vert"（小写,无点号）
-FileSystem::GetFilename("a/b/c.txt")                   // -> "c.txt"
+FileSystem::Exists("path")                            // 文件/目录是否存在
+FileSystem::IsDirectory("path")                       // 是否为目录
+FileSystem::GetDirectory("a/b/c.txt")                 // -> "a/b"
+FileSystem::GetExtension("shader.vert")               // -> "vert"（小写,无点号）
+FileSystem::GetFilename("a/b/c.txt")                  // -> "c.txt"
 FileSystem::GetFilenameWithoutExtension("a/b/c.txt")  // -> "c"
-
-// 资产路径解析
-FileSystem::SetAssetDirectory("data/");                // 设置资产根目录
-FileSystem::GetAssetPath("textures/wood.bmp")          // -> "data/textures/wood.bmp"
 ```
+
+> 纹理文件格式：stb_image 支持 PNG、JPG、BMP、TGA、GIF 等常见格式。推荐使用 PNG。
 
 ### ThreadPool
 
-固定大小线程池。构造时启动 N 个工作线程；析构时自动等待所有任务完成并回收线程。适用于并行 asset 加载,数据预处理等。
+固定大小线程池（单例）。通过 `Create` 指定线程数，所有工作线程在 `Destroy` 时自动回收。适用于并行 asset 加载、数据预处理等。
 
 ```cpp
-ThreadPool pool;                             // 线程数 = hardware_concurrency()
-ThreadPool pool(4);                          // 明确指定 4 线程
+// ThreadPool 生命周期由引擎管理，用户通过 instance() 使用
+auto& pool = core::ThreadPool::instance();
 
-// 提交任务--返回 future，调用方可以稍后获取结果
-auto f = pool.Enqueue([](int n) { return n * n; }, 42);
-int result = f.get();  // 阻塞直到任务完成 -> 1764
+// 提交任务--返回 TaskHandle<T>，调用方可以稍后获取结果
+auto handle = pool.Enqueue([](int n) { return n * n; }, 42);
+int result = handle.Get();  // 阻塞直到任务完成 -> 1764
+
+// 检查是否完成（非阻塞）
+if (handle.IsReady()) { int r = handle.Get(); }
 
 // 批量任务
-std::vector<std::future<void>> jobs;
+std::vector<core::TaskHandle<void>> handles;
 for (auto& file : files)
-    jobs.push_back(pool.Enqueue([&file]() { LoadFile(file); }));
+    handles.push_back(pool.Enqueue([&file]() { LoadFile(file); }));
 
-pool.WaitAll();          // 阻塞直到队列全部完成
+// 等待全部完成
+for (auto& h : handles) h.Wait();
 size_t pending = pool.PendingTasks();  // 当前排队中的任务数量
 ```
 
@@ -478,13 +474,13 @@ va->Unbind();
 
 ### Texture
 
-2D 纹理。支持 BMP 加载（24/32-bit 无压缩）和程序化创建。
+2D 纹理。支持多种图片格式（PNG、JPG、BMP、TGA 等），底层使用 stb_image 解码。也支持程序化创建。
 
 ```cpp
 auto tex = std::make_shared<Texture>();
 
-// BMP 加载
-tex->LoadFromFile("textures/wood.bmp");
+// 从文件加载（PNG/JPG/BMP 等）
+tex->LoadFromFile("textures/container2.png");
 
 // 程序化创建--传入 RGBA 像素数组
 std::vector<uint8_t> pixels(w * h * 4);
@@ -512,7 +508,7 @@ tex->GetWidth(), tex->GetHeight();
 材质 = Shader + 纹理 + 渲染状态。控制物体的外观和 GPU 状态（混合模式、剔除面、深度写入等）。渲染状态被 Renderer 在执行 RenderQueue 时读取，决定 GL 管线如何绘制该材质。
 
 ```cpp
-auto mat = std::make_shared<Material>();
+auto mat = std::make_shared<scene::Material>();
 mat->shader   = myShader;    // 必须 - 着色器程序
 mat->diffuse  = myTex;       // 可选 - 漫反射纹理（绑定到单元 0）
 mat->specular = {0.5f, 0.5f, 0.5f};
@@ -561,7 +557,7 @@ Mesh 只是一个"标签"，表示"用这种材质画这个几何"。多个 Enti
 用户一般不直接操作 RenderQueue，但底层 graphics 用户可手动构建：
 
 ```cpp
-graphics::RenderQueue queue;
+scene::RenderQueue queue;
 
 // 提交网格实例（自动合并同 Shader+Material+VAO 的实例）
 queue.Submit(mesh1, worldMatrix1);
@@ -581,10 +577,10 @@ renderer.Execute(queue);
 
 ### Renderer
 
-全局渲染器，管理清屏、视口、GL 状态，以及帧级渲染数据（摄像机、光源）。通过 `GetRenderer()` 获取。
+全局渲染器，管理清屏、视口、GL 状态，以及帧级渲染数据（摄像机、光源）。通过 `scene::Renderer::instance()` 获取。
 
 ```cpp
-auto& r = GetRenderer();
+auto& r = scene::Renderer::instance();
 
 // -- 清屏与视口
 r.SetClearColor({0.1f, 0.1f, 0.15f, 1.0f});
@@ -619,9 +615,9 @@ r.Draw(va);           // 直接绘制 VAO（不设置任何 uniform/状态）
 
 每 Batch 内：ApplyBatchState（应用材质的 blend/cull/depth）-> SetFrameUniforms -> 逐个实例 set u_Model + Draw。
 
-**LightData** - Renderer 使用的光源数据结构：
+**LightInstance** - Renderer 使用的光源数据结构（定义在 `scene::Renderer` 中）：
 ```cpp
-Graphics::LightData light;
+scene::Renderer::LightInstance light;
 light.position = {0.8f, 1.0f, 1.2f};
 light.ambient  = {0.2f, 0.2f, 0.2f};
 light.diffuse  = {0.5f, 0.5f, 0.5f};
@@ -629,7 +625,7 @@ light.specular = {1.0f, 1.0f, 1.0f};
 // 传给 Renderer: renderer.SetLights({light1, light2, ...});
 ```
 
-Shader 中可通过 `u_LightCount` + `u_Lights[i].position/ambient/diffuse/specular` 访问多光源。向后兼容：单光源 shader 仍可使用 `u_Light.position/ambient/diffuse/specular`（取首光源）。
+Shader 中通过 `u_Light.position/ambient/diffuse/specular` 访问当前光源。多光源接口已预留，当前默认单光源模式。
 
 ### FrameBuffer
 
@@ -698,7 +694,7 @@ ECS（实体-组件系统），稀疏集存储--增删 O(1)，遍历组件线性
 ### Entity 与 Scene
 
 ```cpp
-auto& scene = GetScene();
+auto& scene = scene::Scene::instance();
 
 Entity e = scene.CreateEntity();   // 分配实体 ID，加入活跃列表。上限 k_MaxEntities=10000
 scene.DestroyEntity(e);            // 移除该实体的所有组件，从活跃列表删除
@@ -711,30 +707,30 @@ k_InvalidEntity  // 0xFFFFFFFF  无效实体标识
 
 ```cpp
 // 添加组件。已存在则返回已有引用
-auto& tf  = scene.AddComponent<scene::Transform>(entity);
-auto& cam = scene.AddComponent<scene::Camera>(entity);
-auto& lt  = scene.AddComponent<scene::Light>(entity);
-auto& mr  = scene.AddComponent<scene::MeshRenderer>(entity);
+auto& tf  = scene.AddComponent<scene::component::Transform>(entity);
+auto& cam = scene.AddComponent<scene::component::Camera>(entity);
+auto& lt  = scene.AddComponent<scene::component::Light>(entity);
+auto& mr  = scene.AddComponent<scene::component::MeshRenderer>(entity);
 
 // 获取（返回指针，不存在返回 nullptr）
-Transform* t = scene.GetComponent<scene::Transform>(entity);
+auto* t = scene.GetComponent<scene::component::Transform>(entity);
 if (t) { t->position.x += 1.0f; }
 
 // 检查是否存在
-if (scene.HasComponent<scene::Camera>(entity)) { ... }
+if (scene.HasComponent<scene::component::Camera>(entity)) { ... }
 
 // 移除
-scene.RemoveComponent<scene::Light>(entity);
+scene.RemoveComponent<scene::component::Light>(entity);
 ```
 
 **技术细节**：每个组件类型对应一个 `ComponentPool<T>`（稀疏集）。Add 时把实体映射到 dense 数组尾部，Remove 时 swap-and-pop 尾部元素。因此遍历效率高（dense 数组连续），但 Entity ID 不能无限大（稀疏数组预留上限）。
 
-### scene::Transform
+### scene\::component\::Transform
 
 有层级关系的世界变换组件。每个 Transform 可指一个 parent 和若干 children。
 
 ```cpp
-auto& tf = scene.AddComponent<scene::Transform>(entity);
+auto& tf = scene.AddComponent<scene::component::Transform>(entity);
 tf.position = {0, 2, 0};
 tf.rotation = Quaternion::FromEulerAngles(0, y, 0);  // Y 轴旋转 y 弧度
 tf.scale    = {0.8f, 0.8f, 0.8f};
@@ -750,12 +746,12 @@ scene.GetWorldMatrix(entity);      // 考虑父子层级累乘的世界矩阵
 
 **Transform 更新**：引擎主循环每帧调用 `scene.RecomputeWorldTransforms()`，算法：先重置所有实体为 local 矩阵，然后从根到叶迭代累乘 parent * local，直到稳定（最多 100 轮迭代）。
 
-### scene::Camera
+### scene\::component\::Camera
 
 场景摄像机。渲染时选取一个 camera entity 传给 `scene.Render(cameraEntity)`。
 
 ```cpp
-auto& cam = scene.AddComponent<scene::Camera>(entity);
+auto& cam = scene.AddComponent<scene::component::Camera>(entity);
 cam.fovY      = 60.0f;    // 垂直视场角（度），透视投影参数
 cam.nearPlane = 0.1f;     // 近裁剪平面（<此距离的物体不可见）
 cam.farPlane  = 1000.0f;  // 远裁剪平面（>此距离的物体不可见）
@@ -765,12 +761,12 @@ cam.GetViewMatrix(worldMatrix);          // world 矩阵的逆 -> 视图矩阵
 cam.GetProjectionMatrix(aspectRatio);   // 透视投影矩阵
 ```
 
-### scene::Light
+### scene\::component\::Light
 
-光源组件。支持**多光源** - `Scene::Render()` 调用 `CollectLights()` 遍历所有 Light 组件，全部传给 Renderer。不再限制为单个光源。
+光源组件。`Scene::Render()` 调用 `CollectLights()` 遍历所有 Light 组件，全部传给 Renderer。
 
 ```cpp
-auto& light = scene.AddComponent<scene::Light>(entity);
+auto& light = scene.AddComponent<scene::component::Light>(entity);
 light.ambient  = {0.2f, 0.2f, 0.2f};  // 环境光分量
 light.diffuse  = {0.5f, 0.5f, 0.5f};  // 漫反射分量
 light.specular = {1.0f, 1.0f, 1.0f};  // 镜面反射分量
@@ -779,27 +775,25 @@ light.specular = {1.0f, 1.0f, 1.0f};  // 镜面反射分量
 
 有 Light 组件的实体通常也需要 Transform 组件（提供世界坐标位置）。引擎每帧调用 `Scene::CollectLights()` 将所有活跃光源收集为 `vector<LightData>`，传给 Renderer 后在 Shader 中通过 `u_Lights[i]` 访问。
 
-### scene::MeshRenderer
+### scene\::component\::MeshRenderer
 
 给实体附加渲染网格。
 
 ```cpp
-auto& mr = scene.AddComponent<scene::MeshRenderer>(entity);
+auto& mr = scene.AddComponent<scene::component::MeshRenderer>(entity);
 mr.mesh    = myMesh;   // shared_ptr<Mesh>
 mr.enabled = true;     // 设为 false 则跳过渲染
 ```
 
 ### Render - 渲染流程
 
-`scene.Render(cameraEntity)` 内部执行（替代旧的 OnRender）：
+`scene.Render(cameraEntity)` 内部执行：
 
 1. **BuildRenderQueue()** - 遍历所有 MeshRenderer 组件，按 (Shader*, Material*, VAO*) 三元组将实体分组为 RenderBatch。相同组的实体合并到同一批次
 2. **Sort()** - Opaque 批次按材质键排序以最小化 GL 状态切换；Transparent 批次按到摄像机的深度从远到近排序
-3. **CollectLights()** - 遍历所有 Light 组件，收集为 `vector<LightData>`
+3. **CollectLights()** - 遍历所有 Light 组件，收集为 `vector<LightInstance>`
 4. 设置 Renderer 帧数据（ViewProjection、CameraPosition、Lights）
 5. **renderer.Clear()** -> **renderer.Execute(queue)** - 两 pass 渲染
-
-**性能优势**：假设场景 100 个实体使用 2 个 Shader，旧 OnRender 切换 Shader 最多 100 次，新 Render 只需 2 次。
 
 **用户在自己的 `onRender` 中调用**：
 ```cpp
@@ -811,24 +805,24 @@ cfg.onRender = []() {
 **高级用法**：用户可以手动控制每一步：
 ```cpp
 // 手动构建队列（可在 Submit 前做 culling）
-graphics::RenderQueue queue = scene.BuildRenderQueue();
+scene::RenderQueue queue = scene.BuildRenderQueue();
 queue.Sort(cameraPos);
 
-auto& renderer = graphics::Renderer::instance();
+auto& renderer = scene::Renderer::instance();
 renderer.SetViewProjection(vp);
 renderer.SetLights(scene.CollectLights());
 renderer.Clear();
 renderer.Execute(queue);
 ```
 
-也可以在完全不使用 Scene 的情况下直接用 graphics 层渲染：
+也可以在完全不使用 Scene 的情况下直接用 scene 层渲染：
 ```cpp
-graphics::RenderQueue queue;
+scene::RenderQueue queue;
 queue.Submit(myMesh, worldMatrix);
 queue.Sort(cameraPos);
 
-graphics::Renderer::instance().SetViewProjection(vp);
-graphics::Renderer::instance().Execute(queue);
+scene::Renderer::instance().SetViewProjection(vp);
+scene::Renderer::instance().Execute(queue);
 ```
 
 ---
@@ -859,17 +853,19 @@ SGKit 会传递链接 `glad` 和平台库 (`gdi32 user32 opengl32 imm32`)。
 ```
 SGKit/
 ├── CMakeLists.txt / CMakePresets.json
-├── cmake/                     # Platform.cmake + CompilerSettings.cmake
-├── external/glad/             # OpenGL 4.6 Core 加载器（静态库）
+├── external/
+│   ├── glad/                  # OpenGL 4.6 Core 加载器（静态库）
+│   └── stb/                   # stb_image 纹理加载（静态库）
 ├── include/sgkit/             # 公共头（聚合头 sgkit.h 一次性包含全部子模块）
-│   ├── math/      Vector2/3/4, Matrix4, Quaternion, Transform, MathUtils
+│   ├── math/      Vector2/3/4, Matrix4, Quaternion, MathUtils
 │   ├── core/      Window, Input, KeyCodes, FileSystem, ThreadPool
 │   ├── graphics/  Shader, VertexBuffer, IndexBuffer, VertexLayout, VertexArray,
-│   │              Texture, Material, Mesh, Renderer, RenderQueue, FrameBuffer
-│   ├── scene/     Entity, ComponentPool, Components(Transform/Camera/Light/MeshRenderer), Scene
+│   │              Texture, FrameBuffer（纯 GL 原子 RAII 包装）
+│   ├── scene/     Entity, ComponentPool, Components(Transform/Camera/Light/MeshRenderer),
+│   │              Material, Mesh, RenderQueue, Renderer, Scene
 │   └── framework/ Application(Config), Timing
 ├── src/                       # 实现（按模块对应）
-├── examples/sandbox/          # 示例：地板+立方体+相机控制
+├── examples/                  # 演示示例
 ├── tests/                     # 单元测试
 ├── lib/                       # 预编译产物
 │   ├── sgkit_d.lib + .pdb     #   Debug
@@ -898,6 +894,7 @@ SGKit/
   - `u_Model` - 模型矩阵（每实例）
   - `u_ViewProjection` - 视图×投影矩阵（每帧）
   - `u_cameraPos` - 摄像机世界位置（每帧）
-  - `u_LightCount` - 活跃光源数量，`u_Lights[i].position/ambient/diffuse/specular`（每帧）
-  - `u_Light.*` - 向后兼容的首光源数据（每帧）
-  - `u_Material.diffuse` - 漫反射纹理（纹理单元 0），`u_Material.specular` / `u_Material.shininess`（每批次）
+  - `u_Light.position/ambient/diffuse/specular` - 光源数据（每帧，单光源模式）
+  - `u_Material.diffuse` - 漫反射纹理（纹理单元 0）
+  - `u_Material.specular` - 镜面反射纹理（纹理单元 1）
+  - `u_Material.shininess` - 光泽度（每批次）

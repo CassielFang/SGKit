@@ -4,48 +4,39 @@
 
 ## 核心理念
 
-**零第三方依赖**（除 glad OpenGL 加载器外），全部基于 C++17 标准库 + 平台 API 手写。
+**最小第三方依赖**：glad（OpenGL 加载器）+ stb_image（纹理加载），其余全部基于 C++20 标准库 + 平台 API 手写。
 
 ## 模块架构
 
 ```
- +-----------+      +-----------+
- |   Scene   |      |  FileIO   |
- +-----+-----+      +-----+-----+
-       |                   |
- +-----+-----+      +-----+-----+
- |  Graphics |      | Threading |
- +-----+-----+      +-----------+
-       |
- +-----+-----+
- |   Input   |
- +-----+-----+
-       |
- +-----+-----+      +-----------+
- |  Window   |      |   Math    |
- +-----------+      +-----------+
+Math -- 向量/矩阵/四元数（无外部依赖）
+  |
+Core -- Window（Win32+GL 上下文）/ Input（轮询键盘鼠标）/ FileSystem（文件读写+路径工具）/ ThreadPool（固定大小线程池）
+  |
+Graphics -- Shader / VBO / VAO / Texture / FBO / VertexLayout，纯 RAII GL 原子资源包装
+  |
+Scene -- 稀疏集 ECS（Entity + ComponentPool），Transform/Camera/Light/MeshRenderer 组件
+         Material / Mesh / RenderQueue / Renderer（拥有完整渲染管线）
+  |
+Framework -- 胶水层：WinMain 内嵌库中，用户只需实现 CreateApplication()
 ```
 
-- **Math** - 向量/矩阵/四元数/变换，列主序存储，直通 OpenGL
-- **Threading** - 固定大小线程池，`Enqueue` / `WaitAll`
-- **Window** - Win32 窗口 + WGL OpenGL 上下文（4.6 -> 3.3 自动回退），PIMPL 隐藏平台类型
-- **FileIO** - 文件读写 + 路径工具 + BMP 纹理加载器
-- **Input** - 键盘/鼠标轮询（Raw Input + Win32 消息），`IsKeyDown` / `IsKeyPressed` / `IsKeyReleased`
-- **Graphics** - Shader / VBO / VAO / Texture / Material / Mesh / Renderer，RAII 管理 GL 对象
-- **Scene** - 稀疏集 ECS（Entity + ComponentPool<T>），Transform 层级 / Camera / Light / MeshRenderer
+- **Math** - 向量/矩阵/四元数，列主序存储，直通 OpenGL
+- **Core** - Window（PIMPL, Win32 + WGL, 4.6->3.3 自动回退）、Input（Raw Input + Win32 消息）、FileSystem（文件读写 + 路径工具）、ThreadPool（固定大小线程池，`Enqueue` 返回 `TaskHandle`）
+- **Graphics** - Shader / VBO / VAO / Texture / FBO / VertexLayout，纯 RAII GL 原子包装，无场景层概念。Texture 通过 stb_image 支持 PNG/JPG/BMP/TGA 等多种格式
+- **Scene** - 稀疏集 ECS（Entity + ComponentPool<T>），Transform 层级（含父子关系）/ Camera / Light / MeshRenderer 组件。Material / Mesh / RenderQueue / Renderer 构成完整渲染管线（BuildRenderQueue -> Sort -> Execute，不透明+透明双通道）
 - **Framework** - 胶水层：`WinMain` 内嵌库中，用户只需实现 `CreateApplication()`
 
 ## 快速开始
 
 ### 环境
 
-- Visual Studio 2022（需"C++ CMake 工具"组件）
+- Visual Studio 2022 及以上（需"C++ CMake 工具"组件）
 - CMake 3.20+
-- glad OpenGL 加载器（已内置在 `external/glad/`）
 
 ### 构建
 
-用 Visual Studio（建议2022及以上版本） 打开文件夹，选择配置后生成即可
+用 Visual Studio（建议 2022 及以上版本）打开文件夹，选择 x64-Debug 或 x64-Release 配置后生成即可。
 
 ### 五分钟写一个窗口
 
@@ -58,14 +49,14 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
     cfg.title = "Hello SGKit";
 
     cfg.onInit = []() -> bool {
-        // 创建场景,加载资源
+        // 初始化场景、加载资源
         return true;
     };
 
-    cfg.onUpdate = [](float dt) {
+    cfg.onUpdate = []() {
         // 每帧逻辑
-        if (sgkit::GetInput().IsKeyPressed(sgkit::core::KeyCode::k_Escape))
-            sgkit::RequestQuit();
+        if (sgkit::core::Input::instance().IsKeyPressed(sgkit::core::KeyCode::Escape))
+            sgkit::core::Window::instance().RequestClose();
     };
 
     cfg.onRender = []() {
@@ -80,21 +71,21 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
 
 ### 引擎模块访问
 
-在回调中通过以下自由函数获取引擎模块：
+引擎模块均为单例，通过 `::instance()` 访问：
 
-| 函数 | 返回 |
-|------|------|
-| `GetWindow()` | 窗口（尺寸,关闭,全屏等） |
-| `GetInput()` | 输入（键盘/鼠标状态） |
-| `GetRenderer()` | 渲染器（清屏,状态切换） |
-| `GetScene()` | 场景（实体,组件,Transform 层级） |
-| `GetDeltaTime()` | 当前帧间隔（秒） |
-| `GetFPS()` | 帧率 |
-| `RequestQuit()` | 请求退出 |
+| 访问方式 | 返回 | 说明 |
+|------|------|------|
+| `core::Window::instance()` | `core::Window&` | 窗口（尺寸、关闭、全屏等） |
+| `core::Input::instance()` | `core::Input&` | 输入（键盘/鼠标状态轮询） |
+| `scene::Renderer::instance()` | `scene::Renderer&` | 渲染器（清屏、GL 状态切换、执行渲染队列） |
+| `scene::Scene::instance()` | `scene::Scene&` | 场景（实体创建、组件管理、调用 Render） |
+| `core::ThreadPool::instance()` | `core::ThreadPool&` | 线程池（异步任务提交） |
+| `framework::Clock::GetFrameDeltaSeconds()` | `float` | 当前帧间隔（秒） |
+| `framework::Clock::GetFPS()` | `float` | 帧率 |
 
 ### Example 示例
 
-`examples/sandbox/main.cpp` 是一个完整 demo：旋转棋盘纹理立方体 + WASD 移动 + 右键拖拽视角。`examples/Lighting/` 是光照学习示例（配合 LearnOpenGL 教程）。所有代码在 `CreateApplication()` 中完成，不依赖任何外部资源。
+`examples/Light/main.cpp` 是光照演示：10 个漫反射+镜面反射立方体 + 1 个点光源 + 自由移动相机（WASD 移动、鼠标拖拽视角）。辅助函数封装在 `objects.h`/`objects.cpp` 中。使用 stb_image 加载 PNG 纹理。
 
 ## 项目结构
 
@@ -102,17 +93,18 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
 SGKit/
 ├── CMakeLists.txt                    # 根 CMake
 ├── CMakePresets.json                 # x64-Debug / x64-Release
-├── cmake/                            # 编译设置,平台检测
-├── external/glad/                    # glad 加载器（静态库）
+├── external/
+│   ├── glad/                         # OpenGL 加载器（静态库）
+│   └── stb/                          # stb_image 纹理加载（静态库）
 ├── include/sgkit/                    # 公共头文件
 │   ├── sgkit.h                       #   聚合头
-│   ├── math/                         #   向量/矩阵/四元数
-│   ├── core/                         #   窗口/输入/线程池/文件
-│   ├── graphics/                     #   Shader/VBO/纹理/渲染器
-│   ├── scene/                        #   实体/组件/场景
-│   └── framework/                    #   应用框架
-├── src/                              # 实现文件（对应上述模块）
-├── examples/                         # 示例应用
+│   ├── math/                         #   Vector2/3/4, Matrix4, Quaternion, MathUtils
+│   ├── core/                         #   Window, Input, KeyCodes, FileSystem, ThreadPool
+│   ├── graphics/                     #   Shader, VBO, VAO, Texture, FBO, VertexLayout（纯 GL 原子）
+│   ├── scene/                        #   Entity, ComponentPool, Components, Material, Mesh, RenderQueue, Renderer, Scene
+│   └── framework/                    #   Application, Timing
+├── src/                              # 实现文件（按模块对应）
+├── examples/                         # 演示示例
 ├── tests/                            # 单元测试
 ├── lib/                              # 构建产物（sgkit.lib / sgkit_d.lib）
 │   ├── sgkit_d.lib                   #   Debug 静态库
@@ -121,15 +113,17 @@ SGKit/
 └── icon/                             # 应用图标
 ```
 
+更多文档：[docs/MATH_MODULE.md](docs/MATH_MODULE.md)（数学库详细 API）、[docs/THREAD_POOL.md](docs/THREAD_POOL.md)（线程池用法）。
+
 ## 技术规格
 
 | 项目 | 值 |
 |------|-----|
-| 语言 | C++17 |
+| 语言 | C++20 |
 | 平台 | Windows 10+（架构预留 Linux/macOS） |
 | 图形 | OpenGL 4.6 Core（自动回退 3.3 -> Legacy） |
-| 构建 | CMake 3.20+ / Visual Studio 2022 |
-| 唯一第三方依赖 | glad（OpenGL 加载器） |
+| 构建 | CMake 3.20+ / Visual Studio 2022 及以上 |
+| 第三方依赖 | glad（OpenGL 加载器）+ stb_image（纹理加载） |
 
 ## 在其他项目中使用
 
@@ -138,7 +132,7 @@ SGKit/
 ```cmake
 target_include_directories(YourApp PRIVATE path/to/SGKit/include)
 target_link_directories(YourApp PRIVATE path/to/SGKit/lib)
-# Debug -> sgkit_d.lib, Release -> sgkit.lib。glad 已内嵌，无需单独链接。
+# Debug -> sgkit_d.lib, Release -> sgkit.lib。glad 和 stb 已内嵌，无需单独链接。
 target_link_libraries(YourApp PRIVATE sgkit_d gdi32 user32 opengl32 imm32)
 ```
 
@@ -147,8 +141,9 @@ target_link_libraries(YourApp PRIVATE sgkit_d gdi32 user32 opengl32 imm32)
 ```cmake
 add_subdirectory(external/SGKit)
 target_link_libraries(YourApp PRIVATE sgkit)
+# sgkit 会传递链接 glad、stb 和平台库（gdi32 user32 opengl32 imm32）
 ```
 
 ## 许可证
 
-MIT
+[MIT](LICENSE)
