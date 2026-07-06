@@ -98,6 +98,7 @@ SGKit/
 │   └── stb/                          # stb_image 纹理加载（静态库）
 ├── include/sgkit/                    # 公共头文件
 │   ├── sgkit.h                       #   聚合头
+│   ├── sgkit_*.h                     #   各个模块聚合头
 │   ├── math/                         #   Vector2/3/4, Matrix4, Quaternion, MathUtils
 │   ├── core/                         #   Window, Input, KeyCodes, FileSystem, ThreadPool
 │   ├── graphics/                     #   Shader, VBO, VAO, Texture, FBO, VertexLayout（纯 GL 原子）
@@ -146,4 +147,4 @@ target_link_libraries(YourApp PRIVATE sgkit)
 
 ## 许可证
 
-[MIT](LICENSE)
+[MIT](LICENSE.txt)
