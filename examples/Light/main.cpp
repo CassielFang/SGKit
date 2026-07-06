@@ -5,7 +5,7 @@ using namespace sgkit;
 static scene::Entity s_cubes[10];
 static scene::Entity s_camera;
 static scene::Entity s_light;
-static std::shared_ptr<graphics::Shader> s_lightShader;
+static std::shared_ptr<graphics::Shader> s_shader;
 static std::shared_ptr<graphics::Texture> s_diffTex;
 static std::shared_ptr<graphics::Texture> s_specTex;
 
@@ -33,8 +33,8 @@ ApplicationConfig sgkit::CreateApplication()
 
     cfg.onInit = [&]() -> bool
         {
-            s_lightShader = std::make_shared<graphics::Shader>();
-            s_lightShader->LoadFromFile("assets/simple.vert", "assets/simple.frag");
+            s_shader = std::make_shared<graphics::Shader>();
+            s_shader->LoadFromFile("assets/shaders/light.vert", "assets/shaders/light.frag");
             s_diffTex = std::make_shared<graphics::Texture>(0);
             s_diffTex->LoadFromFile("assets/container2.png");
             s_specTex = std::make_shared<graphics::Texture>(1);
@@ -45,7 +45,7 @@ ApplicationConfig sgkit::CreateApplication()
                 scene::component::Transform transform;
                 transform.position = s_cubePositions[i];
                 transform.rotation = math::Quaternion::FromAxisAngle({ 1.0f, 0.3f, 0.5f }, math::ToRadians(20.f * i));
-                s_cubes[i] = createCube(transform, s_lightShader, s_diffTex, s_specTex);
+                s_cubes[i] = createCube(transform, s_shader, s_diffTex, s_specTex);
             }
             s_camera = createCamera();
             s_light = createLight();
@@ -98,7 +98,9 @@ ApplicationConfig sgkit::CreateApplication()
         };
     cfg.onShutdown = [&]()
         {
-            s_lightShader.reset();
+            s_shader.reset();
+            s_diffTex.reset();
+            s_specTex.reset();
         };
     return cfg;
 }

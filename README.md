@@ -91,27 +91,27 @@ sgkit::ApplicationConfig sgkit::CreateApplication()
 
 ```
 SGKit/
-├── CMakeLists.txt                    # 根 CMake
-├── CMakePresets.json                 # x64-Debug / x64-Release
-├── external/
-│   ├── glad/                         # OpenGL 加载器（静态库）
-│   └── stb/                          # stb_image 纹理加载（静态库）
-├── include/sgkit/                    # 公共头文件
-│   ├── sgkit.h                       #   聚合头
-│   ├── sgkit_*.h                     #   各个模块聚合头
-│   ├── math/                         #   Vector2/3/4, Matrix4, Quaternion, MathUtils
-│   ├── core/                         #   Window, Input, KeyCodes, FileSystem, ThreadPool
-│   ├── graphics/                     #   Shader, VBO, VAO, Texture, FBO, VertexLayout（纯 GL 原子）
-│   ├── scene/                        #   Entity, ComponentPool, Components, Material, Mesh, RenderQueue, Renderer, Scene
-│   └── framework/                    #   Application, Timing
-├── src/                              # 实现文件（按模块对应）
-├── examples/                         # 演示示例
-├── tests/                            # 单元测试
-├── lib/                              # 构建产物（sgkit.lib / sgkit_d.lib）
-│   ├── sgkit_d.lib                   #   Debug 静态库
-│   ├── sgkit_d.pdb                   #   Debug 调试符号
-│   └── sgkit.lib                     #   Release 静态库
-└── icon/                             # 应用图标
+├-- CMakeLists.txt                    # 根 CMake
+├-- CMakePresets.json                 # x64-Debug / x64-Release
+├-- external/
+│   ├-- glad/                         # OpenGL 加载器（静态库）
+│   └-- stb/                          # stb_image 纹理加载（静态库）
+├-- include/sgkit/                    # 公共头文件
+│   ├-- sgkit.h                       #   聚合头
+│   ├-- sgkit_*.h                     #   各个模块聚合头
+│   ├-- math/                         #   Vector2/3/4, Matrix4, Quaternion, MathUtils
+│   ├-- core/                         #   Window, Input, KeyCodes, FileSystem, ThreadPool
+│   ├-- graphics/                     #   Shader, VBO, VAO, Texture, FBO, VertexLayout（纯 GL 原子）
+│   ├-- scene/                        #   Entity, ComponentPool, Components, Material, Mesh, RenderQueue, Renderer, Scene
+│   └-- framework/                    #   Application, Timing
+├-- src/                              # 实现文件（按模块对应）
+├-- examples/                         # 演示示例
+├-- tests/                            # 单元测试
+├-- lib/                              # 构建产物（sgkit.lib / sgkit_d.lib）
+│   ├-- sgkit_d.lib                   #   Debug 静态库
+│   ├-- sgkit_d.pdb                   #   Debug 调试符号
+│   └-- sgkit.lib                     #   Release 静态库
+└-- icon/                             # 应用图标
 ```
 
 更多文档：[docs/MATH_MODULE.md](docs/MATH_MODULE.md)（数学库详细 API）、[docs/THREAD_POOL.md](docs/THREAD_POOL.md)（线程池用法）。

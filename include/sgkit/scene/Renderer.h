@@ -42,7 +42,6 @@ public:
     // -- Frame-level data
     void SetViewProjection(const math::Matrix4& vp);
     void SetCameraPosition(const math::Vector3& pos);
-    void SetAmbientLight(const math::Vector3& color);
     void SetLights(const std::vector<LightInstance>& instances);
 
     // Execute a sorted render queue (two-pass: opaque -> transparent).
@@ -58,7 +57,6 @@ private:
 
     math::Matrix4 m_viewProjection = math::Matrix4::Identity();
     math::Vector3 m_cameraPos{0.0f, 0.0f, 0.0f};
-    math::Vector3 m_ambientLight{0.1f, 0.1f, 0.15f};
     std::vector<LightInstance> m_lights;
 
     void ExecuteBatch(const RenderBatch& batch);

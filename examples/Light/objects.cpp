@@ -81,7 +81,7 @@ scene::Entity createLight()
     va->SetIndexBuffer(ib);
 
     auto shader = std::make_shared<graphics::Shader>();
-    shader->LoadFromFile("assets/light.vert", "assets/light.frag");
+    shader->LoadFromFile("assets/shaders/simple.vert", "assets/shaders/simple.frag");
 
     auto material = std::make_shared<scene::Material>();
     material->shader = shader;
@@ -94,11 +94,14 @@ scene::Entity createLight()
     auto entity = sceneManager.CreateEntity();
     auto transform = sceneManager.AddComponent<scene::component::Transform>(entity);
     transform->position = { 2.0f, 1.0f, 5.0f };
+    //transform->position = { -0.2f, -1.0f, -0.3f };
     sceneManager.AddComponent<scene::component::MeshRenderer>(entity)->mesh = mesh;
     auto light = sceneManager.AddComponent<scene::component::Light>(entity);
-    light->ambient  = math::Vector3{0.2f, 0.2f, 0.2f};
-    light->diffuse = math::Vector3{ 0.8f, 0.75f, 0.6f };
-    light->specular = math::Vector3{1.0f, 1.0f, 1.0f};
+    light->type = scene::component::Light::Type::SpotLight;
+    light->direction = math::Vector3{ 0.0f, 0.0f, -1.0f };
+    light->ambient = math::Vector3{ 0.2f, 0.2f, 0.2f };
+    light->diffuse = math::Vector3{ 2.4f, 2.25f, 1.8f };
+    light->specular = math::Vector3{ 1.0f, 1.0f, 1.0f };
 
     return entity;
 }

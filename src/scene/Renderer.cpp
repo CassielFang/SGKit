@@ -95,11 +95,6 @@ void Renderer::SetCameraPosition(const math::Vector3& pos)
     m_cameraPos = pos;
 }
 
-void Renderer::SetAmbientLight(const math::Vector3& color)
-{
-    m_ambientLight = color;
-}
-
 void Renderer::SetLights(const std::vector<LightInstance>& instances)
 {
     m_lights = instances;
@@ -198,26 +193,66 @@ void Renderer::SetFrameUniforms(graphics::Shader& shader)
     shader.SetMatrix4("u_ViewProjection", m_viewProjection);
     shader.SetVector3("u_cameraPos", m_cameraPos);
 
-    //int count = static_cast<int>(m_lights.size());
-    //shader.SetInt("u_LightCount", count);
+    int dCount = 0, pCount = 0, sCount = 0, count = static_cast<int>(m_lights.size());
+    char buf[64]{};
 
-    //for (int i = 0; i < count; ++i)
-    //{
-    //    const LightInstance& li = m_lights[i];
-    //    char buf[64];
-    //    std::snprintf(buf, sizeof(buf), "u_Lights[%d].position", i);
-    //    shader.SetVector3(buf, li.worldPosition);
-    //    std::snprintf(buf, sizeof(buf), "u_Lights[%d].ambient", i);
-    //    shader.SetVector3(buf, li.attribute->ambient);
-    //    std::snprintf(buf, sizeof(buf), "u_Lights[%d].diffuse", i);
-    //    shader.SetVector3(buf, li.attribute->diffuse);
-    //    std::snprintf(buf, sizeof(buf), "u_Lights[%d].specular", i);
-    //    shader.SetVector3(buf, li.attribute->specular);
-    //}
-    shader.SetVector3("u_Light.position", m_lights[0].worldPosition);
-    shader.SetVector3("u_Light.ambient", m_lights[0].attribute->ambient);
-    shader.SetVector3("u_Light.diffuse", m_lights[0].attribute->diffuse);
-    shader.SetVector3("u_Light.specular", m_lights[0].attribute->specular);
+    auto setupLightv = [&shader, &buf](const char* format, int index, math::Vector3& val)
+        {
+            std::snprintf(buf, 64, format, index);
+            shader.SetVector3(buf, val);
+        };
+    auto setupLightf = [&shader, &buf](const char* format, int index, float val)
+        {
+            std::snprintf(buf, 64, format, index);
+            shader.SetFloat(buf, val);
+        };
+
+    for (int i = 0; i < count; ++i)
+    {
+        LightInstance& l = m_lights[i];
+        switch (m_lights[i].attribute->type)
+        {
+        case component::Light::Type::Directional:
+        {
+            shader.SetVector3("u_DirectionalLight.direction", l.attribute->direction);
+            shader.SetVector3("u_DirectionalLight.ambient", l.attribute->ambient);
+            shader.SetVector3("u_DirectionalLight.diffuse", l.attribute->diffuse);
+            shader.SetVector3("u_DirectionalLight.specular", l.attribute->specular);
+            dCount = 1;
+            break;
+        }
+        case component::Light::Type::Point:
+        {
+            setupLightv("u_PointLights[%d].position", pCount, l.worldPosition);
+            setupLightv("u_PointLights[%d].ambient", pCount, l.attribute->ambient);
+            setupLightv("u_PointLights[%d].diffuse", pCount, l.attribute->diffuse);
+            setupLightv("u_PointLights[%d].specular", pCount, l.attribute->specular);
+            setupLightf("u_PointLights[%d].constant", pCount, l.attribute->constant);
+            setupLightf("u_PointLights[%d].linear", pCount, l.attribute->linear);
+            setupLightf("u_PointLights[%d].quadratic", pCount, l.attribute->quadratic);
+            ++pCount;
+            break;
+        }
+        case component::Light::Type::SpotLight:
+        {
+            setupLightv("u_SpotLights[%d].position", sCount, l.worldPosition);
+            setupLightv("u_SpotLights[%d].direction", sCount, l.attribute->direction);
+            setupLightf("u_SpotLights[%d].cutOff", sCount, l.attribute->cutOff);
+            setupLightf("u_SpotLights[%d].outerCutOff", sCount, l.attribute->outerCutOff);
+            setupLightv("u_SpotLights[%d].ambient", sCount, l.attribute->ambient);
+            setupLightv("u_SpotLights[%d].diffuse", sCount, l.attribute->diffuse);
+            setupLightv("u_SpotLights[%d].specular", sCount, l.attribute->specular);
+            setupLightf("u_SpotLights[%d].constant", sCount, l.attribute->constant);
+            setupLightf("u_SpotLights[%d].linear", sCount, l.attribute->linear);
+            setupLightf("u_SpotLights[%d].quadratic", sCount, l.attribute->quadratic);
+            ++sCount;
+            break;
+        }
+        }
+    }
+    shader.SetInt("u_dLightCount", dCount);
+    shader.SetInt("u_pLightCount", pCount);
+    shader.SetInt("u_sLightCount", sCount);
 }
 
 }

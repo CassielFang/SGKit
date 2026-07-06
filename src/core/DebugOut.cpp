@@ -9,8 +9,8 @@ namespace core {
 #ifdef _DEBUG
 void DebugOut(const char* str, char end)
 {
-    char buff[512]{};
-    sprintf_s(buff, 512, "%s%c", str, end);
+    char buff[1024]{};
+    sprintf_s(buff, 1024, "%s%c", str, end);
     std::fprintf(stderr, buff);
 #ifdef _WINDOWS
     OutputDebugStringA(buff);
@@ -18,8 +18,8 @@ void DebugOut(const char* str, char end)
 }
 void DebugOut(int code, char end)
 {
-    char buff[512]{};
-    sprintf_s(buff, 512, "%d%c", code, end);
+    char buff[1024]{};
+    sprintf_s(buff, 1024, "%d%c", code, end);
     std::fprintf(stderr, buff);
 #ifdef _WINDOWS
     OutputDebugStringA(buff);

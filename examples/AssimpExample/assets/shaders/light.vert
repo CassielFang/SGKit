@@ -4,24 +4,58 @@ layout(location = 0) in vec3 a_Position;
 layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in vec2 a_TexCoord;
 
-struct Material {
+struct Material
+{
     sampler2D diffuse;
     sampler2D specular;
     float shininess;
 };
-struct Light {
+
+struct DirectionalLight
+{
+    vec3 direction;
+
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+};
+struct PointLight
+{
     vec3 position;
     
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
+
+    float constant;
+    float linear;
+    float quadratic;
+};
+struct SpotLight
+{
+    vec3 position;
+    vec3 direction;
+    float cutOff;
+    float outerCutOff;
+
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+
+    float constant;
+    float linear;
+    float quadratic;
 };
 
 uniform mat4 u_Model;
 uniform mat4 u_ViewProjection;
 uniform vec3 u_cameraPos;
 uniform Material u_Material;
-uniform Light u_Light;
+
+uniform DirectionalLight u_DirectionalLight;
+uniform PointLight       u_PointLights[4];
+uniform SpotLight        u_SpotLights[4];
+uniform int u_dLightCount, u_pLightCount, u_sLightCount;
 
 out vec2 texCoord;
 out vec3 worldPos;

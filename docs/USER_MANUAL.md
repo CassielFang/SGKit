@@ -852,25 +852,25 @@ SGKit 会传递链接 `glad` 和平台库 (`gdi32 user32 opengl32 imm32`)。
 
 ```
 SGKit/
-├── CMakeLists.txt / CMakePresets.json
-├── external/
-│   ├── glad/                  # OpenGL 4.6 Core 加载器（静态库）
-│   └── stb/                   # stb_image 纹理加载（静态库）
-├── include/sgkit/             # 公共头（聚合头 sgkit.h 一次性包含全部子模块）
-│   ├── math/      Vector2/3/4, Matrix4, Quaternion, MathUtils
-│   ├── core/      Window, Input, KeyCodes, FileSystem, ThreadPool
-│   ├── graphics/  Shader, VertexBuffer, IndexBuffer, VertexLayout, VertexArray,
+├-- CMakeLists.txt / CMakePresets.json
+├-- external/
+│   ├-- glad/                  # OpenGL 4.6 Core 加载器（静态库）
+│   └-- stb/                   # stb_image 纹理加载（静态库）
+├-- include/sgkit/             # 公共头（聚合头 sgkit.h 一次性包含全部子模块）
+│   ├-- math/      Vector2/3/4, Matrix4, Quaternion, MathUtils
+│   ├-- core/      Window, Input, KeyCodes, FileSystem, ThreadPool
+│   ├-- graphics/  Shader, VertexBuffer, IndexBuffer, VertexLayout, VertexArray,
 │   │              Texture, FrameBuffer（纯 GL 原子 RAII 包装）
-│   ├── scene/     Entity, ComponentPool, Components(Transform/Camera/Light/MeshRenderer),
+│   ├-- scene/     Entity, ComponentPool, Components(Transform/Camera/Light/MeshRenderer),
 │   │              Material, Mesh, RenderQueue, Renderer, Scene
-│   └── framework/ Application(Config), Timing
-├── src/                       # 实现（按模块对应）
-├── examples/                  # 演示示例
-├── tests/                     # 单元测试
-├── lib/                       # 预编译产物
-│   ├── sgkit_d.lib + .pdb     #   Debug
-│   └── sgkit.lib              #   Release
-└── icon/                      # 程序图标（app.rc + app.ico）
+│   └-- framework/ Application(Config), Timing
+├-- src/                       # 实现（按模块对应）
+├-- examples/                  # 演示示例
+├-- tests/                     # 单元测试
+├-- lib/                       # 预编译产物
+│   ├-- sgkit_d.lib + .pdb     #   Debug
+│   └-- sgkit.lib              #   Release
+└-- icon/                      # 程序图标（app.rc + app.ico）
 ```
 
 ### 全局预定义宏（MSVC）

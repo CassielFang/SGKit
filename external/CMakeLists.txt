@@ -8,6 +8,7 @@ add_compile_options(/W0)
 
 add_subdirectory(glad)
 add_subdirectory(stb)
+# assimp is prebuilt - handled directly in src/CMakeLists.txt
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

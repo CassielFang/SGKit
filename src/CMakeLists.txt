@@ -14,6 +14,10 @@ target_include_directories(sgkit PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+target_include_directories(sgkit PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/external/assimp/include>
+)
+
 # glad header and resource visible only inside sgkit, not to consumers
 target_include_directories(sgkit PRIVATE ${CMAKE_SOURCE_DIR}/icon)
 
@@ -32,6 +36,7 @@ target_compile_definitions(sgkit PRIVATE _WINDOWS)
 
 # -- Link dependencies
 target_link_libraries(sgkit PRIVATE glad stb ${SGK_PLATFORM_LIBS})
+target_link_libraries(sgkit PRIVATE ${CMAKE_SOURCE_DIR}/external/assimp/lib/assimp-vc145-mt.lib)
 
 # -- Output filename: Debug -> sgkit_d.lib, Release -> sgkit.lib ----------
 set_target_properties(sgkit PROPERTIES

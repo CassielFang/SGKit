@@ -164,7 +164,6 @@ void Scene::Render(Entity cameraEntity)
     Renderer& renderer = Renderer::instance();
     renderer.SetViewProjection(camComp->GetProjectionMatrix(aspect) * viewMatrix);
     renderer.SetCameraPosition(cameraPos);
-    renderer.SetAmbientLight({0.1f, 0.1f, 0.15f});
     renderer.SetLights(CollectLights());
 
     renderer.Clear();
@@ -174,7 +173,7 @@ void Scene::Render(Entity cameraEntity)
 // -- Template specialisations
 
 template<> ComponentPool<component::Transform>&
-    Scene::GetPool<component::Transform>()       { return m_transforms; }
+    Scene::GetPool<component::Transform>()        { return m_transforms; }
 template<> ComponentPool<component::Camera>&
     Scene::GetPool<component::Camera>()           { return m_cameras; }
 template<> ComponentPool<component::Light>&
@@ -183,11 +182,11 @@ template<> ComponentPool<component::MeshRenderer>&
     Scene::GetPool<component::MeshRenderer>()     { return m_meshRenderers; }
 
 template<> const ComponentPool<component::Transform>&
-    Scene::GetPool<component::Transform>() const  { return m_transforms; }
+    Scene::GetPool<component::Transform>() const    { return m_transforms; }
 template<> const ComponentPool<component::Camera>&
-    Scene::GetPool<component::Camera>() const      { return m_cameras; }
+    Scene::GetPool<component::Camera>() const       { return m_cameras; }
 template<> const ComponentPool<component::Light>&
-    Scene::GetPool<component::Light>() const       { return m_lights; }
+    Scene::GetPool<component::Light>() const        { return m_lights; }
 template<> const ComponentPool<component::MeshRenderer>&
     Scene::GetPool<component::MeshRenderer>() const { return m_meshRenderers; }
 

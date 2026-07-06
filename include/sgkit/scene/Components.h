@@ -19,9 +19,9 @@ namespace component {
 class Transform
 {
 public:
-    math::Vector3    position{0.0f, 0.0f, 0.0f};
-    math::Quaternion rotation{};
-    math::Vector3    scale{1.0f, 1.0f, 1.0f};
+    math::Vector3    position { 0.0f, 0.0f, 0.0f };
+    math::Quaternion rotation {};
+    math::Vector3    scale    { 1.0f, 1.0f, 1.0f };
 
     Entity parent;
     std::vector<Entity> children;
@@ -49,11 +49,19 @@ class Light
 public:
     enum class Type
     {
-        Point, Directional
+        Directional, Point, SpotLight
     } type = Type::Point;
-    math::Vector3 ambient  {0.2f, 0.2f, 0.2f};
-    math::Vector3 diffuse  {0.5f, 0.5f, 0.5f};
-    math::Vector3 specular {1.0f, 1.0f, 1.0f};
+    math::Vector3 direction { 0.0f, -1.0f, 0.0f };
+    float cutOff      = 0.91f;
+    float outerCutOff = 0.82f;
+
+    math::Vector3 ambient   { 0.2f, 0.2f, 0.2f };
+    math::Vector3 diffuse   { 0.5f, 0.5f, 0.5f };
+    math::Vector3 specular  { 1.0f, 1.0f, 1.0f };
+
+    float constant  = 1.0f;
+    float linear    = 0.09f;
+    float quadratic = 0.032f;
 };
 
 // -- MeshRenderer
