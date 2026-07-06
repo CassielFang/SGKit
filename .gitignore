@@ -1,20 +1,6 @@
 # C++ build artifacts
 build/
 lib/
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.dylib
-*.a
-*.lib
-*.exp
-*.pdb
-*.ilk
-
-# Generated asset copy
-/assets/
 
 # CMake generated
 CMakeCache.txt
