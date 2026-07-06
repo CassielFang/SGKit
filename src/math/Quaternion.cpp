@@ -106,9 +106,10 @@ Quaternion Quaternion::FromEulerAngles(float pitch, float yaw, float roll)
 
 Quaternion Quaternion::FromAxisAngle(const Vector3& axis, float radians)
 {
+    Vector3 normalized = axis.Normalized();
     float halfAngle = radians * 0.5f;
     float s = std::sin(halfAngle);
-    return {axis.x * s, axis.y * s, axis.z * s, std::cos(halfAngle)};
+    return { normalized.x * s, normalized.y * s, normalized.z * s, std::cos(halfAngle)};
 }
 
 Quaternion Quaternion::Slerp(const Quaternion& a, const Quaternion& b, float t)

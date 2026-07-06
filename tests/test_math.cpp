@@ -147,13 +147,6 @@ int main()
         r.Check(Approximately(v.z, 0.0f, 0.01f), "Quaternion slerp");
     }
 
-    // Transform
-    {
-        Transform tf;
-        tf.position = {3.0f, 0.0f, 0.0f};
-        Matrix4 m = tf.GetLocalMatrix();
-        r.Check(m.TransformPoint({1.0f, 2.0f, 3.0f}) == Vector3{4.0f, 2.0f, 3.0f}, "Transform local matrix");
-    }
 
     return r.Finish();
 }

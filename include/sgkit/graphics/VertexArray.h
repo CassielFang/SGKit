@@ -30,7 +30,7 @@ public:
     void Bind() const;
     void Unbind() const;
 
-    void AddVertexBuffer(std::shared_ptr<VertexBuffer> vb, const VertexLayout& layout);
+    void SetVertexBuffer(std::shared_ptr<VertexBuffer> vb, const VertexLayout& layout);
     void SetIndexBuffer(std::shared_ptr<IndexBuffer> ib);
 
     void Draw(DrawMode mode = DrawMode::Triangles) const;
@@ -45,8 +45,6 @@ private:
     uint32_t m_handle;
     std::shared_ptr<VertexBuffer> m_vertexBuffer;
     std::shared_ptr<IndexBuffer>  m_indexBuffer;
-
-    static uint32_t g_currentHandle;
 };
 
 }

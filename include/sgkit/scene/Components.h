@@ -1,12 +1,20 @@
 #pragma once
 
-#include <sgkit/scene/Entity.h>
-#include <sgkit/math/Transform.h>
+#include <sgkit/math/Quaternion.h>
 #include <sgkit/math/Matrix4.h>
-#include <sgkit/graphics/Mesh.h>
+#include <sgkit/scene/Entity.h>
+
+#include <memory>
+#include <vector>
 
 namespace sgkit {
 namespace scene {
+
+class Mesh;
+
+namespace component {
+
+// -- Transform
 
 class Transform
 {
@@ -18,15 +26,10 @@ public:
     Entity parent;
     std::vector<Entity> children;
 
-    math::Matrix4 GetLocalMatrix() const
-    {
-        math::Transform tf;
-        tf.position = position;
-        tf.rotation = rotation;
-        tf.scale    = scale;
-        return tf.GetLocalMatrix();
-    }
+    math::Matrix4 GetLocalMatrix() const;
 };
+
+// -- Camera
 
 class Camera
 {
@@ -35,31 +38,34 @@ public:
     float nearPlane = 0.1f;
     float farPlane  = 1000.0f;
 
-    math::Matrix4 GetViewMatrix(const math::Matrix4& worldMatrix) const
-    {
-        return worldMatrix.Inverted();
-    }
-
-    math::Matrix4 GetProjectionMatrix(float aspectRatio) const
-    {
-        return math::Matrix4::Perspective(math::ToRadians(fovY), aspectRatio, nearPlane, farPlane);
-    }
+    math::Matrix4 GetViewMatrix(const math::Matrix4& worldMatrix) const;
+    math::Matrix4 GetProjectionMatrix(float aspectRatio) const;
 };
+
+// -- Light
 
 class Light
 {
 public:
-    math::Vector3 ambient{ 0.2f, 0.2f, 0.2f };
-    math::Vector3 diffuse{ 0.5f, 0.5f, 0.5f };
-    math::Vector3 specular{ 1.0f, 1.0f, 1.0f };
+    enum class Type
+    {
+        Point, Directional
+    } type = Type::Point;
+    math::Vector3 ambient  {0.2f, 0.2f, 0.2f};
+    math::Vector3 diffuse  {0.5f, 0.5f, 0.5f};
+    math::Vector3 specular {1.0f, 1.0f, 1.0f};
 };
+
+// -- MeshRenderer
 
 class MeshRenderer
 {
 public:
-    std::shared_ptr<graphics::Mesh> mesh;
+    std::shared_ptr<Mesh> mesh;
     bool enabled = true;
 };
+
+}
 
 }
 }

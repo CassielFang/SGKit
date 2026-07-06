@@ -466,7 +466,7 @@ VAO--把 VBO,布局和 IBO 绑定在一起，一个 Draw 调用即可渲染。
 auto va = std::make_shared<VertexArray>();
 va->Create();                           // glGenVertexArrays
 
-va->AddVertexBuffer(vb, layout);        // 绑定 VBO 并按布局设置顶点属性指针
+va->SetVertexBuffer(vb, layout);        // 绑定 VBO 并按布局设置顶点属性指针
 va->SetIndexBuffer(ib);                 // 绑定索引缓冲
 
 va->Bind();

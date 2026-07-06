@@ -1,6 +1,6 @@
 #include <sgkit/graphics/Texture.h>
-#include <sgkit/core/FileSystem.h>
 
+#include <sgkit/core/FileSystem.h>
 #include <glad/glad.h>
 #include <stb/stb_image.h>
 
@@ -9,9 +9,7 @@
 namespace sgkit {
 namespace graphics {
 
-uint32_t Texture::g_currentHandle = 0;
-
-Texture::Texture(uint32_t slot)
+Texture::Texture(int slot)
     : m_handle(0)
     , m_slot(slot)
     , m_width(0)
@@ -74,7 +72,7 @@ bool Texture::LoadFromFile(const std::string& path)
         fileData->data(),
         static_cast<int>(fileData->size()),
         &width, &height, &channels,
-        0);  // 0 = desired_channels → keep original
+        0);  // 0 = desired_channels -> keep original
 
     if (!pixels)
     {
@@ -126,21 +124,21 @@ bool Texture::Create(int width, int height, const void* data,
     GLenum internalFmt = 0;
     switch (internalFormat)
     {
-    case TexInternalDataFormat::Alpha:   internalFmt = GL_ALPHA;   break;
-    case TexInternalDataFormat::RGB:     internalFmt = GL_RGB;     break;
+    case TexInternalDataFormat::Alpha:    internalFmt = GL_ALPHA;    break;
+    case TexInternalDataFormat::RGB:      internalFmt = GL_RGB;      break;
     case TexInternalDataFormat::R3_G3_B2: internalFmt = GL_R3_G3_B2; break;
-    case TexInternalDataFormat::RGB4:    internalFmt = GL_RGB4;    break;
-    case TexInternalDataFormat::RGB5:    internalFmt = GL_RGB5;    break;
-    case TexInternalDataFormat::RGB8:    internalFmt = GL_RGB8;    break;
-    case TexInternalDataFormat::RGB10:   internalFmt = GL_RGB10;   break;
-    case TexInternalDataFormat::RGB12:   internalFmt = GL_RGB12;   break;
-    case TexInternalDataFormat::RGB16:   internalFmt = GL_RGB16;   break;
-    case TexInternalDataFormat::RGBA:    internalFmt = GL_RGBA;    break;
-    case TexInternalDataFormat::RGB5_A1: internalFmt = GL_RGB5_A1; break;
-    case TexInternalDataFormat::RGBA8:   internalFmt = GL_RGBA8;   break;
-    case TexInternalDataFormat::RGB10_A2:internalFmt = GL_RGB10_A2;break;
-    case TexInternalDataFormat::RGBA12:  internalFmt = GL_RGBA12;  break;
-    case TexInternalDataFormat::RGBA16:  internalFmt = GL_RGBA16;  break;
+    case TexInternalDataFormat::RGB4:     internalFmt = GL_RGB4;     break;
+    case TexInternalDataFormat::RGB5:     internalFmt = GL_RGB5;     break;
+    case TexInternalDataFormat::RGB8:     internalFmt = GL_RGB8;     break;
+    case TexInternalDataFormat::RGB10:    internalFmt = GL_RGB10;    break;
+    case TexInternalDataFormat::RGB12:    internalFmt = GL_RGB12;    break;
+    case TexInternalDataFormat::RGB16:    internalFmt = GL_RGB16;    break;
+    case TexInternalDataFormat::RGBA:     internalFmt = GL_RGBA;     break;
+    case TexInternalDataFormat::RGB5_A1:  internalFmt = GL_RGB5_A1;  break;
+    case TexInternalDataFormat::RGBA8:    internalFmt = GL_RGBA8;    break;
+    case TexInternalDataFormat::RGB10_A2: internalFmt = GL_RGB10_A2; break;
+    case TexInternalDataFormat::RGBA12:   internalFmt = GL_RGBA12;   break;
+    case TexInternalDataFormat::RGBA16:   internalFmt = GL_RGBA16;   break;
     default: internalFmt = GL_RGBA8;
     }
 
@@ -176,25 +174,17 @@ bool Texture::Create(int width, int height, const void* data,
 
 void Texture::Bind() const
 {
-    if (g_currentHandle != m_handle)
-    {
-        glActiveTexture(GL_TEXTURE0 + m_slot);
-        glBindTexture(GL_TEXTURE_2D, m_handle);
-        g_currentHandle = m_handle;
-    }
+    glActiveTexture(GL_TEXTURE0 + m_slot);
+    glBindTexture(GL_TEXTURE_2D, m_handle);
 }
 
 void Texture::Unbind() const
 {
-    if (g_currentHandle != 0)
-    {
-        glActiveTexture(GL_TEXTURE0 + m_slot);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        g_currentHandle = 0;
-    }
+    glActiveTexture(GL_TEXTURE0 + m_slot);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Texture::SetSlot(uint32_t slot)
+void Texture::SetSlot(int slot)
 {
     m_slot = slot;
 }
@@ -208,7 +198,7 @@ void Texture::SetFilterLinear(bool linear) const
     Bind();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mipFilter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-    Unbind();
+    //Unbind();
 }
 
 void Texture::SetWrapRepeat(bool repeat) const
@@ -219,13 +209,32 @@ void Texture::SetWrapRepeat(bool repeat) const
     Bind();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
-    Unbind();
+    //Unbind();
 }
 
-int Texture::GetWidth() const  { return m_width; }
-int Texture::GetHeight() const { return m_height; }
-uint32_t Texture::GetHandle() const { return m_handle; }
-bool Texture::IsValid() const { return m_handle != 0; }
+int Texture::GetWidth() const
+{
+    return m_width;
+}
+
+int Texture::GetHeight() const
+{
+    return m_height;
+}
+
+int Texture::GetSlot() const
+{
+    return m_slot;
+}
+
+uint32_t Texture::GetHandle() const
+{
+    return m_handle;
+}
+
+bool Texture::IsValid() const {
+    return m_handle != 0;
+}
 
 }
 }

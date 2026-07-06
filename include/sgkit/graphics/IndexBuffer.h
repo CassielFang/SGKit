@@ -30,8 +30,6 @@ private:
 
     uint32_t m_handle;
     size_t   m_count;
-
-    static uint32_t g_currentHandle;
 };
 
 }

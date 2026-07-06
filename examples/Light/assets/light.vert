@@ -5,11 +5,8 @@ layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in vec2 a_TexCoord;
 
 struct Material {
-    sampler2D texture;
-
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
+    sampler2D diffuse;
+    sampler2D specular;
     float shininess;
 };
 struct Light {
@@ -35,5 +32,5 @@ void main()
     gl_Position = u_ViewProjection * u_Model * vec4(a_Position, 1.0);
     worldPos = vec3(u_Model * vec4(a_Position, 1.0));
     texCoord = a_TexCoord;
-    normal = a_Normal;
+    normal = mat3(u_Model) * a_Normal;
 }

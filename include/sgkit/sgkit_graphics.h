@@ -7,7 +7,3 @@
 #include <sgkit/graphics/VertexLayout.h>
 #include <sgkit/graphics/Shader.h>
 #include <sgkit/graphics/Texture.h>
-#include <sgkit/graphics/Material.h>
-#include <sgkit/graphics/Mesh.h>
-#include <sgkit/graphics/Renderer.h>
-#include <sgkit/graphics/RenderQueue.h>

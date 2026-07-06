@@ -40,7 +40,6 @@ private:
     Shader& operator=(const Shader&) = delete;
 
     uint32_t m_programID;
-    static uint32_t g_currentID;
 
     std::unordered_map<std::string, int> m_uniformCache;
     int GetUniformLocation(const std::string& name);

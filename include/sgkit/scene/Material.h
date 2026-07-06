@@ -7,7 +7,7 @@
 #include <memory>
 
 namespace sgkit {
-namespace graphics {
+namespace scene {
 
 enum class BlendMode
 {
@@ -33,9 +33,9 @@ enum class DepthMode
 class Material
 {
 public:
-    std::shared_ptr<Shader>  shader;
-    std::shared_ptr<Texture> diffuse;
-    math::Vector3 specular{0.5f, 0.5f, 0.5f};
+    std::shared_ptr<graphics::Shader>  shader;
+    std::shared_ptr<graphics::Texture> diffuse;
+    std::shared_ptr<graphics::Texture> specular;
     float shininess = 32.0f;
 
     BlendMode blendMode = BlendMode::Opaque;

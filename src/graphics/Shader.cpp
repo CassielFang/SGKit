@@ -7,8 +7,6 @@
 namespace sgkit {
 namespace graphics {
 
-uint32_t Shader::g_currentID = 0;
-
 Shader::Shader() : m_programID(0) {}
 
 Shader::~Shader()
@@ -125,20 +123,12 @@ bool Shader::LoadFromSource(const std::string& vertexSource, const std::string& 
 
 void Shader::Bind() const
 {
-    if (g_currentID != m_programID)
-    {
-        glUseProgram(m_programID);
-        g_currentID = m_programID;
-    }
+    glUseProgram(m_programID);
 }
 
 void Shader::Unbind() const
 {
-    if (g_currentID != 0)
-    {
-        glUseProgram(0);
-        g_currentID = 0;
-    }
+    glUseProgram(0);
 }
 
 uint32_t Shader::GetHandle() const

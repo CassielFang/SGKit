@@ -6,4 +6,3 @@
 #include <sgkit/math/Vector4.h>
 #include <sgkit/math/Matrix4.h>
 #include <sgkit/math/Quaternion.h>
-#include <sgkit/math/Transform.h>

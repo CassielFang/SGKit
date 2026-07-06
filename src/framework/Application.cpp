@@ -11,7 +11,7 @@
 #include <sgkit/core/Window.h>
 #include <sgkit/core/ThreadPool.h>
 #include <sgkit/core/Input.h>
-#include <sgkit/graphics/Renderer.h>
+#include <sgkit/scene/Renderer.h>
 #include <sgkit/scene/Scene.h>
 
 #include <cstdio>
@@ -94,8 +94,8 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     }
     core::Input& input = core::Input::instance();
 
-    graphics::Renderer::Create();
-    graphics::Renderer& renderer = graphics::Renderer::instance();
+    scene::Renderer::Create();
+    scene::Renderer& renderer = scene::Renderer::instance();
     renderer.SetClearColor({0.1f, 0.1f, 0.15f, 1.0f});
     renderer.SetDepthTest(true);
     renderer.SetCullFace(true);
@@ -117,7 +117,7 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
         {
             Fatal("onInit() returned false.");
             scene::Scene::Destroy();
-            graphics::Renderer::Destroy();
+            scene::Renderer::Destroy();
             core::Input::Destroy();
             core::ThreadPool::Destroy();
             core::Window::Destroy();
@@ -170,7 +170,7 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     // Tear down in reverse dependency order - Scene GL resources
     // released before Window destroys the GL context.
     scene::Scene::Destroy();
-    graphics::Renderer::Destroy();
+    scene::Renderer::Destroy();
     core::Input::Destroy();
     core::ThreadPool::Destroy();
     core::Window::Destroy();

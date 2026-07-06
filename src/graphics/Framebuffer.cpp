@@ -5,8 +5,6 @@
 namespace sgkit {
 namespace graphics {
 
-uint32_t FrameBuffer::g_currentFBO = 0;
-
 FrameBuffer::FrameBuffer()
     : m_fbo(0)
     , m_depthTexture(0)
@@ -89,20 +87,12 @@ bool FrameBuffer::IsValid() const
 
 void FrameBuffer::Bind() const
 {
-    if (g_currentFBO != m_fbo)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-        g_currentFBO = m_fbo;
-    }
+    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
 }
 
 void FrameBuffer::Unbind() const
 {
-    if (g_currentFBO != 0)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        g_currentFBO = 0;
-    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 uint32_t FrameBuffer::GetDepthTexture() const

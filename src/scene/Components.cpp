@@ -1,13 +1,14 @@
-#include <sgkit/math/Transform.h>
+#include <sgkit/scene/Components.h>
 
 namespace sgkit {
-namespace math {
+namespace scene {
 
-Matrix4 Transform::GetLocalMatrix() const
+namespace component {
+
+math::Matrix4 Transform::GetLocalMatrix() const
 {
-    Matrix4 t = Matrix4::Translate(position);
+    math::Matrix4 t = math::Matrix4::Translate(position);
 
-    // Rotation matrix from quaternion
     float xx = rotation.x * rotation.x;
     float yy = rotation.y * rotation.y;
     float zz = rotation.z * rotation.z;
@@ -18,7 +19,7 @@ Matrix4 Transform::GetLocalMatrix() const
     float wy = rotation.w * rotation.y;
     float wz = rotation.w * rotation.z;
 
-    Matrix4 r;
+    math::Matrix4 r;
     r.m[0][0] = 1.0f - 2.0f * (yy + zz);
     r.m[0][1] = 2.0f * (xy + wz);
     r.m[0][2] = 2.0f * (xz - wy);
@@ -39,8 +40,20 @@ Matrix4 Transform::GetLocalMatrix() const
     r.m[3][2] = 0.0f;
     r.m[3][3] = 1.0f;
 
-    Matrix4 s = Matrix4::Scale(scale);
+    math::Matrix4 s = math::Matrix4::Scale(scale);
     return t * r * s;
+}
+
+math::Matrix4 Camera::GetViewMatrix(const math::Matrix4& worldMatrix) const
+{
+    return worldMatrix.Inverted();
+}
+
+math::Matrix4 Camera::GetProjectionMatrix(float aspectRatio) const
+{
+    return math::Matrix4::Perspective(math::ToRadians(fovY), aspectRatio, nearPlane, farPlane);
+}
+
 }
 
 }

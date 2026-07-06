@@ -25,8 +25,8 @@ class TaskHandle
 public:
     explicit TaskHandle(std::future<T>&& f);
 
-    // Move-construct. The moved-from handle becomes invalid (IsReady()
-    // returns false, Get() / Wait() will throw).
+    // Move-construct. The moved-from handle becomes invalid
+    // (IsReady() returns false, Get() / Wait() will throw).
     TaskHandle(TaskHandle&& other) noexcept;
     TaskHandle& operator=(TaskHandle&& other) noexcept;
 

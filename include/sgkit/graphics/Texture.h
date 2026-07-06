@@ -20,7 +20,7 @@ enum class TexDataFormat
 class Texture
 {
 public:
-    Texture(uint32_t slot = 0u);
+    Texture(int slot = 0);
     ~Texture();
 
     Texture(Texture&& other) noexcept;
@@ -36,12 +36,13 @@ public:
     void Bind() const;
     void Unbind() const;
 
-    void SetSlot(uint32_t slot);
+    void SetSlot(int slot);
     void SetFilterLinear(bool linear) const;
     void SetWrapRepeat(bool repeat) const;
 
     int      GetWidth() const;
     int      GetHeight() const;
+    int      GetSlot() const;
     uint32_t GetHandle() const;
     bool     IsValid() const;
 
@@ -50,12 +51,10 @@ private:
     Texture& operator=(const Texture&) = delete;
 
     uint32_t m_handle;
-    uint32_t m_slot;
+    int      m_slot;
     int      m_width;
     int      m_height;
     int      m_channels;
-
-    static uint32_t g_currentHandle;
 };
 
 }

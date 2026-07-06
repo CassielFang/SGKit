@@ -33,8 +33,6 @@ private:
     uint32_t m_depthTexture;
     int m_width;
     int m_height;
-
-    static uint32_t g_currentFBO;
 };
 
 }

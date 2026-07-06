@@ -5,8 +5,6 @@
 namespace sgkit {
 namespace graphics {
 
-uint32_t VertexBuffer::g_currentHandle = 0;
-
 VertexBuffer::VertexBuffer()
     : m_handle(0)
     , m_size(0) {}
@@ -51,7 +49,7 @@ bool VertexBuffer::Create(const void* data, size_t sizeInBytes, Usage usage)
     glGenBuffers(1, &m_handle);
     glBindBuffer(GL_ARRAY_BUFFER, m_handle);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeInBytes), data, usage_gl);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    //glBindBuffer(GL_ARRAY_BUFFER, 0);
     m_size = sizeInBytes;
     return m_handle != 0;
 }
@@ -68,20 +66,12 @@ void VertexBuffer::Destroy()
 
 void VertexBuffer::Bind() const
 {
-    if (g_currentHandle != m_handle)
-    {
-        glBindBuffer(GL_ARRAY_BUFFER, m_handle);
-        g_currentHandle = m_handle;
-    }
+    glBindBuffer(GL_ARRAY_BUFFER, m_handle);
 }
 
 void VertexBuffer::Unbind() const
 {
-    if (g_currentHandle != 0)
-    {
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        g_currentHandle = 0;
-    }
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void VertexBuffer::SetData(const void* data, size_t sizeInBytes, size_t offset) const
@@ -89,7 +79,7 @@ void VertexBuffer::SetData(const void* data, size_t sizeInBytes, size_t offset) 
     glBindBuffer(GL_ARRAY_BUFFER, m_handle);
     glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offset),
                     static_cast<GLsizeiptr>(sizeInBytes), data);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    //glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 uint32_t VertexBuffer::GetHandle() const
