@@ -1,6 +1,6 @@
 #include <sgkit/core/ThreadPool.h>
 
-#include <sgkit/core/DebugOut.h>
+#include <sgkit/framework/DebugOut.h>
 
 sgkit::core::ThreadPool* g_ThreadPool = nullptr;
 
@@ -70,7 +70,7 @@ ThreadPool::ThreadPool(size_t numThreads) : m_stop(false), m_activeTasks(0)
     {
         m_workers.emplace_back(&ThreadPool::WorkerLoop, this);
     }
-    DebugOut("[SGKit ThreadPool]: module created.");
+    SGK_LOG_INFO("ThreadPool", "Module created (%zu workers)", m_workers.size());
 }
 
 ThreadPool::~ThreadPool()
@@ -103,7 +103,7 @@ ThreadPool::~ThreadPool()
         if (worker.joinable())
             worker.join();
     }
-    DebugOut("[SGKit ThreadPool]: module destroyed");
+    SGK_LOG_INFO("ThreadPool", "Module destroyed");
 }
 
 void ThreadPool::Create(size_t numThreads)

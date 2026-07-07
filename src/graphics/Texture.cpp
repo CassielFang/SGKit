@@ -1,10 +1,9 @@
 #include <sgkit/graphics/Texture.h>
 
 #include <sgkit/core/FileSystem.h>
+#include <sgkit/framework/DebugOut.h>
 #include <glad/glad.h>
 #include <stb/stb_image.h>
-
-#include <cstdio>
 
 namespace sgkit {
 namespace graphics {
@@ -47,6 +46,7 @@ void Texture::Destroy()
 {
     if (m_handle)
     {
+        SGK_LOG_INFO("Texture", "Destroyed (handle=%u, %dx%d)", m_handle, m_width, m_height);
         glDeleteTextures(1, &m_handle);
         m_handle = 0;
     }
@@ -59,7 +59,7 @@ bool Texture::LoadFromFile(const std::string& path)
     auto fileData = core::FileSystem::ReadBinary(path);
     if (!fileData)
     {
-        std::fprintf(stderr, "SGKit: Failed to read texture: %s\n", path.c_str());
+        SGK_LOG_ERROR("Texture", "Failed to read texture: %s", path.c_str());
         return false;
     }
 
@@ -76,7 +76,7 @@ bool Texture::LoadFromFile(const std::string& path)
 
     if (!pixels)
     {
-        std::fprintf(stderr, "SGKit: stb_image failed: %s  (%s)\n",
+        SGK_LOG_ERROR("Texture", "stb_image failed: %s (%s)",
                      stbi_failure_reason(), path.c_str());
         return false;
     }
@@ -98,7 +98,7 @@ bool Texture::LoadFromFile(const std::string& path)
         internalFormat = TexInternalDataFormat::RGBA8;
         break;
     default:
-        std::fprintf(stderr, "SGKit: Unexpected channel count %d: %s\n",
+        SGK_LOG_ERROR("Texture", "Unexpected channel count %d: %s",
                      channels, path.c_str());
         stbi_image_free(pixels);
         return false;
@@ -110,7 +110,7 @@ bool Texture::LoadFromFile(const std::string& path)
     if (ok)
     {
         m_channels = channels;
-        std::printf("SGKit: Loaded texture  %s  (%dx%d, %d ch)\n",
+        SGK_LOG_INFO("Texture", "Loaded texture %s (%dx%d, %d ch)",
                     path.c_str(), width, height, channels);
     }
     return ok;
@@ -169,6 +169,7 @@ bool Texture::Create(int width, int height, const void* data,
     m_height   = height;
     m_channels = (fmt == GL_RGBA) ? 4 : ((fmt == GL_RGB) ? 3 : 1);
 
+    SGK_LOG_INFO("Texture", "Created (handle=%u, %dx%d)", m_handle, m_width, m_height);
     return true;
 }
 

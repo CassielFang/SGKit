@@ -4,7 +4,7 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <assimp/mesh.h>
-#include <assimp/material.h>
+#include <assimp/material.h>ge
 
 #include <unordered_map>
 
@@ -44,7 +44,7 @@ static std::vector<std::shared_ptr<scene::Mesh>> LoadModel(const std::string& fi
 
     if (!aiScene || aiScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !aiScene->mRootNode)
     {
-        std::fprintf(stderr, "ASSIMP ERROR: %s\n", importer.GetErrorString());
+        SGK_LOG_ERROR("Assimp", "Failed to load model: %s", importer.GetErrorString());
         return {};
     }
 
@@ -172,7 +172,7 @@ static std::shared_ptr<scene::Mesh> ProcessMesh(
         auto tex = std::make_shared<graphics::Texture>(slot);
         if (!tex->LoadFromFile(fullPath))
         {
-            std::fprintf(stderr, "  Failed to load texture: %s\n", fullPath.c_str());
+            SGK_LOG_ERROR("Assimp", "Failed to load texture: %s", fullPath.c_str());
             return nullptr;
         }
         s_texCache[fullPath] = tex;
@@ -213,7 +213,7 @@ ApplicationConfig sgkit::CreateApplication()
         if (!s_shader->LoadFromFile("assets/shaders/light.vert",
                                     "assets/shaders/light.frag"))
         {
-            std::fprintf(stderr, "Failed to load shaders!\n");
+            SGK_LOG_ERROR("Assimp", "Failed to load shaders");
             return false;
         }
 
@@ -221,7 +221,7 @@ ApplicationConfig sgkit::CreateApplication()
         s_meshes = LoadModel("assets/backpack/backpack.obj");
         if (s_meshes.empty())
         {
-            std::fprintf(stderr, "Failed to load model!\n");
+            SGK_LOG_ERROR("Assimp", "Failed to load model");
             return false;
         }
 

@@ -1,9 +1,7 @@
 #include <sgkit/scene/Scene.h>
 
-#include <sgkit/core/DebugOut.h>
+#include <sgkit/framework/DebugOut.h>
 #include <sgkit/core/Window.h>
-
-#include <cstdio>
 
 namespace sgkit {
 namespace scene {
@@ -16,7 +14,7 @@ void Scene::Create()
 {
     if (g_Scene) return;
     g_Scene = new Scene;
-    core::DebugOut("[  SGKit Scene   ]: module created.");
+    SGK_LOG_INFO("Scene", "Module created");
 }
 
 void Scene::Destroy()
@@ -24,7 +22,7 @@ void Scene::Destroy()
     if (!g_Scene) return;
     delete g_Scene;
     g_Scene = nullptr;
-    core::DebugOut("[  SGKit Scene   ]: module destroyed.");
+    SGK_LOG_INFO("Scene", "Module destroyed");
 }
 
 Scene& Scene::instance()

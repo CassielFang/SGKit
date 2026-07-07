@@ -57,8 +57,8 @@ Math (Vector2/3/4, Matrix4 column-major, Quaternion, MathUtils)
 - C++20, `/W4` (MSVC), `-Wall -Wextra -Wpedantic` (GCC/Clang)
 - Namespaces `snake_case`, classes `PascalCase`, members `m_camelCase`, enums `PascalCase`
 - `#pragma once`, Allman braces (functions/classes), 4-space indent
-- RAII for GL objects, move-only, `SGK_ASSERT` for programmer errors (defined in `sgkit.h`)
+- RAII for GL objects, move-only, `SGK_ASSERT(cond, msg)` for programmer errors (defined in `DebugOut.h`, triggers `__debugbreak` in Debug, no-op in Release)
 - Column-major Matrix4, `Data()` passes directly to `glUniformMatrix4fv`
 - Platform code: PIMPL in headers, `#ifdef SGK_PLATFORM_WINDOWS` in `.cpp`
-- No `OutputDebugStringA` - use `std::printf`/`fprintf`, console attached via `AllocConsole()` at startup
+- Debug output: `SGK_LOG_INFO/WARN/ERROR/FATAL(category, format, ...)` macros from `<sgkit/framework/DebugOut.h>` (available via `sgkit.h`). No-ops in Release. `SGK_ASSERT(cond, msg)` for programmer errors. These macros are not thread-safe. Output goes to both `stderr` and `OutputDebugStringA` in Debug builds. Console attached via `AllocConsole()` at startup.
 - Texture loading via stb_image (PNG/JPG/BMP/TGA etc.); slot-based binding

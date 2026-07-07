@@ -1,6 +1,6 @@
 #include <sgkit/core/Input.h>
 
-#include <sgkit/core/DebugOut.h>
+#include <sgkit/framework/DebugOut.h>
 
 #ifdef _WINDOWS
 
@@ -115,12 +115,12 @@ bool Input::Create(void* hWindowHandle)
 
     if (RegisterRawInputDevices(&rid, 1, sizeof(rid)) != FALSE)
     {
-        core::DebugOut("[  SGKit Input   ]: module created.");
+        SGK_LOG_INFO("Input", "Module created");
         return true;
     }
     else
     {
-        core::DebugOut("[  SGKit Input   ]: failed to create input module.");
+        SGK_LOG_ERROR("Input", "Failed to create input module");
         return false;
     }
 }
@@ -130,7 +130,7 @@ void Input::Destroy()
     if (!g_Input) return;
     delete g_Input;
     g_Input = nullptr;
-    core::DebugOut("[  SGKit Input   ]: module destroyed.");
+    SGK_LOG_INFO("Input", "Module destroyed");
 }
 
 Input& Input::instance()

@@ -11,7 +11,8 @@
 #include <glad/glad.h>
 #include <glad/glad_wgl.h>
 
-#include <cstdio>
+#include <sgkit/framework/DebugOut.h>
+
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -65,19 +66,6 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
 static bool    CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTANCE hInst);
 static void    DestroyDummyGLWindow(HWND hwnd, HDC dc, HGLRC rc);
 
-#ifdef _DEBUG
-static void WinLog(const char* msg, bool error = false)
-{
-    char buff[512]{};
-    if (error)
-        sprintf_s(buff, 512, "[  SGKit Window  ]: %s. (error code: %d)\n", msg, static_cast<int>(GetLastError()));
-    else sprintf_s(buff, 512, "[  SGKit Window  ]: %s.\n", msg);
-    std::fprintf(stderr, buff);
-    OutputDebugStringA(buff);
-}
-#else
-#define WinLog(...) ((void)0)
-#endif
 
 // -- External pointer to Window instance
 
@@ -144,10 +132,10 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     wc.hIcon   = hIcon;
     wc.hIconSm = hIcon;
 
-    if (RegisterClassEx(&wc)) WinLog("window class registered");
+    if (RegisterClassEx(&wc)) SGK_LOG_INFO("Window", "Window class registered");
     else
     {
-        WinLog("failed to register window class", true);
+        SGK_LOG_ERROR("Window", "Failed to register window class (error=%lu)", GetLastError());
         return false;
     }
 
@@ -167,16 +155,16 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     HGLRC dummyRc  = nullptr;
     if (!CreateDummyGLWindow(&dummyWnd, &dummyDc, &dummyRc, m_impl->hInstance))
     {
-        WinLog("failed to create dummy window", true);
+        SGK_LOG_ERROR("Window", "Failed to create dummy window (error=%lu)", GetLastError());
         DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
         return false;
     }
-    WinLog("dummy window created");
+    SGK_LOG_INFO("Window", "Dummy window created");
     
     // Get WGL extension functions
     if (!gladLoadWGL(dummyDc))
     {
-        WinLog("failed to load WGL functions", true);
+        SGK_LOG_ERROR("Window", "Failed to load WGL functions (error=%lu)", GetLastError());
         DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
         return false;
     }
@@ -196,7 +184,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
 
     if (!m_impl->hwnd)
     {
-        WinLog("failed to create main window", true);
+        SGK_LOG_ERROR("Window", "Failed to create main window (error=%lu)", GetLastError());
         return false;
     }
 
@@ -212,7 +200,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     ImmAssociateContext(m_impl->hwnd, nullptr);
 
     m_impl->dc = GetDC(m_impl->hwnd);
-    WinLog("main window created");
+    SGK_LOG_INFO("Window", "Main window created");
 
     // -- 5. Set pixel format
     bool pixelFormatOk = false;
@@ -241,7 +229,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
         if (SetPixelFormat(m_impl->dc, pixelFormat[0], &pfd))
         {
             pixelFormatOk = true;
-            WinLog("pixel format set (with MSAA)");
+            SGK_LOG_INFO("Window", "Pixel format set (with MSAA)");
         }
     }
     else
@@ -266,7 +254,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
             if (SetPixelFormat(m_impl->dc, pixelFormat[0], &pfd))
             {
                 pixelFormatOk = true;
-                WinLog("pixel format set (no MSAA)");
+                SGK_LOG_INFO("Window", "Pixel format set (no MSAA)");
             }
         }
     }
@@ -287,13 +275,13 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
         if (pf && SetPixelFormat(m_impl->dc, pf, &pfd))
         {
             pixelFormatOk = true;
-            WinLog("pixel format set (legacy ChoosePixelFormat)");
+            SGK_LOG_INFO("Window", "Pixel format set (legacy ChoosePixelFormat)");
         }
     }
 
     if (!pixelFormatOk)
     {
-        WinLog("failed to choose pixel format", true);
+        SGK_LOG_ERROR("Window", "Failed to choose pixel format (error=%lu)", GetLastError());
         DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
         return false;
     }
@@ -314,7 +302,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     m_impl->glContext = wglCreateContextAttribsARB(m_impl->dc, 0, contextAttribs);
     if (!m_impl->glContext)
     {
-        WinLog("4.x core context failed, trying 3.3", true);
+        SGK_LOG_WARN("Window", "4.x core context failed, trying 3.3");
         // Fall back to 3.3 core
         const int fallbackAttribs[] = {
             WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
@@ -327,21 +315,21 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
 
     if (!m_impl->glContext)
     {
-        WinLog("3.3 context failed, trying legacy", true);
+        SGK_LOG_WARN("Window", "3.3 context failed, trying legacy");
         // Legacy fallback
         m_impl->glContext = wglCreateContext(m_impl->dc);
     }
 
     if (!m_impl->glContext)
     {
-        WinLog("all GL context attempts falied", true);
+        SGK_LOG_ERROR("Window", "All GL context attempts failed");
         DestroyDummyGLWindow(dummyWnd, dummyDc, dummyRc);
         return false;
     }
 
     // Make our context current
     wglMakeCurrent(m_impl->dc, m_impl->glContext);
-    WinLog("GL context created and made current");
+    SGK_LOG_INFO("Window", "GL context created and made current");
 
     // -- 7. VSync
     if (desc.vsync) wglSwapIntervalEXT(1);
@@ -349,7 +337,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     // -- 8. GL
     if (!gladLoadGL())
     {
-        WinLog("failed to load OpenGL functions", true);
+        SGK_LOG_ERROR("Window", "Failed to load OpenGL functions");
         return false;
     }
 
@@ -359,22 +347,20 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
         glDebugMessageCallback(
-            [](GLenum, GLenum type, GLuint, GLenum severity, GLsizei, const GLchar* msg, const void*)
+            [](GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei /*length*/, const GLchar* msg, const void* /*userParam*/)
             {
+                (void)source; (void)id;
                 if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
                 {
-                    char buff[512]{};
-                    sprintf_s(buff, 512, "[       GL       ]: (%u) %s\n", type, msg);
-                    std::fprintf(stderr, buff);
-                    OutputDebugStringA(buff);
+                    SGK_LOG_WARN("GL", "(%u) %s", type, msg);
                 }
             }, nullptr);
     }
 #endif
 
-    std::fprintf(stderr, "[  SGKit Window  ]: OpenGL version %s, GLSL version %s\n",
-        glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
-    ("module created");
+    SGK_LOG_INFO("Window", "OpenGL version %s, GLSL version %s",
+        reinterpret_cast<const char*>(glGetString(GL_VERSION)),
+        reinterpret_cast<const char*>(glGetString(GL_SHADING_LANGUAGE_VERSION)));
     return true;
 }
 
@@ -383,7 +369,7 @@ void Window::Destroy()
     if (!g_currentWindow) return;
     delete g_currentWindow;
     g_currentWindow = nullptr;
-    WinLog("module destroyed");
+    SGK_LOG_INFO("Window", "Module destroyed");
 }
 
 Window& Window::instance()

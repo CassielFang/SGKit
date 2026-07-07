@@ -1,8 +1,7 @@
 #include <sgkit/graphics/VertexArray.h>
 
+#include <sgkit/framework/DebugOut.h>
 #include <glad/glad.h>
-
-#include <cstdio>
 
 namespace sgkit {
 namespace graphics {
@@ -19,6 +18,7 @@ VertexArray::VertexArray(VertexArray&& other) noexcept
       m_indexBuffer(std::move(other.m_indexBuffer))
 {
     other.m_handle = 0;
+    SGK_LOG_INFO("VAO", "Moved (handle=%u)", m_handle);
 }
 
 VertexArray& VertexArray::operator=(VertexArray&& other) noexcept
@@ -30,6 +30,7 @@ VertexArray& VertexArray::operator=(VertexArray&& other) noexcept
         m_vertexBuffer = std::move(other.m_vertexBuffer);
         m_indexBuffer  = std::move(other.m_indexBuffer);
         other.m_handle = 0;
+        SGK_LOG_INFO("VAO", "Move-assigned (handle=%u)", m_handle);
     }
     return *this;
 }
@@ -38,6 +39,7 @@ bool VertexArray::Create()
 {
     Destroy();
     glGenVertexArrays(1, &m_handle);
+    SGK_LOG_INFO("VAO", "Created (handle=%u)", m_handle);
     return m_handle != 0;
 }
 
@@ -45,6 +47,7 @@ void VertexArray::Destroy()
 {
     if (m_handle)
     {
+        SGK_LOG_INFO("VAO", "Destroyed (handle=%u)", m_handle);
         glDeleteVertexArrays(1, &m_handle);
         m_handle = 0;
     }

@@ -1,7 +1,7 @@
 #include <sgkit/graphics/Shader.h>
 
 #include <sgkit/core/FileSystem.h>
-#include <sgkit/core/DebugOut.h>
+#include <sgkit/framework/DebugOut.h>
 #include <glad/glad.h>
 
 namespace sgkit {
@@ -37,6 +37,7 @@ void Shader::Release()
 {
     if (m_programID)
     {
+        SGK_LOG_INFO("Shader", "Destroyed (program=%u)", m_programID);
         glDeleteProgram(m_programID);
         m_programID = 0;
     }
@@ -56,16 +57,16 @@ uint32_t Shader::CompileShader(uint32_t type, const std::string& source)
     {
         char infoLog[512];
         glGetShaderInfoLog(id, 512, nullptr, infoLog);
+        const char* typeName = "unknown";
         switch (type)
         {
-        case GL_VERTEX_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (vertex): ", '\0'); break;
-        case GL_FRAGMENT_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (fragment): ", '\0'); break;
-        case GL_TESS_CONTROL_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (tess controll): ", '\0'); break;
-        case GL_TESS_EVALUATION_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (tess evaluation): ", '\0'); break;
-        case GL_COMPUTE_SHADER: core::DebugOut("[ GLSL compiler  ]: shader compilation failed (compute): ", '\0'); break;
-        default: core::DebugOut("[ GLSL compiler  ]: shader compilation failed: ", '\0');
+        case GL_VERTEX_SHADER:          typeName = "vertex";           break;
+        case GL_FRAGMENT_SHADER:        typeName = "fragment";         break;
+        case GL_TESS_CONTROL_SHADER:    typeName = "tess control";     break;
+        case GL_TESS_EVALUATION_SHADER: typeName = "tess evaluation";  break;
+        case GL_COMPUTE_SHADER:         typeName = "compute";          break;
         }
-        core::DebugOut(infoLog);
+        SGK_LOG_ERROR("GLSL", "shader compilation failed (%s): %s", typeName, infoLog);
         glDeleteShader(id);
         return 0;
     }
@@ -79,7 +80,7 @@ bool Shader::LoadFromFile(const std::string& vertexPath, const std::string& frag
 
     if (!vertSrc || !fragSrc)
     {
-        core::DebugOut("[  SGKit Shader  ]: failed to load shader files");
+        SGK_LOG_ERROR("Shader", "failed to load shader files: %s, %s", vertexPath.c_str(), fragmentPath.c_str());
         return false;
     }
     return LoadFromSource(*vertSrc, *fragSrc);
@@ -110,11 +111,16 @@ bool Shader::LoadFromSource(const std::string& vertexSource, const std::string& 
     {
         char infoLog[512];
         glGetProgramInfoLog(m_programID, 512, nullptr, infoLog);
-        core::DebugOut("[ GLSL compiler  ]: shader linking failed: ", '\0');
-        core::DebugOut(infoLog);
+        SGK_LOG_ERROR("GLSL", "shader linking failed: %s", infoLog);
         glDeleteProgram(m_programID);
         m_programID = 0;
     }
+#ifdef _DEBUG
+    else
+    {
+        SGK_LOG_INFO("Shader", "Created (program=%u)", m_programID);
+    }
+#endif
 
     glDeleteShader(vs);
     glDeleteShader(fs);

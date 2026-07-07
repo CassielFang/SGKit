@@ -14,6 +14,8 @@
 #include <sgkit/scene/Renderer.h>
 #include <sgkit/scene/Scene.h>
 
+#include <sgkit/framework/DebugOut.h>
+
 #include <cstdio>
 #include <memory>
 
@@ -49,7 +51,7 @@ static void DetachConsole()
 
 static void Fatal(const char* msg)
 {
-    std::fprintf(stderr, "[[ SGKit FATAL  ]]: %s\n", msg);
+    SGK_LOG_FATAL("App", "%s", msg);
 #ifdef _WINDOWS
     MessageBoxA(nullptr, msg, "SGKit Fatal Error", MB_OK | MB_ICONERROR);
 #endif

@@ -1,5 +1,6 @@
 #include <sgkit/graphics/VertexBuffer.h>
 
+#include <sgkit/framework/DebugOut.h>
 #include <glad/glad.h>
 
 namespace sgkit {
@@ -19,6 +20,7 @@ VertexBuffer::VertexBuffer(VertexBuffer&& other) noexcept
 {
     other.m_handle = 0;
     other.m_size   = 0;
+    SGK_LOG_INFO("VBO", "Moved (handle=%u, size=%zu)", m_handle, m_size);
 }
 
 VertexBuffer& VertexBuffer::operator=(VertexBuffer&& other) noexcept
@@ -30,6 +32,7 @@ VertexBuffer& VertexBuffer::operator=(VertexBuffer&& other) noexcept
         m_size   = other.m_size;
         other.m_handle = 0;
         other.m_size   = 0;
+        SGK_LOG_INFO("VBO", "Move-assigned (handle=%u, size=%zu)", m_handle, m_size);
     }
     return *this;
 }
@@ -51,6 +54,7 @@ bool VertexBuffer::Create(const void* data, size_t sizeInBytes, Usage usage)
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeInBytes), data, usage_gl);
     //glBindBuffer(GL_ARRAY_BUFFER, 0);
     m_size = sizeInBytes;
+    SGK_LOG_INFO("VBO", "Created (handle=%u, size=%zu bytes)", m_handle, m_size);
     return m_handle != 0;
 }
 
@@ -58,6 +62,7 @@ void VertexBuffer::Destroy()
 {
     if (m_handle)
     {
+        SGK_LOG_INFO("VBO", "Destroyed (handle=%u, size=%zu)", m_handle, m_size);
         glDeleteBuffers(1, &m_handle);
         m_handle = 0;
         m_size   = 0;

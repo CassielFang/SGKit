@@ -39,7 +39,8 @@ float Clock::NowElapsedSeconds()
 
 double Clock::NowElapsedMilliseconds()
 {
-    return std::chrono::duration<double, std::milli>(g_nowTime - g_startTime).count();
+    auto now = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration<double, std::milli>(now - g_startTime).count();
 }
 
 float Clock::GetFrameDeltaSeconds()

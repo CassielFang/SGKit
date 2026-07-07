@@ -84,11 +84,11 @@ ApplicationConfig sgkit::CreateApplication()
             
             if (!window.isActive())
             {
-                core::DebugOut("inActive!");
+                SGK_LOG_INFO("Light", "Window inactive");
                 if (window.IsCloseRequest())
                 {
                     window.RequestClose(false);
-                    core::DebugOut("Denied close.");
+                    SGK_LOG_INFO("Light", "Close denied");
                 }
             }
         };

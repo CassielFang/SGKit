@@ -1,10 +1,8 @@
 #include <sgkit/scene/Renderer.h>
 
 #include <sgkit/scene/Components.h>
-#include <sgkit/core/DebugOut.h>
+#include <sgkit/framework/DebugOut.h>
 #include <glad/glad.h>
-
-#include <cstdio>
 
 static sgkit::scene::Renderer* g_Renderer = nullptr;
 
@@ -15,7 +13,7 @@ void Renderer::Create()
 {
     if (g_Renderer) return;
     g_Renderer = new Renderer;
-    core::DebugOut("[ SGKit Renderer ]: module created.");
+    SGK_LOG_INFO("Renderer", "Module created");
 }
 
 void Renderer::Destroy()
@@ -23,7 +21,7 @@ void Renderer::Destroy()
     if (!g_Renderer) return;
     delete g_Renderer;
     g_Renderer = nullptr;
-    core::DebugOut("[ SGKit Renderer ]: module destroyed.");
+    SGK_LOG_INFO("Renderer", "Module destroyed");
 }
 
 Renderer& Renderer::instance()

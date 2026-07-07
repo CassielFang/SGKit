@@ -1,5 +1,6 @@
 #include <sgkit/graphics/IndexBuffer.h>
 
+#include <sgkit/framework/DebugOut.h>
 #include <glad/glad.h>
 
 namespace sgkit {
@@ -19,6 +20,7 @@ IndexBuffer::IndexBuffer(IndexBuffer&& other) noexcept
 {
     other.m_handle = 0;
     other.m_count  = 0;
+    SGK_LOG_INFO("IBO", "Moved (handle=%u, count=%zu)", m_handle, m_count);
 }
 
 IndexBuffer& IndexBuffer::operator=(IndexBuffer&& other) noexcept
@@ -30,6 +32,7 @@ IndexBuffer& IndexBuffer::operator=(IndexBuffer&& other) noexcept
         m_count  = other.m_count;
         other.m_handle = 0;
         other.m_count  = 0;
+        SGK_LOG_INFO("IBO", "Move-assigned (handle=%u, count=%zu)", m_handle, m_count);
     }
     return *this;
 }
@@ -52,6 +55,7 @@ bool IndexBuffer::Create(const uint32_t* data, size_t count, Usage usage)
                  static_cast<GLsizeiptr>(count * sizeof(uint32_t)), data, usage_gl);
     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     m_count = count;
+    SGK_LOG_INFO("IBO", "Created (handle=%u, count=%zu)", m_handle, m_count);
     return m_handle != 0;
 }
 
@@ -59,6 +63,7 @@ void IndexBuffer::Destroy()
 {
     if (m_handle)
     {
+        SGK_LOG_INFO("IBO", "Destroyed (handle=%u, count=%zu)", m_handle, m_count);
         glDeleteBuffers(1, &m_handle);
         m_handle = 0;
         m_count  = 0;
