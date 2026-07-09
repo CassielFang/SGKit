@@ -44,14 +44,51 @@ void Scene::DestroyEntity(Entity entity)
 {
     if (!IsAlive(entity)) return;
 
+    // Snapshot children + parent before any modification
+    // (cascade removal can swap-and-pop the pool, invalidating raw pointers)
+    component::Transform* tf    = m_transforms.Get(entity);
+    std::vector<Entity>  kids   = tf ? tf->children : std::vector<Entity>{};
+    Entity               parent = tf ? tf->parent : Entity::Invalid;
+
+    // 1. Cascade: destroy children first
+    for (Entity child : kids)
+        DestroyEntity(child);
+
+    // 2. Unlink from parent (before removing our own Transform)
+    if (parent != Entity::Invalid)
+    {
+        component::Transform* parentTf = m_transforms.Get(parent);
+        if (parentTf)
+        {
+            auto it = std::find(parentTf->children.begin(), parentTf->children.end(), entity);
+            if (it != parentTf->children.end())
+                parentTf->children.erase(it);
+        }
+    }
+
+    // 3. Remove components from pools
     m_transforms.Remove(entity);
     m_cameras.Remove(entity);
     m_lights.Remove(entity);
     m_meshRenderers.Remove(entity);
 
+    // 4. Remove from alive list
     auto it = std::find(m_aliveEntities.begin(), m_aliveEntities.end(), entity);
     if (it != m_aliveEntities.end())
         m_aliveEntities.erase(it);
+}
+
+void Scene::SetEnabled(Entity entity, bool enabled)
+{
+    component::MeshRenderer* mr = m_meshRenderers.Get(entity);
+    if (mr) mr->enabled = enabled;
+
+    component::Transform* tf = m_transforms.Get(entity);
+    if (tf)
+    {
+        for (Entity child : tf->children)
+            SetEnabled(child, enabled);
+    }
 }
 
 bool Scene::IsAlive(Entity entity) const

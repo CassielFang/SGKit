@@ -20,6 +20,8 @@ public:
     void   DestroyEntity(Entity entity);
     bool   IsAlive(Entity entity) const;
 
+    void   SetEnabled(Entity entity, bool enabled);
+
     template<typename T> T*       AddComponent(Entity entity);
     template<typename T> void     RemoveComponent(Entity entity);
     template<typename T> T*       GetComponent(Entity entity);

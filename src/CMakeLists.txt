@@ -14,7 +14,7 @@ target_include_directories(sgkit PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_include_directories(sgkit PUBLIC
+target_include_directories(sgkit PRIVATE
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/external/assimp/include>
 )
 

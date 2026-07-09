@@ -14,24 +14,18 @@ enum class LogLevel : uint8_t
 };
 
 #ifdef _DEBUG
-
 void LogMessage(LogLevel level, const char* category,
                 const char* file, int line,
                 const char* format, ...);
-
 #else
 
-// Release no-op — must be inline to avoid unresolved external symbol.
+// Release no-op - must be inline to avoid unresolved external symbol.
 inline void LogMessage(LogLevel, const char*, const char*, int, const char*, ...) {}
 
 #endif
 
-} // namespace framework
-} // namespace sgkit
-
-// ==========================================================================
-// Convenience macros — capture __FILE__, __LINE__ automatically
-// ==========================================================================
+}
+}
 
 #ifdef _DEBUG
 

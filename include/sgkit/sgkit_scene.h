@@ -8,3 +8,4 @@
 #include <sgkit/scene/Mesh.h>
 #include <sgkit/scene/RenderQueue.h>
 #include <sgkit/scene/Renderer.h>
+#include <sgkit/scene/Model.h>

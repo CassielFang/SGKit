@@ -1,199 +1,15 @@
 #include <sgkit/sgkit.h>
 
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-#include <assimp/mesh.h>
-#include <assimp/material.h>ge
-
-#include <unordered_map>
-
 using namespace sgkit;
 
 // -- Global state
 
-static scene::Entity                              s_camera;
-static std::shared_ptr<graphics::Shader>          s_shader;
-static std::shared_ptr<graphics::Shader>          s_simpleShader;
-static std::vector<std::shared_ptr<scene::Mesh>>  s_meshes;
-static std::unordered_map<std::string, std::shared_ptr<graphics::Texture>> s_texCache;
-
-// -- Assimp helpers
-
-static std::shared_ptr<scene::Mesh> ProcessMesh(
-    aiMesh*             aiMesh,
-    const aiScene*      scene,
-    const std::string&  directory);
-
-static void ProcessNode(
-    aiNode*                     node,
-    const aiScene*              scene,
-    const std::string&          directory,
-    std::vector<std::shared_ptr<scene::Mesh>>& outMeshes);
-
-// -- LoadModel: entry point
-
-static std::vector<std::shared_ptr<scene::Mesh>> LoadModel(const std::string& filePath)
-{
-    Assimp::Importer importer;
-    const aiScene* aiScene = importer.ReadFile(filePath,
-        aiProcess_Triangulate
-        | aiProcess_JoinIdenticalVertices
-        | aiProcess_GenSmoothNormals
-        | aiProcess_FlipUVs);
-
-    if (!aiScene || aiScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !aiScene->mRootNode)
-    {
-        SGK_LOG_ERROR("Assimp", "Failed to load model: %s", importer.GetErrorString());
-        return {};
-    }
-
-    // Extract directory from file path for texture lookup
-    std::string directory = filePath.substr(0, filePath.find_last_of("/\\"));
-
-    std::vector<std::shared_ptr<scene::Mesh>> meshes;
-    ProcessNode(aiScene->mRootNode, aiScene, directory, meshes);
-    return meshes;
-}
-
-// -- ProcessNode: recursive scene-graph walk
-
-static void ProcessNode(
-    aiNode*                     node,
-    const aiScene*              scene,
-    const std::string&          directory,
-    std::vector<std::shared_ptr<scene::Mesh>>& outMeshes)
-{
-    for (unsigned int i = 0; i < node->mNumMeshes; ++i)
-    {
-        aiMesh* aiMesh = scene->mMeshes[node->mMeshes[i]];
-        auto sgMesh = ProcessMesh(aiMesh, scene, directory);
-        if (sgMesh)
-            outMeshes.push_back(sgMesh);
-    }
-
-    for (unsigned int i = 0; i < node->mNumChildren; ++i)
-        ProcessNode(node->mChildren[i], scene, directory, outMeshes);
-}
-
-// -- ProcessMesh: aiMesh -> SGKit Mesh
-
-static std::shared_ptr<scene::Mesh> ProcessMesh(
-    aiMesh*             aiMesh,
-    const aiScene*      scene,
-    const std::string&  directory)
-{
-    if (!aiMesh->HasPositions() || !aiMesh->HasFaces())
-        return nullptr;
-
-    // -- a) Extract vertices --
-    std::vector<float> vertices;
-    vertices.reserve(aiMesh->mNumVertices * 8); // 3pos + 3nrm + 2tex
-
-    bool hasTexCoords = aiMesh->HasTextureCoords(0);
-    bool hasNormals   = aiMesh->HasNormals();
-
-    for (unsigned int i = 0; i < aiMesh->mNumVertices; ++i)
-    {
-        // position
-        vertices.push_back(aiMesh->mVertices[i].x);
-        vertices.push_back(aiMesh->mVertices[i].y);
-        vertices.push_back(aiMesh->mVertices[i].z);
-
-        // normal
-        if (hasNormals)
-        {
-            vertices.push_back(aiMesh->mNormals[i].x);
-            vertices.push_back(aiMesh->mNormals[i].y);
-            vertices.push_back(aiMesh->mNormals[i].z);
-        }
-        else
-        {
-            vertices.push_back(0.0f);
-            vertices.push_back(1.0f);
-            vertices.push_back(0.0f);
-        }
-
-        // texcoord
-        if (hasTexCoords)
-        {
-            vertices.push_back(aiMesh->mTextureCoords[0][i].x);
-            vertices.push_back(aiMesh->mTextureCoords[0][i].y);
-        }
-        else
-        {
-            vertices.push_back(0.0f);
-            vertices.push_back(0.0f);
-        }
-    }
-
-    // -- b) Extract indices
-    std::vector<uint32_t> indices;
-    indices.reserve(aiMesh->mNumFaces * 3);
-    for (unsigned int i = 0; i < aiMesh->mNumFaces; ++i)
-    {
-        const aiFace& face = aiMesh->mFaces[i];
-        for (unsigned int j = 0; j < face.mNumIndices; ++j)
-            indices.push_back(face.mIndices[j]);
-    }
-
-    // -- c) Build SGKit graphics objects
-    graphics::VertexLayout layout;
-    layout.PushFloat(0, 3).PushFloat(1, 3).PushFloat(2, 2);
-
-    auto vb = std::make_shared<graphics::VertexBuffer>();
-    vb->Create(vertices.data(), static_cast<uint32_t>(vertices.size() * sizeof(float)));
-
-    auto ib = std::make_shared<graphics::IndexBuffer>();
-    ib->Create(indices.data(), static_cast<uint32_t>(indices.size()));
-
-    auto va = std::make_shared<graphics::VertexArray>();
-    va->Create();
-    va->SetVertexBuffer(vb, layout);
-    va->SetIndexBuffer(ib);
-
-    // -- d) Load material textures (cached)
-    std::shared_ptr<graphics::Texture> diffuseTex;
-    std::shared_ptr<graphics::Texture> specularTex;
-
-    auto loadTex = [&](aiTextureType type, int slot) -> std::shared_ptr<graphics::Texture>
-    {
-        if (aiMesh->mMaterialIndex < 0) return nullptr;
-        aiMaterial* mat = scene->mMaterials[aiMesh->mMaterialIndex];
-        aiString aiPath;
-        if (mat->GetTexture(type, 0, &aiPath) != AI_SUCCESS) return nullptr;
-
-        std::string fullPath = directory + "/" + aiPath.C_Str();
-
-        auto it = s_texCache.find(fullPath);
-        if (it != s_texCache.end())
-            return it->second;
-
-        auto tex = std::make_shared<graphics::Texture>(slot);
-        if (!tex->LoadFromFile(fullPath))
-        {
-            SGK_LOG_ERROR("Assimp", "Failed to load texture: %s", fullPath.c_str());
-            return nullptr;
-        }
-        s_texCache[fullPath] = tex;
-        return tex;
-    };
-
-    diffuseTex  = loadTex(aiTextureType_DIFFUSE, 0);
-    specularTex = loadTex(aiTextureType_SPECULAR, 1);
-
-    // -- e) Assemble SGKit Mesh
-    auto material = std::make_shared<scene::Material>();
-    material->shader    = s_shader;
-    material->diffuse   = diffuseTex;
-    material->specular  = specularTex;
-    material->shininess = 32.0f;
-
-    auto mesh = std::make_shared<scene::Mesh>();
-    mesh->vertexArray = va;
-    mesh->material    = material;
-    return mesh;
-}
+static scene::Entity                       s_camera;
+static scene::Entity                       s_modelRoot;
+static std::shared_ptr<graphics::Shader>   s_shader;
+static std::shared_ptr<graphics::Shader>   s_simpleShader;
+static std::vector<scene::Entity>          s_meshEntities;
+static bool                                s_modelVisible = true;
 
 // -- CreateApplication
 
@@ -208,48 +24,41 @@ ApplicationConfig sgkit::CreateApplication()
 
     cfg.onInit = [&]() -> bool
     {
-        // 1. Load the shared Phong shader
+        // 1. Load Phong shader
         s_shader = std::make_shared<graphics::Shader>();
         if (!s_shader->LoadFromFile("assets/shaders/light.vert",
                                     "assets/shaders/light.frag"))
-        {
-            SGK_LOG_ERROR("Assimp", "Failed to load shaders");
             return false;
-        }
 
-        // 2. Load the 3D model via assimp
-        s_meshes = LoadModel("assets/backpack/backpack.obj");
-        if (s_meshes.empty())
-        {
-            SGK_LOG_ERROR("Assimp", "Failed to load model");
+        // 2. Load 3D model - one call, returns root + mesh list
+        // auto model = scene::Model::Load("assets/backpack/backpack.obj", s_shader);
+        auto model = scene::Model::Load("assets/cute cartoon girl.glb", s_shader);
+        if (model.root == scene::Entity::Invalid)
             return false;
-        }
 
-        // 3. Create entities for each mesh
-        auto& sceneMgr = scene::Scene::instance();
-        for (size_t i = 0; i < s_meshes.size(); ++i)
-        {
-            scene::Entity e = sceneMgr.CreateEntity();
-            auto* tf = sceneMgr.AddComponent<scene::component::Transform>(e);
-            tf->position = { 0.0f, 0.0f, 0.0f };
-            tf->scale    = { 1.5f, 1.5f, 1.5f };
-            sceneMgr.AddComponent<scene::component::MeshRenderer>(e)->mesh = s_meshes[i];
-        }
+        s_modelRoot    = model.root;
+        s_meshEntities = model.entities;
 
-        // 4. Create camera
-        s_camera = sceneMgr.CreateEntity();
-        auto* camTf = sceneMgr.AddComponent<scene::component::Transform>(s_camera);
-        camTf->position = { 0.0f, 0.5f, 6.0f };
-        sceneMgr.AddComponent<scene::component::Camera>(s_camera);
+        // Set initial transform on the root
+        auto* rootTf = scene::Scene::instance()
+            .GetComponent<scene::component::Transform>(s_modelRoot);
+        rootTf->position = { 0.0f, 0.0f, 0.0f };
+        rootTf->scale    = { 1.5f, 1.5f, 1.5f };
 
-        // 5. Load simple shader for light markers
+        // 3. Create camera
+        s_camera = scene::Scene::instance().CreateEntity();
+        auto* ct = scene::Scene::instance()
+            .AddComponent<scene::component::Transform>(s_camera);
+        ct->position = { 0.0f, 0.5f, 6.0f };
+        scene::Scene::instance().AddComponent<scene::component::Camera>(s_camera);
+
+        // 4. Light-marker shader
         s_simpleShader = std::make_shared<graphics::Shader>();
         s_simpleShader->LoadFromFile("assets/shaders/simple.vert",
                                      "assets/shaders/simple.frag");
 
-        // 6. Create lights with visible markers
+        // 5. Lights
         {
-            // -- Shared cube geometry for light markers
             constexpr float cubeVerts[] = {
                 -0.5f,-0.5f, 0.5f, 0,0,1, 0,0,  0.5f,-0.5f, 0.5f, 0,0,1, 1,0,
                  0.5f, 0.5f, 0.5f, 0,0,1, 1,1, -0.5f, 0.5f, 0.5f, 0,0,1, 0,1,
@@ -269,68 +78,53 @@ ApplicationConfig sgkit::CreateApplication()
                 12,13,14, 14,15,12,  16,17,18, 18,19,16,  20,21,22, 22,23,20,
             };
 
-            auto makeLightCube = [&](math::Vector3 pos, math::Vector3 color) -> std::shared_ptr<scene::Mesh>
+            auto makeMarker = [&]() -> std::shared_ptr<scene::Mesh>
             {
-                graphics::VertexLayout layout;
-                layout.PushFloat(0, 3).PushFloat(1, 3).PushFloat(2, 2);
+                graphics::VertexLayout lo;
+                lo.PushFloat(0,3).PushFloat(1,3).PushFloat(2,2);
                 auto vb = std::make_shared<graphics::VertexBuffer>();
                 vb->Create(cubeVerts, sizeof(cubeVerts));
                 auto ib = std::make_shared<graphics::IndexBuffer>();
-                ib->Create(cubeIdx, sizeof(cubeIdx) / sizeof(uint32_t));
+                ib->Create(cubeIdx, sizeof(cubeIdx)/sizeof(uint32_t));
                 auto va = std::make_shared<graphics::VertexArray>();
-                va->Create();
-                va->SetVertexBuffer(vb, layout);
-                va->SetIndexBuffer(ib);
-
-                auto mat = std::make_shared<scene::Material>();
-                mat->shader    = s_simpleShader;
-                mat->blendMode = scene::BlendMode::Additive;
-                mat->depthMode = scene::DepthMode::ReadOnly;
-                mat->cullMode  = scene::CullMode::None;
-
+                va->Create(); va->SetVertexBuffer(vb, lo); va->SetIndexBuffer(ib);
+                auto m = std::make_shared<scene::Material>();
+                m->shader = s_simpleShader;
+                m->blendMode = scene::BlendMode::Additive;
+                m->depthMode = scene::DepthMode::ReadOnly;
+                m->cullMode  = scene::CullMode::None;
                 auto mesh = std::make_shared<scene::Mesh>();
-                mesh->vertexArray = va;
-                mesh->material    = mat;
+                mesh->vertexArray = va; mesh->material = m;
                 return mesh;
             };
 
-            // -- Narrow red SpotLight (laser-like)
-            {
-                auto& sm = scene::Scene::instance();
-                scene::Entity e = sm.CreateEntity();
-                auto* tf = sm.AddComponent<scene::component::Transform>(e);
-                tf->position = { 0.0f, 2.0f, 3.0f };
-                tf->scale    = { 0.3f, 0.3f, 0.3f };
-                sm.AddComponent<scene::component::MeshRenderer>(e)->mesh = makeLightCube({}, {});
+            auto& sm = scene::Scene::instance();
 
-                auto* lt = sm.AddComponent<scene::component::Light>(e);
-                lt->type       = scene::component::Light::Type::SpotLight;
-                lt->direction  = math::Vector3{ 0.0f, -2.0f, -3.0f }.Normalized();
-                lt->cutOff      = 0.985f;  // cos(~10) - tight beam
-                lt->outerCutOff = 0.95f;   // cos(~18) - crisp edge
-                lt->ambient     = { 0.0f, 0.0f, 0.0f };
-                lt->diffuse     = { 3.0f, 3.0f, 3.0f };   // bright red
-                lt->specular    = { 2.0f, 0.2f, 0.2f };
-                lt->linear     = 0.027f;
-                lt->quadratic  = 0.008f;
+            // SpotLight - tight red beam
+            {
+                sgkit::scene::Entity e = sm.CreateEntity();
+                auto* t = sm.AddComponent<scene::component::Transform>(e);
+                t->position = { 0, 2, 3 }; t->scale = { 0.3f, 0.3f, 0.3f };
+                sm.AddComponent<scene::component::MeshRenderer>(e)->mesh = makeMarker();
+                auto* l = sm.AddComponent<scene::component::Light>(e);
+                l->type = scene::component::Light::Type::SpotLight;
+                l->direction = { 0, -2, -3 };
+                l->cutOff = 0.985f; l->outerCutOff = 0.95f;
+                l->diffuse = { 3, 3, 3 };
+                l->linear = 0.027f; l->quadratic = 0.008f;
             }
 
-            // -- Soft white Point light (fill)
+            // Point - soft white fill
             {
-                auto& sm = scene::Scene::instance();
-                scene::Entity e = sm.CreateEntity();
-                auto* tf = sm.AddComponent<scene::component::Transform>(e);
-                tf->position = { -4.0f, 2.0f, 3.0f };
-                tf->scale    = { 0.12f, 0.12f, 0.12f };
-                sm.AddComponent<scene::component::MeshRenderer>(e)->mesh = makeLightCube({}, {});
-
-                auto* lt = sm.AddComponent<scene::component::Light>(e);
-                lt->type      = scene::component::Light::Type::Point;
-                lt->ambient   = { 0.3f, 0.3f, 0.3f };
-                lt->diffuse   = { 2.0f, 2.0f, 2.0f };
-                lt->specular  = { 1.0f, 1.0f, 1.0f };
-                lt->linear    = 0.07f;
-                lt->quadratic = 0.018f;
+                sgkit::scene::Entity e = sm.CreateEntity();
+                auto* t = sm.AddComponent<scene::component::Transform>(e);
+                t->position = { -4, 2, 3 }; t->scale = { 0.12f, 0.12f, 0.12f };
+                sm.AddComponent<scene::component::MeshRenderer>(e)->mesh = makeMarker();
+                auto* l = sm.AddComponent<scene::component::Light>(e);
+                l->type = scene::component::Light::Type::Point;
+                l->ambient = { 0.3f, 0.3f, 0.3f };
+                l->diffuse = { 2, 2, 2 };
+                l->linear = 0.07f; l->quadratic = 0.018f;
             }
         }
 
@@ -339,49 +133,47 @@ ApplicationConfig sgkit::CreateApplication()
 
     cfg.onUpdate = [&]()
     {
-        auto* cameraTransform = scene::Scene::instance()
-            .GetComponent<scene::component::Transform>(s_camera);
+        auto& sm = scene::Scene::instance();
+        auto* ct = sm.GetComponent<scene::component::Transform>(s_camera);
 
-        math::Vector3 forward = cameraTransform->rotation * math::Vector3::k_Forward;
-        math::Vector3 right   = cameraTransform->rotation * math::Vector3::k_Right;
-        float speed = 5.0f * framework::Clock::GetFrameDeltaSeconds();
+        math::Vector3 fwd = ct->rotation * math::Vector3::k_Forward;
+        math::Vector3 rht = ct->rotation * math::Vector3::k_Right;
+        float spd = 5.0f * framework::Clock::GetFrameDeltaSeconds();
 
         auto& in = core::Input::instance();
-        if (in.IsKeyDown(core::KeyCode::W)) cameraTransform->position += forward * speed;
-        if (in.IsKeyDown(core::KeyCode::S)) cameraTransform->position -= forward * speed;
-        if (in.IsKeyDown(core::KeyCode::A)) cameraTransform->position -= right * speed;
-        if (in.IsKeyDown(core::KeyCode::D)) cameraTransform->position += right * speed;
-        if (in.IsKeyDown(core::KeyCode::Q)) cameraTransform->position.y -= speed;
-        if (in.IsKeyDown(core::KeyCode::E)) cameraTransform->position.y += speed;
+        if (in.IsKeyDown(core::KeyCode::W)) ct->position += fwd * spd;
+        if (in.IsKeyDown(core::KeyCode::S)) ct->position -= fwd * spd;
+        if (in.IsKeyDown(core::KeyCode::A)) ct->position -= rht * spd;
+        if (in.IsKeyDown(core::KeyCode::D)) ct->position += rht * spd;
+        if (in.IsKeyDown(core::KeyCode::Q)) ct->position.y -= spd;
+        if (in.IsKeyDown(core::KeyCode::E)) ct->position.y += spd;
 
         if (in.IsMouseButtonDown(core::MouseButton::Left))
         {
-            float s     = 0.002f;
-            float yaw   = -in.GetMouseDeltaX() * s;
-            float pitch = -in.GetMouseDeltaY() * s;
-            cameraTransform->rotation
-                = math::Quaternion::FromEulerAngles(0, yaw, 0)
-                * cameraTransform->rotation
-                * math::Quaternion::FromEulerAngles(pitch, 0, 0);
-            cameraTransform->rotation.Normalize();
+            float s = 0.002f;
+            ct->rotation
+                = math::Quaternion::FromEulerAngles(0, -in.GetMouseDeltaX()*s, 0)
+                * ct->rotation
+                * math::Quaternion::FromEulerAngles(-in.GetMouseDeltaY()*s, 0, 0);
+            ct->rotation.Normalize();
         }
 
-        core::Window& window = core::Window::instance();
-        if (in.IsKeyPressed(core::KeyCode::Space)) window.SetFullscreen(true);
-        if (in.IsKeyPressed(core::KeyCode::Z))     window.SetFullscreen(false);
-        if (in.IsKeyDown(core::KeyCode::V))        window.SetCursorVisible(false);
-        if (in.IsKeyReleased(core::KeyCode::V))    window.SetCursorVisible(true);
+        core::Window& w = core::Window::instance();
+        if (in.IsKeyPressed(core::KeyCode::T))     s_modelVisible = !s_modelVisible;
+        if (in.IsKeyPressed(core::KeyCode::Z))     w.SetFullscreen(false);
+        if (in.IsKeyDown(core::KeyCode::V))        w.SetCursorVisible(false);
+        if (in.IsKeyReleased(core::KeyCode::V))    w.SetCursorVisible(true);
     };
 
     cfg.onRender = [&]()
     {
-        scene::Scene::instance().Render(s_camera);
+        auto& sm = scene::Scene::instance();
+        sm.SetEnabled(s_modelRoot, s_modelVisible);
+        sm.Render(s_camera);
     };
 
     cfg.onShutdown = [&]()
     {
-        s_meshes.clear();
-        s_texCache.clear();
         s_shader.reset();
         s_simpleShader.reset();
     };

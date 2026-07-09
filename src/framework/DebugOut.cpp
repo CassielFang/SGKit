@@ -63,5 +63,5 @@ void LogMessage(LogLevel level, const char* category,
 
 #endif
 
-} // namespace framework
-} // namespace sgkit
+}
+}
