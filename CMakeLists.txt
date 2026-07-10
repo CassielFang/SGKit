@@ -24,6 +24,12 @@ add_subdirectory(external)
 # -- Engine core
 add_subdirectory(src)
 
+# -- C# scripting (managed side, built via `dotnet build`)
+option(SGK_ENABLE_SCRIPTING "Enable C# scripting (requires the .NET SDK)" ON)
+if(SGK_ENABLE_SCRIPTING)
+    add_subdirectory(managed)
+endif()
+
 # -- Example projects
 option(SGK_BUILD_EXAMPLES "Build example projects" ON)
 if(SGK_BUILD_EXAMPLES)

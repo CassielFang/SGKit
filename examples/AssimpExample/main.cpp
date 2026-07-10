@@ -31,8 +31,8 @@ ApplicationConfig sgkit::CreateApplication()
             return false;
 
         // 2. Load 3D model - one call, returns root + mesh list
-        // auto model = scene::Model::Load("assets/backpack/backpack.obj", s_shader);
-        auto model = scene::Model::Load("assets/cute cartoon girl.glb", s_shader);
+        auto model = scene::Model::Load("assets/backpack/backpack.obj", s_shader);
+        // auto model = scene::Model::Load("assets/cute cartoon girl.glb", s_shader);
         if (model.root == scene::Entity::Invalid)
             return false;
 
@@ -168,7 +168,7 @@ ApplicationConfig sgkit::CreateApplication()
     cfg.onRender = [&]()
     {
         auto& sm = scene::Scene::instance();
-        sm.SetEnabled(s_modelRoot, s_modelVisible);
+        sm.SetVisible(s_modelRoot, s_modelVisible);
         sm.Render(s_camera);
     };
 

@@ -1,6 +1,7 @@
 # C++ build artifacts
 build/
 lib/
+obj/
 
 # CMake generated
 CMakeCache.txt

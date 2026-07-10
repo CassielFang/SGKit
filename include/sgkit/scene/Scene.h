@@ -20,13 +20,18 @@ public:
     void   DestroyEntity(Entity entity);
     bool   IsAlive(Entity entity) const;
 
-    void   SetEnabled(Entity entity, bool enabled);
+    void   SetVisible(Entity entity, bool enabled);
 
     template<typename T> T*       AddComponent(Entity entity);
     template<typename T> void     RemoveComponent(Entity entity);
     template<typename T> T*       GetComponent(Entity entity);
     template<typename T> const T* GetComponent(Entity entity) const;
     template<typename T> bool     HasComponent(Entity entity) const;
+
+    // Entities that currently own a component of type T, in dense storage
+    // order. Used by systems (e.g. ScriptEngine) that iterate one component
+    // kind across the scene.
+    template<typename T> const std::vector<Entity>& ComponentEntities() const;
 
     void RecomputeWorldTransforms();
     math::Matrix4 GetWorldMatrix(Entity entity) const;
@@ -50,6 +55,7 @@ private:
     ComponentPool<component::Camera>       m_cameras;
     ComponentPool<component::Light>        m_lights;
     ComponentPool<component::MeshRenderer> m_meshRenderers;
+    ComponentPool<component::Script>       m_scripts;
 
     template<typename T> ComponentPool<T>& GetPool();
     template<typename T> const ComponentPool<T>& GetPool() const;
@@ -62,6 +68,7 @@ template<typename T> void     Scene::RemoveComponent(Entity e)    { GetPool<T>()
 template<typename T> T*       Scene::GetComponent(Entity e)       { return GetPool<T>().Get(e); }
 template<typename T> const T* Scene::GetComponent(Entity e) const { return GetPool<T>().Get(e); }
 template<typename T> bool     Scene::HasComponent(Entity e) const { return GetPool<T>().Has(e); }
+template<typename T> const std::vector<Entity>& Scene::ComponentEntities() const { return GetPool<T>().GetEntities(); }
 
 }
 }

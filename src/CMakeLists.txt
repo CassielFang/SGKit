@@ -1,11 +1,17 @@
 # -- Collect sources by module
-file(GLOB_RECURSE SGK_SRC 
+file(GLOB_RECURSE SGK_SRC
     "core/*.cpp"
     "math/*.cpp"
     "graphics/*.cpp"
     "scene/*.cpp"
     "framework/*.cpp"
 )
+
+# Scripting sources compile into the engine only when scripting is enabled.
+if(SGK_ENABLE_SCRIPTING)
+    file(GLOB_RECURSE SGK_SCRIPTING_SRC "scripting/*.cpp")
+    list(APPEND SGK_SRC ${SGK_SCRIPTING_SRC})
+endif()
 
 # -- Engine static library
 add_library(sgkit STATIC ${SGK_SRC})
@@ -33,6 +39,14 @@ endif()
 
 # -- Internal platform macro (sgkit PRIVATE only)
 target_compile_definitions(sgkit PRIVATE _WINDOWS)
+
+# -- C# scripting: vendored .NET host (nethost/hostfxr) - PRIVATE so the
+#    vendored headers never leak onto a consumer's include path.
+if(SGK_ENABLE_SCRIPTING)
+    target_include_directories(sgkit PRIVATE ${CMAKE_SOURCE_DIR}/external/dotnet/include)
+    target_link_libraries(sgkit PRIVATE ${CMAKE_SOURCE_DIR}/external/dotnet/lib/nethost.lib)
+    target_compile_definitions(sgkit PRIVATE SGK_HAS_SCRIPTING)
+endif()
 
 # -- Link dependencies
 target_link_libraries(sgkit PRIVATE glad stb ${SGK_PLATFORM_LIBS})

@@ -1,0 +1,332 @@
+#!/usr/bin/env python3
+"""
+SGKit C#/C++ interop binding generator.
+
+Parses the hand-written interop surface
+
+    include/sgkit/scripting/Interop.h
+
+and emits, in sync, both sides of the function-pointer table used to call
+native engine code from managed scripts:
+
+    include/sgkit/scripting/NativeApi.gen.h          (C++: struct + FillNativeApi)
+    managed/SGKit.Managed/Generated/Bindings.gen.cs  (C#:  struct + Native wrappers)
+
+Why a table (not P/Invoke): SGKit is a static lib linked into the exe, so the
+engine singletons live in the exe. A separate interop DLL would duplicate them,
+so managed code reaches native code through pointers handed over at Bootstrap.
+Keeping the C++ struct, the C++ fill function and the C# struct in lockstep by
+hand is exactly the error-prone bit this tool removes.
+
+Conventions the generator understands (keep Interop.h to these):
+  * Exported functions live in the extern "C" block, one per line, prefixed
+    SGK_, and use only: void, int, unsigned int, float, const char*,
+    and pointers to the POD structs declared in the same header.
+  * `const T*`  is an INPUT  -> C# wrapper takes T by value, passes its address.
+  * `T*` (non-const) is an OUTPUT -> becomes the C# wrapper's return value
+    (the native function must then return void; at most one such param).
+  * `const char*` is a UTF-8 input string.
+  * The C# method name is the function name with the SGK_ prefix stripped.
+
+Run it whenever Interop.h changes:
+    python tools/generate_bindings.py
+"""
+
+import os
+import re
+import sys
+
+# -- Locate repo paths (this script lives in <repo>/tools) --------------------
+
+TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO      = os.path.dirname(TOOLS_DIR)
+
+INTEROP_H  = os.path.join(REPO, "include", "sgkit", "scripting", "Interop.h")
+OUT_H      = os.path.join(REPO, "include", "sgkit", "scripting", "NativeApi.gen.h")
+OUT_CS     = os.path.join(REPO, "managed", "Generated", "Bindings.gen.cs")
+
+# -- Parsing ------------------------------------------------------------------
+
+def strip_comments(text):
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    text = re.sub(r"//[^\n]*", "", text)
+    return text
+
+
+def parse_structs(text):
+    """Names of POD structs declared in the header (e.g. Vec3)."""
+    return set(re.findall(r"\bstruct\s+(\w+)\s*\{", text))
+
+
+def parse_functions(text):
+    """
+    Returns a list of (ret_type, name, [param_type_strings]) for every
+    SGK_ function declaration. Parameter names are dropped - only types remain.
+    """
+    funcs = []
+    pattern = re.compile(r"([\w\s\*]+?)\s+(SGK_\w+)\s*\(([^)]*)\)\s*;", re.MULTILINE)
+    for m in pattern.finditer(text):
+        ret = m.group(1).strip()
+        name = m.group(2).strip()
+        raw_params = m.group(3).strip()
+        params = split_params(raw_params)
+        funcs.append((ret, name, params))
+    return funcs
+
+
+def split_params(raw):
+    """Split a parameter list into a list of type strings (names stripped)."""
+    raw = raw.strip()
+    if raw == "" or raw == "void":
+        return []
+    out = []
+    for part in raw.split(","):
+        part = part.strip()
+        # The parameter name is the trailing identifier; everything before it
+        # (including any '*') is the type.
+        mm = re.match(r"^(.*?)([A-Za-z_]\w*)$", part)
+        if not mm:
+            out.append(part)  # e.g. bare "void" - shouldn't reach here
+            continue
+        type_str = mm.group(1).strip()
+        out.append(type_str)
+    return out
+
+
+# -- Type classification ------------------------------------------------------
+
+class Ty:
+    def __init__(self, raw, structs):
+        self.raw = raw.strip()
+        t = self.raw
+        self.const = t.startswith("const ")
+        if self.const:
+            t = t[len("const "):].strip()
+        self.ptr = t.endswith("*")
+        base = t[:-1].strip() if self.ptr else t
+        self.base = re.sub(r"\s+", " ", base).strip()
+        self.is_struct = self.base in structs
+
+    # C# type used in the delegate* signature (raw ABI shape).
+    def cs_abi(self):
+        if self.ptr and self.is_struct:
+            return self.base + "*"
+        if self.ptr and self.base == "char":
+            return "byte*"
+        return {"int": "int", "unsigned int": "uint",
+                "float": "float", "void": "void"}[self.base]
+
+
+SCALAR_CS = {"int": "int", "unsigned int": "uint", "float": "float"}
+
+# Placeholder parameter names for the generated C# wrappers (types only survive
+# parsing). Human-friendly, positional.
+ARG_NAMES = ["a", "b", "c", "d", "e", "f", "g", "h"]
+
+
+# -- C++ emission -------------------------------------------------------------
+
+def short_name(fn):
+    return fn[len("SGK_"):] if fn.startswith("SGK_") else fn
+
+
+def emit_cpp(structs, funcs):
+    lines = []
+    w = lines.append
+    w("#pragma once")
+    w("")
+    w("// -----------------------------------------------------------------------------")
+    w("// AUTO-GENERATED by tools/generate_bindings.py from Interop.h - DO NOT EDIT.")
+    w("// Regenerate after changing the interop surface: python tools/generate_bindings.py")
+    w("// -----------------------------------------------------------------------------")
+    w("")
+    w("#include <sgkit/scripting/Interop.h>")
+    w("")
+    w("namespace sgkit {")
+    w("namespace scripting {")
+    w("")
+    w("struct NativeApi")
+    w("{")
+    width = max(len(r) for r, _, _ in funcs)
+    for ret, name, params in funcs:
+        ptypes = ", ".join(p.strip() for p in params)
+        w("    {ret:<{w}} (*{sn})({ptypes});".format(
+            ret=ret, w=width, sn=short_name(name), ptypes=ptypes))
+    w("};")
+    w("")
+    w("// Point every field at the matching SGK_ function.")
+    w("inline void FillNativeApi(NativeApi& api)")
+    w("{")
+    field_w = max(len(short_name(n)) for _, n, _ in funcs)
+    for _, name, _ in funcs:
+        w("    api.{sn:<{w}} = &{full};".format(
+            sn=short_name(name), w=field_w, full=name))
+    w("}")
+    w("")
+    w("}")
+    w("}")
+    w("")
+    return "\n".join(lines)
+
+
+# -- C# emission --------------------------------------------------------------
+
+def emit_cs(structs, funcs):
+    lines = []
+    w = lines.append
+    w("// -----------------------------------------------------------------------------")
+    w("// AUTO-GENERATED by tools/generate_bindings.py from Interop.h - DO NOT EDIT.")
+    w("// Regenerate after changing the interop surface: python tools/generate_bindings.py")
+    w("// -----------------------------------------------------------------------------")
+    w("")
+    w("using System;")
+    w("using System.Runtime.InteropServices;")
+    w("using System.Text;")
+    w("")
+    w("namespace SGKit")
+    w("{")
+    w("    // Mirror of native sgkit::scripting::NativeApi. Field order matches the")
+    w("    // C++ struct exactly; each is a raw function pointer stored as IntPtr.")
+    w("    [StructLayout(LayoutKind.Sequential)]")
+    w("    internal struct NativeApi")
+    w("    {")
+    for _, name, _ in funcs:
+        w("        public IntPtr {sn};".format(sn=short_name(name)))
+    w("    }")
+    w("")
+    w("    // Typed access to the native table. High-level wrappers (Script, Input,")
+    w("    // Time) call through here so game code never touches raw pointers.")
+    w("    internal static unsafe class Native")
+    w("    {")
+    w("        private static NativeApi _api;")
+    w("        public static bool Bound { get; private set; }")
+    w("        public static void Bind(NativeApi api) { _api = api; Bound = true; }")
+    w("")
+    for ret, name, params in funcs:
+        emit_cs_method(w, structs, ret, name, params)
+    w("    }")
+    w("}")
+    w("")
+    return "\n".join(lines)
+
+
+def emit_cs_method(w, structs, ret_raw, name, param_raws):
+    sn = short_name(name)
+    rty = Ty(ret_raw, structs)
+    ptys = [Ty(p, structs) for p in param_raws]
+
+    # Assign positional names.
+    names = ARG_NAMES[:len(ptys)]
+
+    # Classify params into: scalars, string inputs, struct inputs, struct output.
+    sig_params = []     # C# wrapper signature params "type name"
+    pre = []            # statements before the call
+    call_args = []      # expressions passed to the delegate
+    fixed_wraps = []    # (varname, span) for nested fixed blocks
+    ret_type_cs = None  # overridden if there's an output param
+    ret_var = None
+
+    for ty, nm in zip(ptys, names):
+        if ty.ptr and ty.is_struct and not ty.const:
+            # Output parameter -> becomes the return value.
+            ret_type_cs = ty.base
+            ret_var = "_ret"
+            pre.append("{b} {v};".format(b=ty.base, v=ret_var))
+            call_args.append("&" + ret_var)
+        elif ty.ptr and ty.is_struct and ty.const:
+            sig_params.append("{b} {n}".format(b=ty.base, n=nm))
+            call_args.append("&" + nm)
+        elif ty.ptr and ty.base == "char":
+            sig_params.append("string {n}".format(n=nm))
+            pre.append("int _len_{n} = Encoding.UTF8.GetByteCount({n});".format(n=nm))
+            pre.append("Span<byte> _buf_{n} = stackalloc byte[_len_{n} + 1];".format(n=nm))
+            pre.append("Encoding.UTF8.GetBytes({n}, _buf_{n});".format(n=nm))
+            pre.append("_buf_{n}[_len_{n}] = 0;".format(n=nm))
+            fixed_wraps.append(("_p_{n}".format(n=nm), "_buf_{n}".format(n=nm)))
+            call_args.append("_p_{n}".format(n=nm))
+        else:
+            cs = SCALAR_CS[ty.base]
+            sig_params.append("{t} {n}".format(t=cs, n=nm))
+            call_args.append(nm)
+
+    # Delegate* signature: raw ABI param types then return type.
+    abi = [t.cs_abi() for t in ptys] + [rty.cs_abi()]
+    delegate = "delegate* unmanaged<{}>".format(", ".join(abi))
+    call = "(({dg})_api.{sn})({args})".format(
+        dg=delegate, sn=sn, args=", ".join(call_args))
+
+    # Determine wrapper return type.
+    if ret_type_cs is not None:
+        wrapper_ret = ret_type_cs
+    else:
+        wrapper_ret = rty.cs_abi()  # void / int / float
+
+    w("        public static {rt} {sn}({params})".format(
+        rt=wrapper_ret, sn=sn, params=", ".join(sig_params)))
+    w("        {")
+    for s in pre:
+        w("            " + s)
+
+    # Build the innermost statement (the actual call + return handling).
+    if ret_type_cs is not None:
+        inner = [call + ";", "return {v};".format(v=ret_var)]
+    elif wrapper_ret == "void":
+        inner = [call + ";"]
+    else:
+        inner = ["return " + call + ";"]
+
+    # Wrap in nested fixed(...) blocks for any string params.
+    if fixed_wraps:
+        indent = "            "
+        for i, (pvar, span) in enumerate(fixed_wraps):
+            w(indent + "fixed (byte* {p} = {s})".format(p=pvar, s=span))
+            w(indent + "{")
+            indent += "    "
+        for s in inner:
+            w(indent + s)
+        for _ in fixed_wraps:
+            indent = indent[:-4]
+            w(indent + "}")
+    else:
+        for s in inner:
+            w("            " + s)
+
+    w("        }")
+    w("")
+
+
+# -- Main ---------------------------------------------------------------------
+
+def main():
+    if not os.path.isfile(INTEROP_H):
+        print("error: cannot find " + INTEROP_H, file=sys.stderr)
+        return 1
+
+    with open(INTEROP_H, "r", encoding="utf-8") as f:
+        text = strip_comments(f.read())
+
+    structs = parse_structs(text)
+    funcs = parse_functions(text)
+    if not funcs:
+        print("error: no SGK_ functions parsed from Interop.h", file=sys.stderr)
+        return 1
+
+    cpp = emit_cpp(structs, funcs)
+    cs = emit_cs(structs, funcs)
+
+    os.makedirs(os.path.dirname(OUT_CS), exist_ok=True)
+    with open(OUT_H, "w", encoding="utf-8", newline="\n") as f:
+        f.write(cpp)
+    with open(OUT_CS, "w", encoding="utf-8", newline="\n") as f:
+        f.write(cs)
+
+    print("generated:")
+    print("  " + os.path.relpath(OUT_H, REPO))
+    print("  " + os.path.relpath(OUT_CS, REPO))
+    print("structs: " + ", ".join(sorted(structs)))
+    print("functions: " + str(len(funcs)))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

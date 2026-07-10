@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Class library loaded by the native host, not an app. -->
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+
+    <!-- EnableDynamicLoading makes a *class library* emit the
+         *.runtimeconfig.json that hostfxr_initialize_for_runtime_config needs,
+         and lays out its dependencies for a native host. Without it a library
+         produces no runtimeconfig and the host cannot start. -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+
+    <!-- Roll forward to a newer patch/minor of the 10.x runtime if the exact
+         build is absent. -->
+    <RollForward>LatestMinor</RollForward>
+
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SGKit.Managed</AssemblyName>
+    <RootNamespace>SGKit</RootNamespace>
+  </PropertyGroup>
+
+</Project>

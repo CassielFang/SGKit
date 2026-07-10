@@ -1,6 +1,6 @@
 # SGKit 用户手册
 
-SGKit（Straightforward Graphics Kit）是一个 C++ 3D 渲染引擎。核心第三方依赖仅有 glad（OpenGL 加载器）+ stb_image（纹理加载），其余全部基于 C++20 标准库 + Win32 平台 API。列主序矩阵,RAII 管理 GL 对象,稀疏集 ECS。
+SGKit（Straightforward Graphics Kit）是一个 C++ 3D 渲染引擎。核心第三方依赖仅有 glad（OpenGL 加载器）+ stb_image（纹理加载）+ assimp（3D 模型导入），其余全部基于 C++20 标准库 + Win32 平台 API。列主序矩阵,RAII 管理 GL 对象,稀疏集 ECS。
 
 ---
 
@@ -12,7 +12,8 @@ SGKit（Straightforward Graphics Kit）是一个 C++ 3D 渲染引擎。核心第
 4. [Core - 核心模块](#core)
 5. [Graphics - 图形模块](#graphics)
 6. [Scene - 场景模块](#scene)
-7. [项目集成与约定](#项目集成)
+7. [Scripting - C# 脚本系统](#scripting)
+8. [项目集成与约定](#项目集成)
 
 ---
 
@@ -700,7 +701,10 @@ Entity e = scene.CreateEntity();   // 分配实体 ID，加入活跃列表。上
 scene.DestroyEntity(e);            // 移除该实体的所有组件，从活跃列表删除
 scene.IsAlive(e);                  // 实体是否存活
 
-k_InvalidEntity  // 0xFFFFFFFF  无效实体标识
+scene.SetVisible(e, false);        // 递归设置该实体及所有子实体的 MeshRenderer.enabled
+                                   //   常用于整体显隐一个模型（配合 Model::Load 的 root）
+
+scene::Entity::Invalid  // 无效实体标识（用 e == scene::Entity::Invalid 判断）
 ```
 
 ### 组件操作
@@ -763,17 +767,36 @@ cam.GetProjectionMatrix(aspectRatio);   // 透视投影矩阵
 
 ### scene\::component\::Light
 
-光源组件。`Scene::Render()` 调用 `CollectLights()` 遍历所有 Light 组件，全部传给 Renderer。
+光源组件。`Scene::Render()` 调用 `CollectLights()` 遍历所有 Light 组件，全部传给 Renderer。支持三种光源类型。
 
 ```cpp
 auto& light = scene.AddComponent<scene::component::Light>(entity);
+
+// 类型（默认 Point）
+light.type = scene::component::Light::Type::Point;        // 点光源：从位置向四周衰减
+light.type = scene::component::Light::Type::Directional;  // 平行光：只有方向，无衰减（如太阳）
+light.type = scene::component::Light::Type::SpotLight;    // 聚光灯：锥形光束
+
+// 颜色分量
 light.ambient  = {0.2f, 0.2f, 0.2f};  // 环境光分量
 light.diffuse  = {0.5f, 0.5f, 0.5f};  // 漫反射分量
 light.specular = {1.0f, 1.0f, 1.0f};  // 镜面反射分量
+
+// 方向（Directional / SpotLight 使用；Point 忽略）
+light.direction = {0.0f, -1.0f, 0.0f};
+
+// 聚光灯锥角（余弦值，内锥 > 外锥；SpotLight 使用）
+light.cutOff      = 0.91f;   // 内锥余弦，锥内全亮
+light.outerCutOff = 0.82f;   // 外锥余弦，内外锥之间平滑过渡
+
+// 距离衰减系数（Point / SpotLight 使用）：atten = 1/(constant + linear*d + quadratic*d²)
+light.constant  = 1.0f;
+light.linear    = 0.09f;
+light.quadratic = 0.032f;
 // 位置从 Transform 组件读取：Transform::position
 ```
 
-有 Light 组件的实体通常也需要 Transform 组件（提供世界坐标位置）。引擎每帧调用 `Scene::CollectLights()` 将所有活跃光源收集为 `vector<LightData>`，传给 Renderer 后在 Shader 中通过 `u_Lights[i]` 访问。
+有 Light 组件的实体通常也需要 Transform 组件（提供世界坐标位置）。引擎每帧调用 `Scene::CollectLights()` 将所有活跃光源收集为 `vector<LightInstance>`，传给 Renderer 后在 Shader 中访问。
 
 ### scene\::component\::MeshRenderer
 
@@ -784,6 +807,42 @@ auto& mr = scene.AddComponent<scene::component::MeshRenderer>(entity);
 mr.mesh    = myMesh;   // shared_ptr<Mesh>
 mr.enabled = true;     // 设为 false 则跳过渲染
 ```
+
+### scene\::Model - 模型导入
+
+`scene::Model::Load()` 通过 assimp 一次性导入 3D 模型文件，自动创建实体层级：一个 root 实体（仅 Transform）+ 每个子网格一个实体（Transform + MeshRenderer，作为 root 的子节点）。支持 OBJ、FBX、GLB、glTF、DAE、3DS、PLY、STL、Blend 等格式。
+
+```cpp
+#include <sgkit/sgkit.h>  // 已含 scene/Model.h
+
+// 加载模型，所有子网格共用传入的 shader
+auto shader = std::make_shared<graphics::Shader>();
+shader->LoadFromFile("assets/shaders/light.vert", "assets/shaders/light.frag");
+
+scene::Model::Result model = scene::Model::Load("assets/backpack/backpack.obj", shader);
+if (model.root == scene::Entity::Invalid)   // 加载失败
+    return false;
+
+// Result 结构
+model.root       // Entity - 仅 Transform，移动/缩放/显隐/销毁整个模型的把手
+model.entities   // vector<Entity> - 每个子网格一个实体（Transform + MeshRenderer）
+
+// 设置整体变换（作用于 root，子网格随层级累乘）
+auto* tf = scene.GetComponent<scene::component::Transform>(model.root);
+tf->position = {0, 0, 0};
+tf->scale    = {1.5f, 1.5f, 1.5f};
+
+// 整体显隐（递归所有子网格）
+scene.SetVisible(model.root, false);
+```
+
+**导入细节**：
+- 顶点布局固定为 `[position(3) normal(3) texCoord(2)]`（location 0/1/2）。缺失法线时自动生成平滑法线（`aiProcess_GenSmoothNormals`），缺失 UV 时填 `(0,0)`。
+- 后处理：三角化 + 合并相同顶点。非 `.glb`/`.gltf` 格式自动翻转 UV（`aiProcess_FlipUVs`）。
+- 纹理：读取 assimp 材质的 DIFFUSE（回退到 BASE_COLOR）绑定到单元 0、SPECULAR 绑定到单元 1。外部纹理按模型所在目录相对路径加载；内嵌纹理（`*0` 形式）直接解码或临时落盘后加载。同一路径的纹理在一次 Load 内缓存复用。
+- 材质 `shininess` 固定为 32.0f。当前光照为 Phong，尚未支持 PBR。
+
+> 需要更精细控制（逐网格换材质、调整包围盒等）时，可遍历 `model.entities` 逐个 `GetComponent<MeshRenderer>()` 修改。
 
 ### Render - 渲染流程
 
@@ -827,6 +886,168 @@ scene::Renderer::instance().Execute(queue);
 
 ---
 
+## Scripting
+
+C# 脚本系统让你用托管代码写游戏逻辑，而不必改动或重编译 C++ 引擎。你写 `Script` 子类、挂到实体上，引擎每帧驱动它；脚本通过一层互操作 API 读写引擎状态。
+
+### 架构一览
+
+```
+你的 C# 脚本 (class Spin : Script)          ← 游戏逻辑，编译成 GameScripts.dll
+        │ 继承 / 调用
+SGKit.Managed.dll                            ← 引擎托管层：Script 基类 / Input / Time / 生成的绑定
+        │  函数指针表（NativeApi）
+━━━━━━━━━ CLR / native 边界 ━━━━━━━━━
+   ScriptEngine (native)  ──每帧驱动──▶ 托管脚本 OnUpdate
+        │
+   SGKit 引擎 (Scene / Input / Clock)
+```
+
+**宿主**：引擎用 nethost/hostfxr 内嵌 CoreCLR（.NET 10），加载托管程序集并解析入口点。
+
+**为什么是函数指针表而不是 P/Invoke**：SGKit 是静态库、链进 exe，引擎单例（Scene/Input）都在 exe 里。若把互操作做成独立 DLL 让 C# `DllImport`，会导致单例在 DLL/exe 各存一份。所以引擎在启动时把一张函数指针表（`NativeApi`）交给托管侧，C# 通过它回调 native。这层绑定由工具从 `Interop.h` 自动生成（见 [扩展互操作 API](#扩展互操作-api)）。
+
+### 启用脚本
+
+在 `ApplicationConfig` 里打开开关，引擎会在 Scene 之后启动 CLR 宿主：
+
+```cpp
+ApplicationConfig sgkit::CreateApplication()
+{
+    ApplicationConfig cfg;
+    cfg.enableScripting = true;   // 启动 CoreCLR 宿主
+    // ...
+}
+```
+
+不设或设为 `false` 时完全不加载运行时，无额外开销。
+
+### 写一个脚本
+
+在 C# 里继承 `SGKit.Script`，重写生命周期方法：
+
+```csharp
+using SGKit;
+
+public class Spin : Script
+{
+    private float _angle;
+    private float _speed = 1.0f;
+
+    public override void OnCreate()             // 实例创建后调用一次
+    {
+        Log("attached to entity " + Entity);
+    }
+
+    public override void OnUpdate(float dt)     // 每帧调用
+    {
+        if (Input.IsKeyDown(Key.Up))   _speed += dt * 2.0f;
+        if (Input.IsKeyDown(Key.Down)) _speed -= dt * 2.0f;
+
+        _angle += dt * _speed;
+        EulerAngles = new Vec3(0.0f, _angle, 0.0f);  // 写回 Transform
+    }
+
+    public override void OnDestroy() { }        // 销毁时调用（见「已知限制」）
+}
+```
+
+### Script API
+
+`Script` 基类提供的成员：
+
+| 成员 | 类型 | 说明 |
+|------|------|------|
+| `Entity` | `uint` | 本脚本所挂实体的 native id |
+| `OnCreate()` | 虚方法 | 实例化后调用一次 |
+| `OnUpdate(float dt)` | 虚方法 | 每帧调用，`dt` 为帧间隔秒 |
+| `OnDestroy()` | 虚方法 | 引擎关闭时对所有实例调用 |
+| `Position` | `Vec3` | 读写所挂实体 Transform 的 position |
+| `EulerAngles` | `Vec3` | 读写旋转（欧拉角，弧度 pitch/yaw/roll） |
+| `Scale` | `Vec3` | 读写缩放 |
+| `Log(string)` | 方法 | 输出到引擎日志（`[类名] 消息`，Debug 控制台可见） |
+
+全局辅助类：
+
+```csharp
+Time.DeltaTime            // float，当前帧间隔秒（等价于 OnUpdate 的 dt）
+Input.IsKeyDown(Key.W)    // 是否按住
+Input.IsKeyPressed(Key.Space)  // 本帧刚按下（上升沿）
+```
+
+`Key` 枚举镜像 C++ 的 `core::KeyCode`（`A`~`Z`、`Num0`~`Num9`、`Up/Down/Left/Right`、`Space`、`Escape`、`LeftShift` 等）。
+
+`Vec3` 是可 blit 的三浮点结构（`X/Y/Z`），与 native 内存布局一致，零 marshal 开销。
+
+### 把脚本挂到实体
+
+脚本以 `component::Script` 组件附加到实体，`typeName` 填 C# 类名（无命名空间时即类名）：
+
+```cpp
+scene::Entity cube = scene.CreateEntity();
+scene.AddComponent<scene::component::Transform>(cube);
+scene.AddComponent<scene::component::MeshRenderer>(cube)->mesh = MakeCube();
+scene.AddComponent<scene::component::Script>(cube)->typeName = "Spin";
+```
+
+然后加载包含该类的托管程序集（相对 exe 目录）：
+
+```cpp
+auto& engine = scripting::ScriptEngine::instance();
+if (engine.IsReady())
+    engine.LoadScriptAssembly("GameScripts.dll");
+```
+
+引擎主循环每帧调用 `ScriptEngine::Update(dt)`（在 `onUpdate` 之前）：首次遇到某个 Script 组件时按 `typeName` 实例化 C# 对象并调用 `OnCreate`，之后每帧调用 `OnUpdate`。你无需在 `onUpdate` 里写任何驱动代码。
+
+### 工程结构与构建
+
+脚本系统涉及两个 C# 工程：
+
+| 工程 | 是什么 | 位置 |
+|------|--------|------|
+| **SGKit.Managed** | 引擎托管层（`Script` 基类、`Input`/`Time`、生成的绑定、`ScriptBridge` 入口点） | `managed/`（引擎基础设施） |
+| **你的脚本工程** | 游戏脚本（`Spin` 等），`<ProjectReference>` 引用 SGKit.Managed | 随 example 走，如 `examples/ScriptExample/scripts/` |
+
+两个工程都用 `dotnet build` 编译（CMake 自定义目标驱动），产物拷到 exe 目录。运行时 exe 旁需要这些文件：
+
+```
+ScriptExample.exe
+SGKit.Managed.dll
+SGKit.Managed.runtimeconfig.json   ← 宿主初始化必需
+SGKit.Managed.deps.json
+GameScripts.dll                     ← 你的脚本
+nethost.dll                         ← 定位 .NET 运行时
+```
+
+**关键点**：
+- 托管工程目标框架 `net10.0`，且 SGKit.Managed 设 `<EnableDynamicLoading>true</EnableDynamicLoading>`——这是让**类库**产出 `runtimeconfig.json` 的开关，否则宿主无法启动。
+- 脚本工程引用 SGKit.Managed 时用 `<Private>false</Private>`，避免重复拷贝已被宿主加载的 DLL。
+- 新增用脚本的 example，照 `examples/ScriptExample/` 的样子：自带一个 `scripts/*.csproj`（引用 `managed/SGKit.Managed.csproj`），在其 `CMakeLists.txt` 里 `dotnet build` 并拷 DLL。
+
+### 扩展互操作 API
+
+脚本能调用的 native 能力由一层扁平 C ABI 定义在 `include/sgkit/scripting/Interop.h`（唯一真源）。新增一个能力三步：
+
+1. 在 `Interop.h` 的 `extern "C"` 块加一行声明，如 `void SGK_Transform_GetScale(unsigned int entity, Vec3* out);`
+2. 在 `src/scripting/Interop.cpp` 写实现（调用引擎）；
+3. 跑 `python tools/generate_bindings.py`（或在 VS 生成 `SGKitBindings` 目标）。
+
+生成器会同步产出两侧绑定：`NativeApi.gen.h`（native 函数指针表 + 填表）和 `managed/Generated/Bindings.gen.cs`（C# 结构 + `Native` 封装），三处布局自动对齐，无需人肉同步。高层友好封装（如 `Script.Position`）再手写建立在生成的 `Native.*` 之上。
+
+约定：`const T*` = 传入（C# 按值）、非 const `T*` = 变返回值、`const char*` = UTF-8 字符串、方法名去掉 `SGK_` 前缀。详见 `tools/README.md`。
+
+### 已知限制
+
+当前为 Phase 0-2 基础实现，尚未支持：
+
+- **热重载**：改脚本需重新构建运行（已选 CoreCLR 宿主，后续可用可回收 `AssemblyLoadContext` 实现）。
+- **实体销毁不触发 `OnDestroy`**：`DestroyEntity` 目前不通知脚本引擎，`OnDestroy` 仅在引擎关闭时统一调用。
+- **API 覆盖**：目前互操作面覆盖 Transform、Input、Clock、Log；Camera/Light/MeshRenderer 访问、鼠标、实体增删、泛型 `GetComponent<T>` 待补（按上面「扩展互操作 API」的流程添加即可）。
+- **平台**：仅 Windows x64（host pack 为 win-x64）。
+
+---
+
 ## 项目集成
 
 SGKit 为静态库，构建产物在 `lib/` 目录：`sgkit_d.lib`（Debug，含 `sgkit_d.pdb`）和 `sgkit.lib`（Release）。
@@ -846,7 +1067,7 @@ add_subdirectory(external/SGKit)
 target_link_libraries(YourApp PRIVATE sgkit)
 ```
 
-SGKit 会传递链接 `glad` 和平台库 (`gdi32 user32 opengl32 imm32`)。
+SGKit 会传递链接 `glad` 和平台库 (`gdi32 user32 opengl32 imm32`)。assimp 以预编译库（`assimp-vc145-mt.lib`）在库内部 PRIVATE 链接，若其为动态库形式，最终可执行文件运行时需能找到对应的 `assimp-vc145-mt.dll`。
 
 ### 目录结构
 
@@ -855,14 +1076,15 @@ SGKit/
 ├-- CMakeLists.txt / CMakePresets.json
 ├-- external/
 │   ├-- glad/                  # OpenGL 4.6 Core 加载器（静态库）
-│   └-- stb/                   # stb_image 纹理加载（静态库）
+│   ├-- stb/                   # stb_image 纹理加载（静态库）
+│   └-- assimp/                # 3D 模型导入（预编译 lib + 头文件）
 ├-- include/sgkit/             # 公共头（聚合头 sgkit.h 一次性包含全部子模块）
 │   ├-- math/      Vector2/3/4, Matrix4, Quaternion, MathUtils
 │   ├-- core/      Window, Input, KeyCodes, FileSystem, ThreadPool
 │   ├-- graphics/  Shader, VertexBuffer, IndexBuffer, VertexLayout, VertexArray,
 │   │              Texture, FrameBuffer（纯 GL 原子 RAII 包装）
 │   ├-- scene/     Entity, ComponentPool, Components(Transform/Camera/Light/MeshRenderer),
-│   │              Material, Mesh, RenderQueue, Renderer, Scene
+│   │              Material, Mesh, Model, RenderQueue, Renderer, Scene
 │   └-- framework/ Application(Config), Timing
 ├-- src/                       # 实现（按模块对应）
 ├-- examples/                  # 演示示例

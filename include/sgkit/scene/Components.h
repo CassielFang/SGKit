@@ -5,6 +5,7 @@
 #include <sgkit/scene/Entity.h>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace sgkit {
@@ -71,6 +72,20 @@ class MeshRenderer
 public:
     std::shared_ptr<Mesh> mesh;
     bool enabled = true;
+};
+
+// -- Script
+//
+// Data-only component: names a C# Script subclass to attach to this entity.
+// It carries no CLR types so the scene module stays free of the scripting
+// runtime; the scripting module (ScriptEngine) reads these and owns the
+// managed instance behind `handle` (-1 until instantiated).
+
+class Script
+{
+public:
+    std::string typeName;    // C# type name, e.g. "Spin" or "Game.Spin"
+    int         handle = -1; // managed instance id, assigned by ScriptEngine
 };
 
 }
