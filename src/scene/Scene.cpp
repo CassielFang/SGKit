@@ -71,7 +71,6 @@ void Scene::DestroyEntity(Entity entity)
     m_cameras.Remove(entity);
     m_lights.Remove(entity);
     m_meshRenderers.Remove(entity);
-    m_scripts.Remove(entity);
 
     // 4. Remove from alive list
     auto it = std::find(m_aliveEntities.begin(), m_aliveEntities.end(), entity);
@@ -216,8 +215,6 @@ template<> ComponentPool<component::Light>&
     Scene::GetPool<component::Light>()            { return m_lights; }
 template<> ComponentPool<component::MeshRenderer>&
     Scene::GetPool<component::MeshRenderer>()     { return m_meshRenderers; }
-template<> ComponentPool<component::Script>&
-    Scene::GetPool<component::Script>()           { return m_scripts; }
 
 template<> const ComponentPool<component::Transform>&
     Scene::GetPool<component::Transform>() const    { return m_transforms; }
@@ -227,8 +224,6 @@ template<> const ComponentPool<component::Light>&
     Scene::GetPool<component::Light>() const        { return m_lights; }
 template<> const ComponentPool<component::MeshRenderer>&
     Scene::GetPool<component::MeshRenderer>() const { return m_meshRenderers; }
-template<> const ComponentPool<component::Script>&
-    Scene::GetPool<component::Script>() const       { return m_scripts; }
 
 }
 }

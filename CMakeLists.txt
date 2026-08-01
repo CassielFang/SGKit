@@ -1,44 +1,23 @@
-cmake_minimum_required(VERSION 3.26)
-project(SGKit VERSION 0.1.0 LANGUAGES CXX C)
+cmake_minimum_required(VERSION 3.20)
 
-# -- C++ standard
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-# -- Global definitions
-add_compile_definitions(
-    UNICODE              # Windows API wide-character
-    _UNICODE             # CRT wide-character
-    NOMINMAX             # prevent windows.h min/max macros
-    WINVER=0x0A00        # target Windows 10+
-    _WIN32_WINNT=0x0A00
+# Project
+project(SGKit
+    VERSION     1.0.0
+    DESCRIPTION "Straightforward Graphics Kit — lightweight C++20 3D rendering engine"
+    LANGUAGES   C CXX
 )
 
-# -- Windows system libraries
-set(SGK_PLATFORM_LIBS  kernel32 user32 gdi32 opengl32 imm32)
+# Global compile settings
+set(CMAKE_CXX_STANDARD          20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS        OFF)
 
-# -- externals
-add_subdirectory(external)
+# CRT linkage
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-# -- Engine core
+# Subdirectories
 add_subdirectory(src)
+add_subdirectory(examples)
 
-# -- C# scripting (managed side, built via `dotnet build`)
-option(SGK_ENABLE_SCRIPTING "Enable C# scripting (requires the .NET SDK)" ON)
-if(SGK_ENABLE_SCRIPTING)
-    add_subdirectory(managed)
-endif()
-
-# -- Example projects
-option(SGK_BUILD_EXAMPLES "Build example projects" ON)
-if(SGK_BUILD_EXAMPLES)
-    add_subdirectory(examples)
-endif()
-
-# -- Unit tests
-option(SGK_BUILD_TESTS "Build unit tests" ON)
-if(SGK_BUILD_TESTS)
-    enable_testing()
-    add_subdirectory(tests)
-endif()
+enable_testing()
+add_subdirectory(tests)

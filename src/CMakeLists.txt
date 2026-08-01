@@ -1,72 +1,44 @@
-# -- Collect sources by module
-file(GLOB_RECURSE SGK_SRC
-    "core/*.cpp"
-    "math/*.cpp"
-    "graphics/*.cpp"
-    "scene/*.cpp"
-    "framework/*.cpp"
-)
+# SGKit static library
+add_library(sgkit STATIC)
 
-# Scripting sources compile into the engine only when scripting is enabled.
-if(SGK_ENABLE_SCRIPTING)
-    file(GLOB_RECURSE SGK_SCRIPTING_SRC "scripting/*.cpp")
-    list(APPEND SGK_SRC ${SGK_SCRIPTING_SRC})
-endif()
-
-# -- Engine static library
-add_library(sgkit STATIC ${SGK_SRC})
-
+# Public include path (consumers only see SGKit's own headers)
 target_include_directories(sgkit PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+    ${CMAKE_SOURCE_DIR}/include
 )
+
+# Private include paths (third-party, internal to the library)
 target_include_directories(sgkit PRIVATE
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/external/assimp/include>
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/external/glad/include
+    ${CMAKE_SOURCE_DIR}/external/stb/include
+    ${CMAKE_SOURCE_DIR}/external/assimp/include
+    ${CMAKE_SOURCE_DIR}/icon   # for resource.h (IDI_MAIN_ICON used by Window.cpp)
 )
 
-# glad header and resource visible only inside sgkit, not to consumers
-target_include_directories(sgkit PRIVATE ${CMAKE_SOURCE_DIR}/icon)
+# Auto-discover library sources
+file(GLOB_RECURSE SGKIT_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
+)
+file(GLOB_RECURSE SGKIT_THIRD_PARTY
+    ${CMAKE_SOURCE_DIR}/external/glad/src/*.c
+    ${CMAKE_SOURCE_DIR}/external/stb/src/*.c
+)
+target_sources(sgkit PRIVATE
+    ${SGKIT_SOURCES}
+    ${SGKIT_THIRD_PARTY}
+)
 
-# -- Compiler-specific options
-if(MSVC)
-    target_compile_options(sgkit PRIVATE /utf-8 /W4)
+# Platform definitions & system libraries
+target_compile_definitions(sgkit PRIVATE _WINDOWS UNICODE _UNICODE)
 
-    target_compile_options(sgkit PRIVATE
-        $<$<CONFIG:Debug>:/Od>
-        $<$<CONFIG:Release>:/O2>
-    )
-endif()
+target_link_libraries(sgkit
+    PUBLIC
+        gdi32 user32 opengl32 imm32
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/external/assimp/lib/assimp-vc145-mt.lib
+)
 
-# -- Internal platform macro (sgkit PRIVATE only)
-target_compile_definitions(sgkit PRIVATE _WINDOWS)
-
-# -- C# scripting: vendored .NET host (nethost/hostfxr) - PRIVATE so the
-#    vendored headers never leak onto a consumer's include path.
-if(SGK_ENABLE_SCRIPTING)
-    target_include_directories(sgkit PRIVATE ${CMAKE_SOURCE_DIR}/external/dotnet/include)
-    target_link_libraries(sgkit PRIVATE ${CMAKE_SOURCE_DIR}/external/dotnet/lib/nethost.lib)
-    target_compile_definitions(sgkit PRIVATE SGK_HAS_SCRIPTING)
-endif()
-
-# -- Link dependencies
-target_link_libraries(sgkit PRIVATE glad stb ${SGK_PLATFORM_LIBS})
-target_link_libraries(sgkit PRIVATE ${CMAKE_SOURCE_DIR}/external/assimp/lib/assimp-vc145-mt.lib)
-
-# -- Output filename: Debug -> sgkit_d.lib, Release -> sgkit.lib ----------
+# Output: lib/Debug/sgkit.lib  /  lib/Release/sgkit.lib
 set_target_properties(sgkit PROPERTIES
-    DEBUG_OUTPUT_NAME   sgkit_d
-    RELEASE_OUTPUT_NAME sgkit
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib/$<CONFIG>
 )
-
-# -- Copy .lib (and .pdb) to lib/ for standalone distribution ------------------------
-add_custom_command(TARGET sgkit POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_SOURCE_DIR}/lib
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:sgkit>
-        ${CMAKE_SOURCE_DIR}/lib/
-    COMMAND ${CMAKE_COMMAND} -E
-        $<IF:$<CONFIG:Debug>,copy_if_different,true>
-        $<IF:$<CONFIG:Debug>,$<TARGET_FILE_DIR:sgkit>/$<TARGET_FILE_BASE_NAME:sgkit>.pdb,true>
-        $<IF:$<CONFIG:Debug>,${CMAKE_SOURCE_DIR}/lib/,true>
-)
-

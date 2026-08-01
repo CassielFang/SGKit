@@ -1,14 +1,13 @@
-# -- Unit tests: each .cpp -> standalone CONSOLE executable
-file(GLOB TEST_SOURCES *.cpp)
+# Unit tests
 
-if(TEST_SOURCES)
-    foreach(test_file ${TEST_SOURCES})
-        get_filename_component(test_name ${test_file} NAME_WE)
-        add_executable(${test_name} ${test_file})
-        target_link_libraries(${test_name} PRIVATE sgkit)
-        target_compile_definitions(${test_name} PRIVATE _CONSOLE)
-        add_test(NAME ${test_name} COMMAND ${test_name})
-    endforeach()
-else()
-    message(WARNING "No test sources found in tests/")
-endif()
+# Auto-discover test sources
+file(GLOB TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+
+foreach(TEST_SRC ${TEST_SOURCES})
+    get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
+    add_executable(${TEST_NAME} ${TEST_SRC})
+    target_link_libraries(${TEST_NAME} PRIVATE sgkit)
+    target_sources(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/icon/app.rc)
+    target_include_directories(${TEST_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/icon)
+    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+endforeach()

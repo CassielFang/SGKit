@@ -2,80 +2,44 @@
     "version": 6,
     "cmakeMinimumRequired": {
         "major": 3,
-        "minor": 26,
+        "minor": 20,
         "patch": 0
     },
     "configurePresets": [
         {
-            "name": "vs-base",
-            "hidden": true,
-            "generator": "Visual Studio 18 2026"
-        },
-        {
             "name": "vs-x64",
             "displayName": "x64",
-            "inherits": "vs-base",
+            "generator": "Visual Studio 18 2026",
             "architecture": "x64",
-            "binaryDir": "${sourceDir}/build/x64",
-            "installDir": "${sourceDir}/install/x64"
-        },
-        {
-            "name": "vs-x86",
-            "displayName": "x86",
-            "inherits": "vs-base",
-            "architecture": "Win32",
-            "binaryDir": "${sourceDir}/build/x86",
-            "installDir": "${sourceDir}/install/x86"
+            "binaryDir": "${sourceDir}/build/x64"
         }
     ],
     "buildPresets": [
         {
-            "name": "vs-debug-x64",
-            "displayName": "x64 Debug",
+            "name": "debug",
+            "displayName": "Debug",
             "configurePreset": "vs-x64",
             "configuration": "Debug"
         },
         {
-            "name": "vs-debug-x86",
-            "displayName": "x86 Debug",
-            "configurePreset": "vs-x86",
-            "configuration": "Debug"
-        },
-        {
-            "name": "vs-release-x64",
-            "displayName": "x64 Release",
+            "name": "release",
+            "displayName": "Release",
             "configurePreset": "vs-x64",
-            "configuration": "Release"
-        },
-        {
-            "name": "vs-release-x86",
-            "displayName": "x86 Release",
-            "configurePreset": "vs-x86",
             "configuration": "Release"
         }
     ],
     "testPresets": [
         {
-            "name": "vs-debug-x64",
+            "name": "debug",
             "configurePreset": "vs-x64",
             "configuration": "Debug",
             "output": { "outputOnFailure": true }
         },
         {
-            "name": "vs-debug-x86",
-            "configurePreset": "vs-x86",
-            "configuration": "Debug",
-            "output": { "outputOnFailure": true }
-        },
-        {
-            "name": "vs-release-x64",
+            "name": "release",
             "configurePreset": "vs-x64",
-            "configuration": "Release"
-        },
-        {
-            "name": "vs-release-x86",
-            "configurePreset": "vs-x86",
-            "configuration": "Release"
+            "configuration": "Release",
+            "output": { "outputOnFailure": true }
         }
     ]
 }

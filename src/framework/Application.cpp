@@ -14,10 +14,6 @@
 #include <sgkit/scene/Renderer.h>
 #include <sgkit/scene/Scene.h>
 
-#ifdef SGK_HAS_SCRIPTING
-#include <sgkit/scripting/ScriptEngine.h>
-#endif
-
 #include <sgkit/framework/DebugOut.h>
 
 #include <cstdio>
@@ -117,20 +113,11 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     scene::Scene::Create();
     scene::Scene& scene = scene::Scene::instance();
 
-#ifdef SGK_HAS_SCRIPTING
-    if (config.enableScripting)
-        scripting::ScriptEngine::Create();
-#endif
-
     if (config.onInit)
     {
         if (!config.onInit())
         {
             Fatal("onInit() returned false.");
-#ifdef SGK_HAS_SCRIPTING
-            if (config.enableScripting)
-                scripting::ScriptEngine::Destroy();
-#endif
             scene::Scene::Destroy();
             scene::Renderer::Destroy();
             core::Input::Destroy();
@@ -157,11 +144,6 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
                 if (input.IsKeyPressed(core::KeyCode::Escape))
                     window.Restore();
 
-#ifdef SGK_HAS_SCRIPTING
-            if (config.enableScripting)
-                scripting::ScriptEngine::instance().Update(framework::Clock::GetFrameDeltaSeconds());
-#endif
-
             if (config.onUpdate) config.onUpdate();
 
             if (window.IsCloseRequest()) break;
@@ -187,12 +169,6 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     if (config.onShutdown)
         config.onShutdown();
 
-    // Tear down in reverse dependency order - Scene GL resources
-    // released before Window destroys the GL context.
-#ifdef SGK_HAS_SCRIPTING
-    if (config.enableScripting)
-        scripting::ScriptEngine::Destroy();
-#endif
     scene::Scene::Destroy();
     scene::Renderer::Destroy();
     core::Input::Destroy();

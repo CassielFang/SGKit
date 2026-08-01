@@ -28,9 +28,7 @@ public:
     template<typename T> const T* GetComponent(Entity entity) const;
     template<typename T> bool     HasComponent(Entity entity) const;
 
-    // Entities that currently own a component of type T, in dense storage
-    // order. Used by systems (e.g. ScriptEngine) that iterate one component
-    // kind across the scene.
+    // Entities that currently own a component of type T, in dense storage order.
     template<typename T> const std::vector<Entity>& ComponentEntities() const;
 
     void RecomputeWorldTransforms();
@@ -55,7 +53,6 @@ private:
     ComponentPool<component::Camera>       m_cameras;
     ComponentPool<component::Light>        m_lights;
     ComponentPool<component::MeshRenderer> m_meshRenderers;
-    ComponentPool<component::Script>       m_scripts;
 
     template<typename T> ComponentPool<T>& GetPool();
     template<typename T> const ComponentPool<T>& GetPool() const;

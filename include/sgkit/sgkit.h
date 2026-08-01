@@ -4,5 +4,4 @@
 #include <sgkit/sgkit_math.h>
 #include <sgkit/sgkit_graphics.h>
 #include <sgkit/sgkit_scene.h>
-#include <sgkit/sgkit_scripting.h>
 #include <sgkit/sgkit_framework.h>
