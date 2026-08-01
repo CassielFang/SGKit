@@ -51,11 +51,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ---------------------------------------------------------------------------
 AI_FORCE_INLINE aiPropertyTypeInfo ai_real_to_property_type_info(float) {
-	return aiPTI_Float;
+    return aiPTI_Float;
 }
 
 AI_FORCE_INLINE aiPropertyTypeInfo ai_real_to_property_type_info(double) {
-	return aiPTI_Double;
+    return aiPTI_Double;
 }
 // ---------------------------------------------------------------------------
 

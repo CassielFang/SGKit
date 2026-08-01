@@ -204,14 +204,14 @@ protected:
     virtual void OnDebug(const char* message)= 0;
 
     // ----------------------------------------------------------------------
-	/**
+    /**
      *  @brief Called as a request to write a specific verbose debug message
      *  @param  message Debug message. Never longer than
      *    MAX_LOG_MESSAGE_LENGTH characters (excluding the '0').
      *  @note  The message string is only valid until the scope of
      *    the function is left.
      */
-	virtual void OnVerboseDebug(const char *message) = 0;
+    virtual void OnVerboseDebug(const char *message) = 0;
 
     // ----------------------------------------------------------------------
     /**
@@ -277,18 +277,18 @@ inline Logger::LogSeverity Logger::getLogSeverity() const {
 
 // ------------------------------------------------------------------------------------------------
 #define ASSIMP_LOG_WARN(...) \
-	Assimp::DefaultLogger::get()->warn(__VA_ARGS__)
+    Assimp::DefaultLogger::get()->warn(__VA_ARGS__)
 
 #define ASSIMP_LOG_ERROR(...) \
-	Assimp::DefaultLogger::get()->error(__VA_ARGS__)
+    Assimp::DefaultLogger::get()->error(__VA_ARGS__)
 
 #define ASSIMP_LOG_DEBUG(...) \
-	Assimp::DefaultLogger::get()->debug(__VA_ARGS__)
+    Assimp::DefaultLogger::get()->debug(__VA_ARGS__)
 
 #define ASSIMP_LOG_VERBOSE_DEBUG(...) \
-	Assimp::DefaultLogger::get()->verboseDebug(__VA_ARGS__)
+    Assimp::DefaultLogger::get()->verboseDebug(__VA_ARGS__)
 
 #define ASSIMP_LOG_INFO(...) \
-	Assimp::DefaultLogger::get()->info(__VA_ARGS__)
+    Assimp::DefaultLogger::get()->info(__VA_ARGS__)
 
 #endif // !! INCLUDED_AI_LOGGER_H

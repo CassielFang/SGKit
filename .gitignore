@@ -1,6 +1,6 @@
 # C++ build artifacts
-build/
-lib/
+/build/
+/lib/
 obj/
 
 # CMake generated

@@ -367,40 +367,40 @@ bool aiMatrix4x4t<TReal>::Equal(const aiMatrix4x4t<TReal>& m, TReal epsilon) con
 // ----------------------------------------------------------------------------------------
 
 #define ASSIMP_MATRIX4_4_DECOMPOSE_PART		\
-	const aiMatrix4x4t<TReal>& _this = *this;/* Create alias for conveniance. */ \
-	\
-	/* extract translation */ \
-	pPosition.x = _this[0][3]; \
-	pPosition.y = _this[1][3]; \
-	pPosition.z = _this[2][3]; \
-	\
-	/* extract the columns of the matrix. */ \
-	aiVector3t<TReal> vCols[3] = { \
-		aiVector3t<TReal>(_this[0][0],_this[1][0],_this[2][0]), \
-		aiVector3t<TReal>(_this[0][1],_this[1][1],_this[2][1]), \
-		aiVector3t<TReal>(_this[0][2],_this[1][2],_this[2][2]) \
-	}; \
-	\
-	/* extract the scaling factors */ \
-	pScaling.x = vCols[0].Length(); \
-	pScaling.y = vCols[1].Length(); \
-	pScaling.z = vCols[2].Length(); \
-	\
-	/* and the sign of the scaling */ \
-	if (Determinant() < 0) pScaling = -pScaling; \
-	\
-	/* and remove all scaling from the matrix */ \
-	if(pScaling.x) vCols[0] /= pScaling.x; \
-	if(pScaling.y) vCols[1] /= pScaling.y; \
-	if(pScaling.z) vCols[2] /= pScaling.z; \
-	\
-	do {} while(false)
+    const aiMatrix4x4t<TReal>& _this = *this;/* Create alias for conveniance. */ \
+    \
+    /* extract translation */ \
+    pPosition.x = _this[0][3]; \
+    pPosition.y = _this[1][3]; \
+    pPosition.z = _this[2][3]; \
+    \
+    /* extract the columns of the matrix. */ \
+    aiVector3t<TReal> vCols[3] = { \
+        aiVector3t<TReal>(_this[0][0],_this[1][0],_this[2][0]), \
+        aiVector3t<TReal>(_this[0][1],_this[1][1],_this[2][1]), \
+        aiVector3t<TReal>(_this[0][2],_this[1][2],_this[2][2]) \
+    }; \
+    \
+    /* extract the scaling factors */ \
+    pScaling.x = vCols[0].Length(); \
+    pScaling.y = vCols[1].Length(); \
+    pScaling.z = vCols[2].Length(); \
+    \
+    /* and the sign of the scaling */ \
+    if (Determinant() < 0) pScaling = -pScaling; \
+    \
+    /* and remove all scaling from the matrix */ \
+    if(pScaling.x) vCols[0] /= pScaling.x; \
+    if(pScaling.y) vCols[1] /= pScaling.y; \
+    if(pScaling.z) vCols[2] /= pScaling.z; \
+    \
+    do {} while(false)
 
 template <typename TReal>
 AI_FORCE_INLINE
 void aiMatrix4x4t<TReal>::Decompose (aiVector3t<TReal>& pScaling, aiQuaterniont<TReal>& pRotation,
         aiVector3t<TReal>& pPosition) const {
-	ASSIMP_MATRIX4_4_DECOMPOSE_PART;
+    ASSIMP_MATRIX4_4_DECOMPOSE_PART;
 
     // build a 3x3 rotation matrix
     aiMatrix3x3t<TReal> m(vCols[0].x,vCols[1].x,vCols[2].x,
@@ -414,7 +414,7 @@ void aiMatrix4x4t<TReal>::Decompose (aiVector3t<TReal>& pScaling, aiQuaterniont<
 template <typename TReal>
 AI_FORCE_INLINE
 void aiMatrix4x4t<TReal>::Decompose(aiVector3t<TReal>& pScaling, aiVector3t<TReal>& pRotation, aiVector3t<TReal>& pPosition) const {
-	ASSIMP_MATRIX4_4_DECOMPOSE_PART;
+    ASSIMP_MATRIX4_4_DECOMPOSE_PART;
 
     /*
     assuming a right-handed coordinate system
@@ -428,40 +428,40 @@ void aiMatrix4x4t<TReal>::Decompose(aiVector3t<TReal>& pScaling, aiVector3t<TRea
         |   0     0       0    1  |
 
     where
-	A = cos(angle_x), B = sin(angle_x);
-	C = cos(angle_y), D = sin(angle_y);
-	E = cos(angle_z), F = sin(angle_z);
-	*/
+    A = cos(angle_x), B = sin(angle_x);
+    C = cos(angle_y), D = sin(angle_y);
+    E = cos(angle_z), F = sin(angle_z);
+    */
 
-	// Use a small epsilon to solve floating-point inaccuracies
+    // Use a small epsilon to solve floating-point inaccuracies
     const TReal epsilon = Assimp::Math::getEpsilon<TReal>();
 
-	pRotation.y  = std::asin(-vCols[0].z);// D. Angle around oY.
+    pRotation.y  = std::asin(-vCols[0].z);// D. Angle around oY.
 
-	TReal C = std::cos(pRotation.y);
+    TReal C = std::cos(pRotation.y);
 
-	if(std::fabs(C) > epsilon)
-	{
-		// Finding angle around oX.
-		TReal tan_x = vCols[2].z / C;// A
-		TReal tan_y = vCols[1].z / C;// B
+    if(std::fabs(C) > epsilon)
+    {
+        // Finding angle around oX.
+        TReal tan_x = vCols[2].z / C;// A
+        TReal tan_y = vCols[1].z / C;// B
 
-		pRotation.x = std::atan2(tan_y, tan_x);
-		// Finding angle around oZ.
-		tan_x = vCols[0].x / C;// E
-		tan_y = vCols[0].y / C;// F
-		pRotation.z = std::atan2(tan_y, tan_x);
-	}
-	else
-	{// oY is fixed.
-		pRotation.x = 0;// Set angle around oX to 0. => A == 1, B == 0, C == 0, D == 1.
+        pRotation.x = std::atan2(tan_y, tan_x);
+        // Finding angle around oZ.
+        tan_x = vCols[0].x / C;// E
+        tan_y = vCols[0].y / C;// F
+        pRotation.z = std::atan2(tan_y, tan_x);
+    }
+    else
+    {// oY is fixed.
+        pRotation.x = 0;// Set angle around oX to 0. => A == 1, B == 0, C == 0, D == 1.
 
-		// And finding angle around oZ.
-		TReal tan_x =  vCols[1].y;// BDF+AE => E
-		TReal tan_y = -vCols[1].x;// BDE-AF => F
+        // And finding angle around oZ.
+        TReal tan_x =  vCols[1].y;// BDF+AE => E
+        TReal tan_y = -vCols[1].x;// BDE-AF => F
 
-		pRotation.z = std::atan2(tan_y, tan_x);
-	}
+        pRotation.z = std::atan2(tan_y, tan_x);
+    }
 }
 
 #undef ASSIMP_MATRIX4_4_DECOMPOSE_PART
@@ -469,25 +469,25 @@ void aiMatrix4x4t<TReal>::Decompose(aiVector3t<TReal>& pScaling, aiVector3t<TRea
 template <typename TReal>
 AI_FORCE_INLINE
 void aiMatrix4x4t<TReal>::Decompose(aiVector3t<TReal>& pScaling, aiVector3t<TReal>& pRotationAxis, TReal& pRotationAngle,
-											aiVector3t<TReal>& pPosition) const {
+                                            aiVector3t<TReal>& pPosition) const {
     aiQuaterniont<TReal> pRotation;
 
-	Decompose(pScaling, pRotation, pPosition);
-	pRotation.Normalize();
+    Decompose(pScaling, pRotation, pPosition);
+    pRotation.Normalize();
 
-	TReal angle_cos = pRotation.w;
-	TReal angle_sin = std::sqrt(1.0f - angle_cos * angle_cos);
+    TReal angle_cos = pRotation.w;
+    TReal angle_sin = std::sqrt(1.0f - angle_cos * angle_cos);
 
-	pRotationAngle = std::acos(angle_cos) * 2;
+    pRotationAngle = std::acos(angle_cos) * 2;
 
-	// Use a small epsilon to solve floating-point inaccuracies
+    // Use a small epsilon to solve floating-point inaccuracies
     const TReal epsilon = 10e-3f;
 
-	if(std::fabs(angle_sin) < epsilon) angle_sin = 1;
+    if(std::fabs(angle_sin) < epsilon) angle_sin = 1;
 
-	pRotationAxis.x = pRotation.x / angle_sin;
-	pRotationAxis.y = pRotation.y / angle_sin;
-	pRotationAxis.z = pRotation.z / angle_sin;
+    pRotationAxis.x = pRotation.x / angle_sin;
+    pRotationAxis.y = pRotation.y / angle_sin;
+    pRotationAxis.z = pRotation.z / angle_sin;
 }
 
 // ----------------------------------------------------------------------------------------

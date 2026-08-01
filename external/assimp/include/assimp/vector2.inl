@@ -126,13 +126,13 @@ const aiVector2t<TReal>& aiVector2t<TReal>::operator /= (TReal f) {
 template <typename TReal>
 inline
 TReal aiVector2t<TReal>::operator[](unsigned int i) const {
-	switch (i) {
-		case 0:
-			return x;
-		case 1:
-			return y;
-		default:
-			break;
+    switch (i) {
+        case 0:
+            return x;
+        case 1:
+            return y;
+        default:
+            break;
 
     }
     return x;

@@ -71,9 +71,9 @@ public:
     }
 
     /** @brief  Logs a verbose debug message */
-	void OnVerboseDebug(const char *message) {
-		(void)message; //this avoids compiler warnings
-	}
+    void OnVerboseDebug(const char *message) {
+        (void)message; //this avoids compiler warnings
+    }
 
     /** @brief  Logs an info message */
     void OnInfo(const char* message) {
