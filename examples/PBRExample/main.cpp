@@ -15,8 +15,8 @@ static std::shared_ptr<graphics::Shader>   s_simpleShader;
 static std::shared_ptr<graphics::Texture>  s_whiteTex;       // RGBA (1,1,1,1)
 static std::shared_ptr<graphics::Texture>  s_flatNormalTex;  // RGBA (128,128,255,255)
 
-// PBR material showcase grid
-static std::vector<scene::Entity>          s_pbrCubes;
+// PBR instanced grid - 25 entities sharing one VAO + one material
+static std::vector<scene::Entity>          s_gridEntities;
 
 // External model
 static scene::Entity                       s_modelRoot;
@@ -166,43 +166,37 @@ ApplicationConfig sgkit::CreateApplication()
             s_flatNormalTex->Create(1, 1, flatNormal);
         }
 
-        // -- 3. PBR material showcase: 5*5 grid  ------------------------------
-        //        rows    = roughness 0.0 -> 1.0
-        //        columns = metallic  0.0 -> 1.0
+        // -- 3. PBR material showcase: 5*5 instanced grid ---------------------
         {
+            // One shared VAO
+            graphics::VertexLayout lo;
+            lo.PushFloat(0,3).PushFloat(1,3).PushFloat(2,2);
+            auto vb = std::make_shared<graphics::VertexBuffer>();
+            vb->Create(kCubeVerts, sizeof(kCubeVerts));
+            auto ib = std::make_shared<graphics::IndexBuffer>();
+            ib->Create(kCubeIndices, sizeof(kCubeIndices)/sizeof(uint32_t));
+            auto va = std::make_shared<graphics::VertexArray>();
+            va->Create(); va->SetVertexBuffer(vb, lo); va->SetIndexBuffer(ib);
+
+            // One shared material
+            auto mat = MakePBRMaterial(1.0f, 0.6f, 0.2f, 0.0f, 0.5f);
+            auto mesh = std::make_shared<scene::Mesh>();
+            mesh->vertexArray = va;
+            mesh->material    = mat;
+
             constexpr int N = 5;
             constexpr float spacing = 1.8f;
-            const float startX = -(N - 1) * spacing * 0.5f;
-            const float startZ = -(N - 1) * spacing * 0.5f;
-
-            // Warm gold / copper hue
-            const math::Vector3 albedoBase{1.0f, 0.6f, 0.2f};
-
-            for (int row = 0; row < N; ++row)
-            {
-                for (int col = 0; col < N; ++col)
+            const float sx = -(N-1)*spacing*0.5f, sz = -(N-1)*spacing*0.5f;
+            for (int r = 0; r < N; ++r)
+                for (int c = 0; c < N; ++c)
                 {
-                    float rough   = row / float(N - 1);
-                    float metal   = col / float(N - 1);
-
-                    // Lerp albedo: dielectrics keep the gold hue, metals pull toward white
-                    math::Vector3 albedo = math::Vector3::Lerp(
-                        albedoBase,
-                        math::Vector3{0.95f, 0.85f, 0.7f},
-                        metal);
-
-                    auto mat = MakePBRMaterial(albedo.x, albedo.y, albedo.z, metal, rough);
-                    auto mesh = MakeCubeMesh(mat);
-
                     scene::Entity e = sm.CreateEntity();
                     auto* tf = sm.AddComponent<scene::component::Transform>(e);
-                    tf->position = { startX + col * spacing, 0.5f, startZ + row * spacing };
-                    tf->scale    = { 0.8f, 0.8f, 0.8f };
+                    tf->position = {sx + c*spacing, 0.5f, sz + r*spacing};
+                    tf->scale    = {0.8f,0.8f,0.8f};
                     sm.AddComponent<scene::component::MeshRenderer>(e)->mesh = mesh;
-
-                    s_pbrCubes.push_back(e);
+                    s_gridEntities.push_back(e);
                 }
-            }
         }
 
         // -- 4. Ground plane (Blinn-Phong, large flat quad) -------------------
@@ -251,7 +245,8 @@ ApplicationConfig sgkit::CreateApplication()
             // Try common paths - first match wins
             const char* modelPaths[] = {
                 //"assets/models/star_wars_model.glb",
-                "assets/models/space_ship_torb.glb"
+                "assets/models/space_ship_torb.glb",
+                //"assets/models/cute cartoon girl.glb"
             };
             for (auto* path : modelPaths)
             {
@@ -263,7 +258,9 @@ ApplicationConfig sgkit::CreateApplication()
 
                     auto* rootTf = sm.GetComponent<scene::component::Transform>(s_modelRoot);
                     rootTf->position = { 0.0f, 4.0f, 0.0f };
-                    rootTf->scale    = { 0.2f, 0.2f, 0.2f };
+                    rootTf->scale    = { 0.3f, 0.3f, 0.3f };
+                    // rootTf->position = { 0.0f, 1.0f, 0.0f };
+                    // rootTf->scale    = { 2.0f, 2.0f, 2.0f };
 
                     // Origin marker: small glowing cube at model position (NOT parented, so T only hides model)
                     {
@@ -300,8 +297,8 @@ ApplicationConfig sgkit::CreateApplication()
                 auto* l = sm.AddComponent<scene::component::Light>(e);
                 l->type      = scene::component::Light::Type::Directional;
                 l->direction = { 0.5f, -1.0f, 0.3f };
-                l->ambient   = { 0.08f, 0.08f, 0.10f };
-                l->diffuse   = { 1.5f, 1.4f, 1.2f };
+                l->ambient   = { 0.18f, 0.18f, 0.20f };
+                l->diffuse   = { 2.0f, 1.9f, 1.6f };
                 l->specular  = { 1.0f, 1.0f, 1.0f };
             }
 
@@ -319,10 +316,10 @@ ApplicationConfig sgkit::CreateApplication()
 
             struct PointCfg { math::Vector3 pos; math::Vector3 diff; float scale; };
             PointCfg pts[] = {
-                {{  4, 2,  4}, {2.0f, 1.5f, 1.0f}, 0.15f},  // warm
-                {{ -4, 2,  4}, {1.0f, 1.5f, 2.0f}, 0.15f},  // cool
-                {{  4, 2, -4}, {1.0f, 2.0f, 1.5f}, 0.15f},  // greenish
-                {{ -4, 2, -4}, {2.0f, 1.8f, 1.0f}, 0.15f},  // warm
+                {{  4, 2,  4}, {4.0f, 3.0f, 2.0f}, 0.15f},
+                {{ -4, 2,  4}, {2.0f, 3.0f, 4.0f}, 0.15f},
+                {{  4, 2, -4}, {2.0f, 4.0f, 3.0f}, 0.15f},
+                {{ -4, 2, -4}, {4.0f, 3.6f, 2.0f}, 0.15f},
             };
             for (auto& pt : pts)
             {
@@ -334,9 +331,9 @@ ApplicationConfig sgkit::CreateApplication()
                 auto* l = sm.AddComponent<scene::component::Light>(e);
                 l->type      = scene::component::Light::Type::Point;
                 l->diffuse   = pt.diff;
-                l->ambient   = pt.diff * 0.1f;
-                l->linear    = 0.14f;
-                l->quadratic = 0.07f;
+                l->ambient   = pt.diff * 0.25f;
+                l->linear    = 0.09f;
+                l->quadratic = 0.032f;
             }
         }
 
@@ -391,13 +388,13 @@ ApplicationConfig sgkit::CreateApplication()
         if (in.IsKeyReleased(core::KeyCode::V))
             w.SetCursorVisible(true);
 
-        // Rotate the PBR cubes slowly to show specular highlights changing
+        // Rotate grid cubes
         {
             static float accum = 0;
             accum += dt * 0.3f;
-            for (size_t i = 0; i < s_pbrCubes.size(); ++i)
+            for (size_t i = 0; i < s_gridEntities.size(); ++i)
             {
-                auto* tf = sm.GetComponent<scene::component::Transform>(s_pbrCubes[i]);
+                auto* tf = sm.GetComponent<scene::component::Transform>(s_gridEntities[i]);
                 if (tf)
                     tf->rotation = math::Quaternion::FromEulerAngles(0, accum + i * 0.15f, 0);
             }

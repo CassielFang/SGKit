@@ -14,8 +14,10 @@
 #include <assimp/material.h>
 #include <assimp/texture.h>
 #include <assimp/quaternion.h>
+#include <assimp/GltfMaterial.h>
 
 #include <cmath>
+#include <cstring>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -249,6 +251,14 @@ static Entity CreateEntityFromMesh(
         if (aiMat->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveCol) == AI_SUCCESS)
             mat->emissiveFactor = { emissiveCol.r, emissiveCol.g, emissiveCol.b };
 
+        // Normal scale & AO strength  (glTF textureInfo extensions)
+        float ns = 1.0f;
+        if (aiMat->Get(AI_MATKEY_GLTF_TEXTURE_STRENGTH(aiTextureType_NORMALS, 0), ns) == AI_SUCCESS)
+            mat->normalScale = ns;
+        float aos = 1.0f;
+        if (aiMat->Get(AI_MATKEY_GLTF_TEXTURE_STRENGTH(aiTextureType_AMBIENT_OCCLUSION, 0), aos) == AI_SUCCESS)
+            mat->aoStrength = aos;
+
         // Read glTF baseColorFactor for the albedo fallback colour
         aiColor4D baseColor(1.0f, 1.0f, 1.0f, 1.0f);
         if (aiMat)
@@ -263,9 +273,23 @@ static Entity CreateEntityFromMesh(
                 mat->alphaFactor = opacity;
                 mat->blendMode   = BlendMode::AlphaBlend;
                 mat->depthMode   = DepthMode::ReadOnly;
-                mat->cullMode    = CullMode::None;   // glass: see both sides
+                mat->cullMode    = CullMode::None;
             }
-            mat->alphaFactor = baseColor.a;  // always pass baseColor alpha to shader
+
+            // glTF alphaMode: MASK uses discard, BLEND uses alpha blending
+            aiString alphaMode;
+            if (aiMat && aiMat->Get(AI_MATKEY_GLTF_ALPHAMODE, alphaMode) == AI_SUCCESS)
+            {
+                if (strcmp(alphaMode.C_Str(), "MASK") == 0)
+                {
+                    float cutoff = 0.5f;
+                    aiMat->Get(AI_MATKEY_GLTF_ALPHACUTOFF, cutoff);
+                    mat->alphaCutoff = cutoff;
+                    mat->cullMode    = CullMode::None;  // see both sides of mask
+                }
+            }
+
+            mat->alphaFactor = baseColor.a;
         }
 
         // Fallback: default 1×1 textures for any missing PBR maps.

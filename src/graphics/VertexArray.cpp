@@ -65,43 +65,50 @@ void VertexArray::Unbind() const
     glBindVertexArray(0);
 }
 
+static void SetupAttrib(const VertexAttribute& attr, GLsizei stride)
+{
+    glEnableVertexAttribArray(attr.location);
+    if (attr.type == AttribType::Float)
+        glVertexAttribPointer(attr.location, attr.count, GL_FLOAT,
+                              attr.normalized ? GL_TRUE : GL_FALSE,
+                              stride, reinterpret_cast<void*>(attr.offset));
+    else
+    {
+        GLenum t = GL_UNSIGNED_INT;
+        switch (attr.type)
+        {
+        case AttribType::Byte:          t = GL_BYTE;           break;
+        case AttribType::UnsignedByte:  t = GL_UNSIGNED_BYTE;  break;
+        case AttribType::Short:         t = GL_SHORT;          break;
+        case AttribType::UnsignedShort: t = GL_UNSIGNED_SHORT; break;
+        case AttribType::Int:           t = GL_INT;            break;
+        default: break;
+        }
+        glVertexAttribIPointer(attr.location, attr.count, t, stride,
+                               reinterpret_cast<void*>(attr.offset));
+    }
+    if (attr.divisor > 0)
+        glVertexAttribDivisor(attr.location, attr.divisor);
+}
+
 void VertexArray::SetVertexBuffer(std::shared_ptr<VertexBuffer> vb, const VertexLayout& layout)
 {
     if (!m_handle || !vb) return;
-
     Bind();
     vb->Bind();
-
     for (const auto& attr : layout.GetAttributes())
-    {
-        glEnableVertexAttribArray(attr.location);
-        if (attr.type == AttribType::Float)
-        {
-            glVertexAttribPointer(attr.location, attr.count, GL_FLOAT,
-                                  attr.normalized ? GL_TRUE : GL_FALSE,
-                                  static_cast<GLsizei>(layout.GetStride()),
-                                  reinterpret_cast<void*>(attr.offset));
-        }
-        else
-        {
-            GLenum type_gl = 0;
-            switch (attr.type)
-            {
-            case AttribType::Byte: type_gl = GL_BYTE; break;
-            case AttribType::UnsignedByte: type_gl = GL_UNSIGNED_BYTE; break;
-            case AttribType::Short: type_gl = GL_SHORT; break;
-            case AttribType::UnsignedShort: type_gl = GL_UNSIGNED_SHORT; break;
-            case AttribType::Int: type_gl = GL_INT; break;
-            case AttribType::UnsignedInt: type_gl = GL_UNSIGNED_INT; break;
-            default: type_gl = GL_UNSIGNED_INT;
-            }
-            glVertexAttribIPointer(attr.location, attr.count, type_gl,
-                                   static_cast<GLsizei>(layout.GetStride()),
-                                   reinterpret_cast<void*>(attr.offset));
-        }
-    }
-
+        SetupAttrib(attr, static_cast<GLsizei>(layout.GetStride()));
     m_vertexBuffer = vb;
+    Unbind();
+}
+
+void VertexArray::SetInstanceBuffer(std::shared_ptr<VertexBuffer> ib, const VertexLayout& layout)
+{
+    if (!m_handle || !ib) return;
+    Bind();
+    ib->Bind();
+    for (const auto& attr : layout.GetAttributes())
+        SetupAttrib(attr, static_cast<GLsizei>(layout.GetStride()));
     Unbind();
 }
 
@@ -116,32 +123,33 @@ void VertexArray::SetIndexBuffer(std::shared_ptr<IndexBuffer> ib)
 
 void VertexArray::Draw(DrawMode mode) const
 {
+    DrawInstanced(1, mode);
+}
+
+void VertexArray::DrawInstanced(uint32_t instanceCount, DrawMode mode) const
+{
     if (!m_handle || !m_vertexBuffer) return;
 
-    GLenum mode_gl = 0;
+    GLenum mode_gl = GL_TRIANGLES;
     switch (mode)
     {
-    case DrawMode::Points: mode_gl = GL_POINTS; break;
-    case DrawMode::Lines: mode_gl = GL_LINES; break;
-    case DrawMode::LineLoop: mode_gl = GL_LINE_LOOP; break;
-    case DrawMode::LineStrip: mode_gl = GL_LINE_STRIP; break;
-    case DrawMode::Triangles: mode_gl = GL_TRIANGLES; break;
+    case DrawMode::Points:        mode_gl = GL_POINTS;         break;
+    case DrawMode::Lines:         mode_gl = GL_LINES;          break;
+    case DrawMode::LineLoop:      mode_gl = GL_LINE_LOOP;      break;
+    case DrawMode::LineStrip:     mode_gl = GL_LINE_STRIP;     break;
+    case DrawMode::Triangles:     mode_gl = GL_TRIANGLES;      break;
     case DrawMode::TriangleStrip: mode_gl = GL_TRIANGLE_STRIP; break;
-    case DrawMode::TriangleFan: mode_gl = GL_TRIANGLE_FAN; break;
-    default: mode_gl = GL_TRIANGLES;
+    case DrawMode::TriangleFan:   mode_gl = GL_TRIANGLE_FAN;   break;
     }
 
     Bind();
     if (m_indexBuffer)
-    {
-        glDrawElements(mode_gl, static_cast<GLsizei>(m_indexBuffer->GetCount()),
-                       GL_UNSIGNED_INT, nullptr);
-    }
+        glDrawElementsInstanced(mode_gl, static_cast<GLsizei>(m_indexBuffer->GetCount()),
+                                GL_UNSIGNED_INT, nullptr, instanceCount);
     else
-    {
-        glDrawArrays(mode_gl, 0, static_cast<GLsizei>(m_vertexBuffer->GetSize() / sizeof(float) / 3));
-    }
-    //Unbind();
+        glDrawArraysInstanced(mode_gl, 0,
+            static_cast<GLsizei>(m_vertexBuffer->GetSize() / sizeof(float) / 3),
+            instanceCount);
 }
 
 uint32_t VertexArray::GetHandle() const

@@ -32,8 +32,10 @@ public:
 
     void SetVertexBuffer(std::shared_ptr<VertexBuffer> vb, const VertexLayout& layout);
     void SetIndexBuffer(std::shared_ptr<IndexBuffer> ib);
+    void SetInstanceBuffer(std::shared_ptr<VertexBuffer> ib, const VertexLayout& layout);
 
     void Draw(DrawMode mode = DrawMode::Triangles) const;
+    void DrawInstanced(uint32_t instanceCount, DrawMode mode = DrawMode::Triangles) const;
 
     uint32_t GetHandle() const;
     bool     IsValid() const;

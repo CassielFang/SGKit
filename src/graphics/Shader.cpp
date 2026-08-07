@@ -132,6 +132,14 @@ bool Shader::LoadFromSource(const std::string& vertexSource, const std::string& 
     }
 #endif
 
+    // Bind default uniform block "FrameBlock" to UBO binding point 0
+    if (m_programID)
+    {
+        GLuint idx = glGetUniformBlockIndex(m_programID, "FrameBlock");
+        if (idx != GL_INVALID_INDEX)
+            glUniformBlockBinding(m_programID, idx, 0);
+    }
+
     glDeleteShader(vs);
     glDeleteShader(fs);
     if (gs) glDeleteShader(gs);

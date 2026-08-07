@@ -65,7 +65,10 @@ public:
     float metallicFactor  = 1.0f;   // multiplied by metallic texture value
     float roughnessFactor = 1.0f;   // multiplied by roughness texture value
     math::Vector3 emissiveFactor;  // RGB self-illumination (added after lighting), default (0,0,0)
-    float alphaFactor = 1.0f;      // baseColorFactor.a, passed to shader for fragColor alpha
+    float alphaFactor  = 1.0f;      // baseColorFactor.a
+    float alphaCutoff  = 0.5f;      // glTF alphaMode:MASK threshold
+    float normalScale  = 1.0f;      // glTF normalTexture.scale
+    float aoStrength   = 1.0f;      // glTF occlusionTexture.strength
 
     // glTF combined metallicRoughnessTexture: metallic=B, roughness=G
     // (false = separate textures, both in R channel)

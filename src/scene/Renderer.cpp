@@ -14,6 +14,7 @@ void Renderer::Create()
 {
     if (g_Renderer) return;
     g_Renderer = new Renderer;
+    glEnable(GL_MULTISAMPLE);
     SGK_LOG_INFO("Renderer", "Module created");
 }
 
@@ -87,58 +88,168 @@ void Renderer::SetCullFace(bool enabled)
 void Renderer::SetViewProjection(const math::Matrix4& vp)
 {
     m_viewProjection = vp;
+    memcpy(m_frameData.viewProjection, vp.Data(), 16 * sizeof(float));
 }
 
 void Renderer::SetCameraPosition(const math::Vector3& pos)
 {
     m_cameraPos = pos;
+    m_frameData.cameraPos[0] = pos.x;
+    m_frameData.cameraPos[1] = pos.y;
+    m_frameData.cameraPos[2] = pos.z;
+    m_frameData.cameraPos[3] = 0.0f;
 }
 
 void Renderer::SetLights(const std::vector<LightInstance>& instances)
 {
     m_lights = instances;
-}
 
-// -- Shadow
-
-void Renderer::SetShadowData(const math::Matrix4& lightSpace, uint32_t depthTex)
-{
-    m_lightSpaceMatrix = lightSpace;
-    m_shadowMapTex     = depthTex;
-}
-
-void Renderer::RenderShadowPass(const RenderQueue& queue, const math::Matrix4& lightSpace)
-{
-    if (!m_shadowReady)
+    int dC = 0, pC = 0, sC = 0;
+    for (auto& li : instances)
     {
-        m_shadowFBO.Create(4096, 4096);
-        m_shadowDepthShader.LoadFromFile("assets/shaders/shadow_depth.vert",
-                                          "assets/shaders/shadow_depth.frag");
-        m_shadowReady = true;
+        auto& l = *li.attribute;
+        switch (l.type)
+        {
+        case component::Light::Type::Directional:
+            dC = 1;
+            m_frameData.dirDirection[0]=l.direction.x; m_frameData.dirDirection[1]=l.direction.y; m_frameData.dirDirection[2]=l.direction.z;
+            m_frameData.dirAmbient[0]=l.ambient.x; m_frameData.dirAmbient[1]=l.ambient.y; m_frameData.dirAmbient[2]=l.ambient.z;
+            m_frameData.dirDiffuse[0]=l.diffuse.x; m_frameData.dirDiffuse[1]=l.diffuse.y; m_frameData.dirDiffuse[2]=l.diffuse.z;
+            m_frameData.dirSpecular[0]=l.specular.x; m_frameData.dirSpecular[1]=l.specular.y; m_frameData.dirSpecular[2]=l.specular.z;
+            break;
+        case component::Light::Type::Point:
+            if (pC < 4) {
+                auto& p = m_frameData.pointLights[pC++];
+                p.position[0]=li.worldPosition.x; p.position[1]=li.worldPosition.y; p.position[2]=li.worldPosition.z;
+                p.ambient[0]=l.ambient.x; p.ambient[1]=l.ambient.y; p.ambient[2]=l.ambient.z;
+                p.diffuse[0]=l.diffuse.x; p.diffuse[1]=l.diffuse.y; p.diffuse[2]=l.diffuse.z;
+                p.specular[0]=l.specular.x; p.specular[1]=l.specular.y; p.specular[2]=l.specular.z;
+                p.attenuation[0]=l.constant; p.attenuation[1]=l.linear; p.attenuation[2]=l.quadratic;
+            }
+            break;
+        case component::Light::Type::SpotLight:
+            if (sC < 4) {
+                auto& s = m_frameData.spotLights[sC++];
+                s.position[0]=li.worldPosition.x; s.position[1]=li.worldPosition.y; s.position[2]=li.worldPosition.z;
+                s.direction[0]=l.direction.x; s.direction[1]=l.direction.y; s.direction[2]=l.direction.z;
+                s.ambient[0]=l.ambient.x; s.ambient[1]=l.ambient.y; s.ambient[2]=l.ambient.z;
+                s.diffuse[0]=l.diffuse.x; s.diffuse[1]=l.diffuse.y; s.diffuse[2]=l.diffuse.z;
+                s.specular[0]=l.specular.x; s.specular[1]=l.specular.y; s.specular[2]=l.specular.z;
+                s.attenCut[0]=l.constant; s.attenCut[1]=l.linear; s.attenCut[2]=l.quadratic; s.attenCut[3]=l.cutOff;
+                s.outerCutPad[0]=l.outerCutOff;
+            }
+            break;
+        }
+    }
+    m_frameData.lightCounts[0] = dC;
+    m_frameData.lightCounts[1] = pC;
+    m_frameData.lightCounts[2] = sC;
+}
+
+void Renderer::CommitFrameData()
+{
+    memcpy(m_frameData.lightSpaceMatrix, m_csmLightMatrices[0].Data(), 16 * sizeof(float));
+    m_frameData.lightCounts[3] = m_csmShadowTex ? 1 : 0;
+    UpdateFrameUBO();
+}
+
+// -- CSM Shadow
+
+void Renderer::SetCSMData()
+{
+    // Called by Scene before Execute. Shadow atlas is now on unit 6;
+    // cascade uniforms are set in SetFrameUniforms per batch.
+}
+
+void Renderer::RenderCSMShadowPass(const RenderQueue& queue, const math::Vector3& lightDir,
+                                    const math::Matrix4& camView, const math::Matrix4& camProj)
+{
+    // -- Lazy init
+    if (!m_csmReady)
+    {
+        int atlasW = kCSMResolution * kCSMCascades;
+        m_csmFBO.Create(atlasW, kCSMResolution);
+        m_csmDepthShader.LoadFromFile(
+            "assets/shaders/shadow_depth.vert",
+            "assets/shaders/shadow_depth.frag");
+        m_csmShadowTex = m_csmFBO.GetDepthTexture();
+        m_csmReady = true;
     }
 
-    m_shadowFBO.Bind();
-    glViewport(0, 0, m_shadowFBO.GetWidth(), m_shadowFBO.GetHeight());
+    m_csmFBO.Bind();
     glClear(GL_DEPTH_BUFFER_BIT);
-    SetShadowData(lightSpace, 0);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(4.0f, 4.0f);
 
-    m_shadowDepthShader.Bind();
-    m_shadowDepthShader.SetMatrix4("u_LightSpaceMatrix", m_lightSpaceMatrix);
-    for (auto& batch : queue.GetOpaqueBatches())
+    // -- Cascade split depths (practical split scheme, lambda=0.75)
+    float nearP = 0.1f, farP = 50.0f;
+    float lambda = 0.75f;
+    for (int i = 0; i < kCSMCascades; ++i)
     {
-        if (!batch.vertexArray) continue;
-        batch.vertexArray->Bind();
-        for (auto& inst : batch.instances)
+        float p = float(i + 1) / kCSMCascades;
+        float logS = nearP * pow(farP / nearP, p);
+        float linS = nearP + (farP - nearP) * p;
+        m_csmSplitDepths[i] = logS * lambda + linS * (1.0f - lambda);
+    }
+
+    // Inverse VP to get frustum corners in view space
+    math::Matrix4 invCamVP = (camProj * camView);
+    // ... no Inverse() available - compute corners another way
+
+    // Compute frustum heights at each split in view space
+    float fovHalf = 0.0f; // will use the split depths with fixed ortho for now
+    // Simplified approach: fixed ortho per cascade, centred on camera look-at
+
+    for (int c = 0; c < kCSMCascades; ++c)
+    {
+        float prevDist = (c == 0) ? nearP : m_csmSplitDepths[c - 1];
+        float curDist  = m_csmSplitDepths[c];
+        float midDist  = (prevDist + curDist) * 0.5f;
+
+        // Approximate half-extent using typical FOV
+        float halfExt = curDist * 0.8f;  // covers most of frustum at this distance
+
+        math::Matrix4 lightProj = math::Matrix4::Orthographic(
+            -halfExt, halfExt, -halfExt, halfExt, nearP, farP);
+        math::Vector3 sceneCenter{0, 0, 0};
+        math::Vector3 lightPos = sceneCenter - lightDir * (farP * 0.5f);
+        math::Vector3 up{0, 1, 0};
+        math::Matrix4 lightView = math::Matrix4::LookAt(lightPos, sceneCenter, up);
+        m_csmLightMatrices[c] = lightProj * lightView;
+
+        // Texel snapping
+        const float mapRes = float(kCSMResolution);
+        math::Vector4 origin = m_csmLightMatrices[c] * math::Vector4{0, 0, 0, 1};
+        float invW = 1.0f / origin.w;
+        float ox = (origin.x * invW * 0.5f + 0.5f) * mapRes;
+        float oy = (origin.y * invW * 0.5f + 0.5f) * mapRes;
+        ox = (round(ox) - ox) / mapRes * 2.0f;
+        oy = (round(oy) - oy) / mapRes * 2.0f;
+        math::Matrix4 snap = math::Matrix4::Identity();
+        snap.m[3][0] = ox; snap.m[3][1] = oy;
+        m_csmLightMatrices[c] = snap * m_csmLightMatrices[c];
+
+        // Render into atlas sub-region
+        glViewport(c * kCSMResolution, 0, kCSMResolution, kCSMResolution);
+        m_csmDepthShader.Bind();
+        m_csmDepthShader.SetMatrix4("u_LightSpaceMatrix", m_csmLightMatrices[c]);
+        for (auto& batch : queue.GetOpaqueBatches())
         {
-            m_shadowDepthShader.SetMatrix4("u_Model", inst.modelMatrix);
-            batch.vertexArray->Draw();
+            if (!batch.vertexArray) continue;
+            batch.vertexArray->Bind();
+            for (auto& inst : batch.instances)
+            {
+                m_csmDepthShader.SetMatrix4("u_Model", inst.modelMatrix);
+                batch.vertexArray->Draw();
+            }
         }
     }
 
-    m_shadowFBO.Unbind();
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    m_csmFBO.Unbind();
     core::Window& w = core::Window::instance();
     glViewport(0, 0, w.GetWidth(), w.GetHeight());
-    SetShadowData(lightSpace, m_shadowFBO.GetDepthTexture());
+    SetCSMData();
 }
 
 // -- Execute
@@ -162,6 +273,7 @@ void Renderer::Execute(const RenderQueue& queue)
             ExecuteBatch(batch);
 
         glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
     }
 }
 
@@ -184,6 +296,9 @@ void Renderer::ExecuteBatch(const RenderBatch& batch)
         shader.SetFloat("u_PBR_metallicFactor",  mat.metallicFactor);
         shader.SetFloat("u_PBR_roughnessFactor", mat.roughnessFactor);
         shader.SetFloat("u_PBR_alphaFactor",     mat.alphaFactor);
+        shader.SetFloat("u_PBR_alphaCutoff",    mat.alphaCutoff);
+        shader.SetFloat("u_PBR_normalScale",    mat.normalScale);
+        shader.SetFloat("u_PBR_aoStrength",     mat.aoStrength);
 
         if (mat.albedo)
         {
@@ -238,10 +353,26 @@ void Renderer::ExecuteBatch(const RenderBatch& batch)
         shader.SetFloat("u_Material.shininess", mat.shininess);
     }
 
-    for (auto& inst : batch.instances)
+    if (batch.instances.size() > 1)
     {
-        shader.SetMatrix4("u_Model", inst.modelMatrix);
-        vao.Draw();
+        // Instanced path
+        char name[32];
+        shader.SetInt("u_Instanced", 1);
+        for (size_t i = 0; i < batch.instances.size(); ++i)
+        {
+            snprintf(name, 32, "u_ModelMatrices[%zu]", i);
+            shader.SetMatrix4(name, batch.instances[i].modelMatrix);
+        }
+        vao.DrawInstanced(static_cast<uint32_t>(batch.instances.size()));
+        shader.SetInt("u_Instanced", 0);
+    }
+    else
+    {
+        for (auto& inst : batch.instances)
+        {
+            shader.SetMatrix4("u_Model", inst.modelMatrix);
+            vao.Draw();
+        }
     }
 }
 
@@ -275,80 +406,38 @@ void Renderer::ApplyBatchState(const RenderBatch& batch)
     }
 }
 
+void Renderer::EnsureUBO()
+{
+    if (!m_uboReady) {
+        m_frameUBO.Create(sizeof(FrameUniforms), 0);  // binding point 0
+        m_uboReady = true;
+    }
+}
+
+void Renderer::UpdateFrameUBO()
+{
+    EnsureUBO();
+    m_frameUBO.Upload(&m_frameData, sizeof(FrameUniforms));
+}
+
 void Renderer::SetFrameUniforms(graphics::Shader& shader)
 {
-    shader.SetMatrix4("u_ViewProjection", m_viewProjection);
-    shader.SetVector3("u_cameraPos", m_cameraPos);
-
-    int dCount = 0, pCount = 0, sCount = 0, count = static_cast<int>(m_lights.size());
-    char buf[64]{};
-
-    auto setupLightv = [&shader, &buf](const char* format, int index, math::Vector3& val)
-        {
-            std::snprintf(buf, 64, format, index);
-            shader.SetVector3(buf, val);
-        };
-    auto setupLightf = [&shader, &buf](const char* format, int index, float val)
-        {
-            std::snprintf(buf, 64, format, index);
-            shader.SetFloat(buf, val);
-        };
-
-    for (int i = 0; i < count; ++i)
-    {
-        LightInstance& l = m_lights[i];
-        switch (m_lights[i].attribute->type)
-        {
-        case component::Light::Type::Directional:
-        {
-            shader.SetVector3("u_DirectionalLight.direction", l.attribute->direction);
-            shader.SetVector3("u_DirectionalLight.ambient", l.attribute->ambient);
-            shader.SetVector3("u_DirectionalLight.diffuse", l.attribute->diffuse);
-            shader.SetVector3("u_DirectionalLight.specular", l.attribute->specular);
-            dCount = 1;
-            break;
-        }
-        case component::Light::Type::Point:
-        {
-            setupLightv("u_PointLights[%d].position", pCount, l.worldPosition);
-            setupLightv("u_PointLights[%d].ambient", pCount, l.attribute->ambient);
-            setupLightv("u_PointLights[%d].diffuse", pCount, l.attribute->diffuse);
-            setupLightv("u_PointLights[%d].specular", pCount, l.attribute->specular);
-            setupLightf("u_PointLights[%d].constant", pCount, l.attribute->constant);
-            setupLightf("u_PointLights[%d].linear", pCount, l.attribute->linear);
-            setupLightf("u_PointLights[%d].quadratic", pCount, l.attribute->quadratic);
-            ++pCount;
-            break;
-        }
-        case component::Light::Type::SpotLight:
-        {
-            setupLightv("u_SpotLights[%d].position", sCount, l.worldPosition);
-            setupLightv("u_SpotLights[%d].direction", sCount, l.attribute->direction);
-            setupLightf("u_SpotLights[%d].cutOff", sCount, l.attribute->cutOff);
-            setupLightf("u_SpotLights[%d].outerCutOff", sCount, l.attribute->outerCutOff);
-            setupLightv("u_SpotLights[%d].ambient", sCount, l.attribute->ambient);
-            setupLightv("u_SpotLights[%d].diffuse", sCount, l.attribute->diffuse);
-            setupLightv("u_SpotLights[%d].specular", sCount, l.attribute->specular);
-            setupLightf("u_SpotLights[%d].constant", sCount, l.attribute->constant);
-            setupLightf("u_SpotLights[%d].linear", sCount, l.attribute->linear);
-            setupLightf("u_SpotLights[%d].quadratic", sCount, l.attribute->quadratic);
-            ++sCount;
-            break;
-        }
-        }
-    }
-    shader.SetInt("u_dLightCount", dCount);
-    shader.SetInt("u_pLightCount", pCount);
-    shader.SetInt("u_sLightCount", sCount);
-
-    // Directional shadow
-    shader.SetMatrix4("u_LightSpaceMatrix", m_lightSpaceMatrix);
-    shader.SetInt("u_ShadowsEnabled", m_shadowMapTex ? 1 : 0);
-    if (m_shadowMapTex)
+    shader.SetInt("u_ShadowsEnabled", m_csmShadowTex ? 1 : 0);
+    if (m_csmShadowTex)
     {
         glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_2D, m_shadowMapTex);
+        glBindTexture(GL_TEXTURE_2D, m_csmShadowTex);
         shader.SetInt("u_ShadowMap", 6);
+        shader.SetFloat("u_CSM_TexelSize", 1.0f / float(kCSMResolution));
+        shader.SetFloat("u_CSM_CascadeCount", float(kCSMCascades));
+        for (int c = 0; c < kCSMCascades; ++c)
+        {
+            char name[32];
+            snprintf(name, 32, "u_CSM_LightMatrices[%d]", c);
+            shader.SetMatrix4(name, m_csmLightMatrices[c]);
+            snprintf(name, 32, "u_CSM_Splits[%d]", c);
+            shader.SetFloat(name, m_csmSplitDepths[c]);
+        }
     }
 }
 

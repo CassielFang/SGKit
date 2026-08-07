@@ -1,9 +1,11 @@
 #pragma once
 
 #include <sgkit/scene/RenderQueue.h>
+#include <sgkit/scene/LightData.h>
 #include <sgkit/graphics/VertexArray.h>
 #include <sgkit/graphics/Framebuffer.h>
 #include <sgkit/graphics/Shader.h>
+#include <sgkit/graphics/UniformBuffer.h>
 #include <sgkit/math/Vector4.h>
 #include <sgkit/math/Matrix4.h>
 
@@ -45,13 +47,16 @@ public:
     void SetViewProjection(const math::Matrix4& vp);
     void SetCameraPosition(const math::Vector3& pos);
     void SetLights(const std::vector<LightInstance>& instances);
+    void CommitFrameData();   // upload UBO once per frame
 
     // Execute a sorted render queue (two-pass: opaque -> transparent).
     void Execute(const RenderQueue& queue);
 
-    // -- Shadow pass
-    void RenderShadowPass(const RenderQueue& queue, const math::Matrix4& lightSpace);
-    void SetShadowData(const math::Matrix4& lightSpaceMatrix, uint32_t depthTexture);
+    // -- CSM shadow pass
+    void RenderCSMShadowPass(
+        const RenderQueue& queue, const math::Vector3& lightDir,
+        const math::Matrix4& camView, const math::Matrix4& camProj);
+    void SetCSMData();
 
 private:
     Renderer() = default;
@@ -65,12 +70,23 @@ private:
     math::Vector3 m_cameraPos{0.0f, 0.0f, 0.0f};
     std::vector<LightInstance> m_lights;
 
-    // Shadow
-    math::Matrix4        m_lightSpaceMatrix = math::Matrix4::Identity();
-    uint32_t             m_shadowMapTex = 0;
-    graphics::FrameBuffer m_shadowFBO;
-    graphics::Shader     m_shadowDepthShader;
-    bool                 m_shadowReady = false;
+    // CSM - 3-cascade directional shadow atlas
+    static constexpr int      kCSMCascades   = 3;
+    static constexpr int      kCSMResolution = 2048;
+    math::Matrix4             m_csmLightMatrices[kCSMCascades] = {};
+    float                     m_csmSplitDepths[kCSMCascades] = {};  // view-space Z
+    uint32_t                  m_csmShadowTex = 0;
+    graphics::FrameBuffer     m_csmFBO;
+    graphics::Shader          m_csmDepthShader;
+    bool                      m_csmReady = false;
+
+    // UBO - frame uniforms, uploaded once per frame
+    graphics::UniformBuffer m_frameUBO;
+    FrameUniforms           m_frameData{};
+    bool                    m_uboReady = false;
+
+    void EnsureUBO();
+    void UpdateFrameUBO();
 
     void ExecuteBatch(const RenderBatch& batch);
     void ApplyBatchState(const RenderBatch& batch);

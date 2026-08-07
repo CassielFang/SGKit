@@ -210,29 +210,16 @@ void Scene::Render(Entity cameraEntity)
 
         if (dirLight)
         {
-            // Directional shadow map - standard approach
-            // A fixed orthographic frustum centred on the scene ensures shadows
-            // stay visible regardless of camera position.
-            const float half  = 15.0f;
-            const float nearP = 0.1f;
-            const float farP  = 50.0f;
-
-            math::Matrix4 lightProj = math::Matrix4::Orthographic(
-                -half, half, -half, half, nearP, farP);
-
-            math::Vector3 sceneCenter{0, 0, 0};
-            math::Vector3 lightPos = sceneCenter
-                - dirLight->direction * (farP * 0.5f);
-            math::Vector3 up{0, 1, 0};
-            math::Matrix4 lightView = math::Matrix4::LookAt(
-                lightPos, sceneCenter, up);
-            math::Matrix4 lightSpace = lightProj * lightView;
-
-            renderer.RenderShadowPass(queue, lightSpace);
+            math::Matrix4 viewMat = math::Matrix4::Identity();
+            if (camTransform)
+                viewMat = camComp->GetViewMatrix(GetWorldMatrix(cameraEntity));
+            renderer.RenderCSMShadowPass(queue, dirLight->direction,
+                                          viewMat,
+                                          camComp->GetProjectionMatrix(aspect));
         }
         else
         {
-            renderer.SetShadowData(math::Matrix4::Identity(), 0);
+            renderer.SetCSMData();
         }
     }
 
@@ -244,6 +231,7 @@ void Scene::Render(Entity cameraEntity)
     renderer.SetViewProjection(camComp->GetProjectionMatrix(aspect) * viewMatrix);
     renderer.SetCameraPosition(cameraPos);
     renderer.SetLights(CollectLights());
+    renderer.CommitFrameData();   // upload UBO once
 
     renderer.Clear();
     renderer.Execute(queue);

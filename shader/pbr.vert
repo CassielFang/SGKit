@@ -1,17 +1,29 @@
 #version 330 core
 
-// SGKit PBR Vertex Shader  (Cook-Torrance metallic-roughness + optional IBL)
-//
-// Vertex layout matches SGKit convention:  loc 0=position  1=normal  2=texCoord.
-// Light struct definitions are in the fragment shader (they aren't needed here).
-
 layout(location = 0) in vec3 a_Position;
 layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in vec2 a_TexCoord;
 
+// Per-instance
 uniform mat4 u_Model;
-uniform mat4 u_ViewProjection;
-uniform mat4 u_LightSpaceMatrix;
+uniform bool u_Instanced = false;
+uniform mat4 u_ModelMatrices[100];
+
+// Frame data (shared UBO binding=0)
+struct PointLightData  { vec4 pos, amb, diff, spec, atten; };
+struct SpotLightData   { vec4 pos, dir, amb, diff, spec, attenCut, outerCutPad; };
+layout(std140) uniform FrameBlock {
+    mat4 viewProjection;
+    vec4 cameraPos;
+    vec4 dirDirection;
+    vec4 dirAmbient;
+    vec4 dirDiffuse;
+    vec4 dirSpecular;
+    PointLightData pointLights[4];
+    SpotLightData  spotLights[4];
+    ivec4 lightCounts;
+    mat4 lightSpaceMatrix;
+};
 
 out vec3 worldPos;
 out vec3 normal;
@@ -20,10 +32,11 @@ out vec4 fragPosLightSpace;
 
 void main()
 {
-    vec4 worldVertex = u_Model * vec4(a_Position, 1.0);
-    gl_Position = u_ViewProjection * worldVertex;
+    mat4 model = u_Instanced ? u_ModelMatrices[gl_InstanceID] : u_Model;
+    vec4 worldVertex = model * vec4(a_Position, 1.0);
+    gl_Position = viewProjection * worldVertex;
     worldPos    = worldVertex.xyz;
     texCoord    = a_TexCoord;
-    normal      = mat3(u_Model) * a_Normal;
-    fragPosLightSpace = u_LightSpaceMatrix * vec4(worldPos, 1.0);
+    normal      = mat3(model) * a_Normal;
+    fragPosLightSpace = lightSpaceMatrix * vec4(worldPos, 1.0);
 }
