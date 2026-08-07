@@ -134,26 +134,72 @@ void Renderer::ExecuteBatch(const RenderBatch& batch)
     ApplyBatchState(batch);
     SetFrameUniforms(shader);
 
-    if (mat.diffuse)
+    if (mat.lightingModel == LightingModel::PBR)
     {
-        shader.SetInt("u_Material.diffuse", mat.diffuse->GetSlot());
-        mat.diffuse->Bind();
+        // -- PBR material uniforms  (see shader/pbr.frag for slot convention)
+        shader.SetInt("u_PBR_combinedMR", mat.pbrCombinedMetallicRoughness ? 1 : 0);
+        shader.SetFloat("u_PBR_metallicFactor",  mat.metallicFactor);
+        shader.SetFloat("u_PBR_roughnessFactor", mat.roughnessFactor);
+        shader.SetFloat("u_PBR_alphaFactor",     mat.alphaFactor);
+
+        if (mat.albedo)
+        {
+            shader.SetInt("u_PBR_albedo", mat.albedo->GetSlot());
+            mat.albedo->Bind();
+        }
+        if (mat.metallic)
+        {
+            shader.SetInt("u_PBR_metallic", mat.metallic->GetSlot());
+            mat.metallic->Bind();
+        }
+        if (mat.roughness)
+        {
+            shader.SetInt("u_PBR_roughness", mat.roughness->GetSlot());
+            mat.roughness->Bind();
+        }
+        if (mat.normalMap)
+        {
+            shader.SetInt("u_PBR_normal", mat.normalMap->GetSlot());
+            mat.normalMap->Bind();
+        }
+        if (mat.ao)
+        {
+            shader.SetInt("u_PBR_ao", mat.ao->GetSlot());
+            mat.ao->Bind();
+        }
+        if (mat.emissive)
+        {
+            shader.SetInt("u_PBR_emissive", mat.emissive->GetSlot());
+            shader.SetVector3("u_PBR_emissiveFactor", mat.emissiveFactor);
+            mat.emissive->Bind();
+        }
+        else
+        {
+            // Reset factor to zero so emissive sampler (which may still point
+            // to a texture unit from a previous batch) contributes nothing.
+            shader.SetVector3("u_PBR_emissiveFactor", math::Vector3{});
+        }
     }
-    if (mat.specular)
+    else  // LightingModel::BlinnPhong
     {
-        shader.SetInt("u_Material.specular", mat.specular->GetSlot());
-        mat.specular->Bind();
+        if (mat.diffuse)
+        {
+            shader.SetInt("u_Material.diffuse", mat.diffuse->GetSlot());
+            mat.diffuse->Bind();
+        }
+        if (mat.specular)
+        {
+            shader.SetInt("u_Material.specular", mat.specular->GetSlot());
+            mat.specular->Bind();
+        }
+        shader.SetFloat("u_Material.shininess", mat.shininess);
     }
-    shader.SetFloat("u_Material.shininess", mat.shininess);
 
     for (auto& inst : batch.instances)
     {
         shader.SetMatrix4("u_Model", inst.modelMatrix);
         vao.Draw();
     }
-
-    //shader.Unbind();
-    //vao.Unbind();
 }
 
 void Renderer::ApplyBatchState(const RenderBatch& batch)

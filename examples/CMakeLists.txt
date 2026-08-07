@@ -1,8 +1,8 @@
-# Example applications — each lives in its own subdirectory
+# Example applications - each lives in its own subdirectory
 
 set(ASSIMP_DLL ${CMAKE_SOURCE_DIR}/external/assimp/bin/assimp-vc145-mt.dll)
 
-# Shared helper — every example calls this once
+# Shared helper - every example calls this once
 function(sgkit_setup_example NAME)
     target_link_libraries(${NAME} PRIVATE sgkit)
 
@@ -36,3 +36,4 @@ endfunction()
 
 add_subdirectory(Light)
 add_subdirectory(AssimpExample)
+add_subdirectory(PBRExample)

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 # Project
 project(SGKit
     VERSION     1.0.0
-    DESCRIPTION "Straightforward Graphics Kit — lightweight C++20 3D rendering engine"
+    DESCRIPTION "Straightforward Graphics Kit - lightweight C++20 3D rendering engine"
     LANGUAGES   C CXX
 )
 

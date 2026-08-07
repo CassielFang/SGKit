@@ -13,8 +13,10 @@
 #include <assimp/mesh.h>
 #include <assimp/material.h>
 #include <assimp/texture.h>
+#include <assimp/quaternion.h>
 
 #include <unordered_map>
+#include <unordered_set>
 
 namespace sgkit {
 namespace scene {
@@ -24,15 +26,29 @@ namespace scene {
 namespace {
 
 using TexCache = std::unordered_map<std::string, std::shared_ptr<graphics::Texture>>;
+using MatLogSet = std::unordered_set<unsigned int>;
+
+static Entity CreateEntityFromMesh(
+    aiMesh*             aiMesh,
+    const aiScene*      aiScene,
+    const std::string&  directory,
+    std::shared_ptr<graphics::Shader> blinnPhongShader,
+    std::shared_ptr<graphics::Shader> pbrShader,
+    Entity              parent,
+    std::vector<Entity>& outMeshes,
+    TexCache&           texCache,
+    MatLogSet&          loggedMats);
 
 static void ProcessAssimpNode(
     aiNode*             node,
     const aiScene*      aiScene,
     const std::string&  directory,
-    std::shared_ptr<graphics::Shader> shader,
+    std::shared_ptr<graphics::Shader> blinnPhongShader,
+    std::shared_ptr<graphics::Shader> pbrShader,
     Entity              parentEntity,
     std::vector<Entity>& outMeshes,
-    TexCache&           texCache);
+    TexCache&           texCache,
+    MatLogSet&          loggedMats);
 
 // -- aiMesh -> SGKit Mesh + Entity
 
@@ -40,10 +56,12 @@ static Entity CreateEntityFromMesh(
     aiMesh*             aiMesh,
     const aiScene*      aiScene,
     const std::string&  directory,
-    std::shared_ptr<graphics::Shader> shader,
+    std::shared_ptr<graphics::Shader> blinnPhongShader,
+    std::shared_ptr<graphics::Shader> pbrShader,
     Entity              parent,
     std::vector<Entity>& outMeshes,
-    TexCache&           texCache)
+    TexCache&           texCache,
+    MatLogSet&          loggedMats)
 {
     if (!aiMesh->HasPositions() || !aiMesh->HasFaces())
         return Entity::Invalid;
@@ -97,22 +115,54 @@ static Entity CreateEntityFromMesh(
     va->SetVertexBuffer(vb, layout);
     va->SetIndexBuffer(ib);
 
-    // d) Textures (cached)
-    auto tryGet = [](aiMaterial* mat, aiTextureType type, aiString& out) -> bool
-    {
-        if (mat->GetTexture(type, 0, &out) == AI_SUCCESS && out.length > 0) return true;
-        if (type == aiTextureType_DIFFUSE
-            && mat->GetTexture(aiTextureType_BASE_COLOR, 0, &out) == AI_SUCCESS
-            && out.length > 0) return true;
-        return false;
-    };
+    // d) Detect lighting model from assimp material
+    aiMaterial* aiMat = (aiMesh->mMaterialIndex >= 0)
+        ? aiScene->mMaterials[aiMesh->mMaterialIndex] : nullptr;
+    unsigned int matIdx = (aiMesh->mMaterialIndex >= 0)
+        ? static_cast<unsigned int>(aiMesh->mMaterialIndex) : 0u;
 
+    bool isPBR = false;
+    if (aiMat)
+    {
+        // Primary: check shading model
+        int shadingModel = 0;
+        if (aiMat->Get(AI_MATKEY_SHADING_MODEL, shadingModel) == AI_SUCCESS)
+            isPBR = (shadingModel == aiShadingMode_PBR_BRDF);
+
+        // Fallback: glTF PBR metallic factor exists  ->  PBR workflow
+        if (!isPBR)
+        {
+            float mf;
+            if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, mf) == AI_SUCCESS)
+                isPBR = true;
+        }
+    }
+
+    // Select the correct shader for this sub-mesh
+    std::shared_ptr<graphics::Shader> shader = isPBR ? pbrShader : blinnPhongShader;
+    if (!shader)
+    {
+        // Fallback: if the preferred shader is missing, try the other one
+        shader = isPBR ? blinnPhongShader : pbrShader;
+        if (shader && loggedMats.insert(matIdx).second)
+            SGK_LOG_WARN(
+                "Model", "  mat[%u] is %s but no %s shader provided; falling back to other shader",
+                matIdx, isPBR ? "PBR" : "BlinnPhong", isPBR ? "PBR" : "BlinnPhong");
+    }
+    if (!shader)
+    {
+        if (loggedMats.insert(matIdx).second)
+            SGK_LOG_ERROR("Model", "  mat[%u] has no shader - skipping mesh", matIdx);
+        return Entity::Invalid;
+    }
+
+    // e) Generic texture loader (single type, no fallback)
     auto loadTex = [&](aiTextureType type, int slot) -> std::shared_ptr<graphics::Texture>
     {
-        if (aiMesh->mMaterialIndex < 0) return nullptr;
-        aiMaterial* mat = aiScene->mMaterials[aiMesh->mMaterialIndex];
+        if (!aiMat) return nullptr;
         aiString aiPath;
-        if (!tryGet(mat, type, aiPath)) return nullptr;
+        if (aiMat->GetTexture(type, 0, &aiPath) != AI_SUCCESS || aiPath.length == 0)
+            return nullptr;
 
         std::string key = aiPath.C_Str();
         auto it = texCache.find(key);
@@ -159,18 +209,144 @@ static Entity CreateEntityFromMesh(
         return tex;
     };
 
-    // e) Assemble
+    auto loadTexOr = [&](aiTextureType primary, aiTextureType fallback,
+                         int slot) -> std::shared_ptr<graphics::Texture>
+    {
+        auto t = loadTex(primary, slot);
+        return t ? t : loadTex(fallback, slot);
+    };
+
+    // f) Assemble material  (Blinn-Phong or PBR)
     auto mat = std::make_shared<Material>();
-    mat->shader    = shader;
-    mat->diffuse   = loadTex(aiTextureType_DIFFUSE, 0);
-    mat->specular  = loadTex(aiTextureType_SPECULAR, 1);
-    mat->shininess = 32.0f;
+    mat->shader = shader;
+
+    if (isPBR)
+    {
+        mat->lightingModel = LightingModel::PBR;
+        mat->albedo    = loadTexOr(aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE, 0);
+        mat->metallic  = loadTex(aiTextureType_METALNESS, 1);
+        mat->roughness = loadTex(aiTextureType_DIFFUSE_ROUGHNESS, 2);
+        mat->normalMap = loadTex(aiTextureType_NORMALS, 3);
+        mat->ao        = loadTex(aiTextureType_AMBIENT_OCCLUSION, 4);
+        mat->emissive  = loadTex(aiTextureType_EMISSIVE, 5);
+
+        // glTF combined metallicRoughnessTexture detection:
+        // assimp returns the same file for METALNESS + DIFFUSE_ROUGHNESS,
+        // so the cache gives us the same shared_ptr for both.
+        if (mat->metallic && mat->roughness && mat->metallic == mat->roughness)
+            mat->pbrCombinedMetallicRoughness = true;
+
+        // PBR factor values
+        float f;
+        if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, f) == AI_SUCCESS)
+            mat->metallicFactor = f;
+        if (aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, f) == AI_SUCCESS)
+            mat->roughnessFactor = f;
+
+        // Emissive factor
+        aiColor3D emissiveCol(0.0f, 0.0f, 0.0f);
+        if (aiMat->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveCol) == AI_SUCCESS)
+            mat->emissiveFactor = { emissiveCol.r, emissiveCol.g, emissiveCol.b };
+
+        // Read glTF baseColorFactor for the albedo fallback colour
+        aiColor4D baseColor(1.0f, 1.0f, 1.0f, 1.0f);
+        if (aiMat)
+            aiMat->Get(AI_MATKEY_BASE_COLOR, baseColor);
+
+        // Transparency: read opacity and set blend/depth/cull for glass etc.
+        {
+            float opacity = 1.0f;
+            if (aiMat && aiMat->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS
+                && opacity < 1.0f)
+            {
+                mat->alphaFactor = opacity;
+                mat->blendMode   = BlendMode::AlphaBlend;
+                mat->depthMode   = DepthMode::ReadOnly;
+                mat->cullMode    = CullMode::None;   // glass: see both sides
+            }
+            mat->alphaFactor = baseColor.a;  // always pass baseColor alpha to shader
+        }
+
+        // Fallback: default 1×1 textures for any missing PBR maps.
+        // Without these, the shader's sampler would read from texture unit 0
+        // (usually the albedo map), producing wildly wrong metallic/roughness/ao.
+        {
+            uint8_t black[]    = {0,   0,   0,   255};
+            uint8_t white[]    = {255, 255, 255, 255};
+            uint8_t flatNorm[] = {128, 128, 255, 255};  // (0,0,1) in tangent space
+
+            if (!mat->albedo) {
+                uint8_t c[4] = {
+                    static_cast<uint8_t>(baseColor.r * 255),
+                    static_cast<uint8_t>(baseColor.g * 255),
+                    static_cast<uint8_t>(baseColor.b * 255),
+                    255
+                };
+                auto t = std::make_shared<graphics::Texture>(0);
+                t->Create(1, 1, c);
+                mat->albedo = t;
+            }
+            if (!mat->metallic) {
+                auto t = std::make_shared<graphics::Texture>(1);
+                t->Create(1, 1, black);
+                mat->metallic = t;
+            }
+            if (!mat->roughness) {
+                auto t = std::make_shared<graphics::Texture>(2);
+                t->Create(1, 1, white);
+                mat->roughness = t;
+            }
+            if (!mat->normalMap) {
+                auto t = std::make_shared<graphics::Texture>(3);
+                t->Create(1, 1, flatNorm);
+                mat->normalMap = t;
+            }
+            if (!mat->ao) {
+                auto t = std::make_shared<graphics::Texture>(4);
+                t->Create(1, 1, white);
+                mat->ao = t;
+            }
+            if (!mat->emissive) {
+                auto t = std::make_shared<graphics::Texture>(5);
+                t->Create(1, 1, white);  // white -> emissiveFactor controls colour
+                mat->emissive = t;
+            }
+        }
+
+        if (loggedMats.insert(matIdx).second)
+            SGK_LOG_INFO(
+                "Model", "  mat[%u] -> PBR (metallic=%.2f roughness=%.2f)",
+                matIdx, mat->metallicFactor, mat->roughnessFactor);
+    }
+    else
+    {
+        mat->lightingModel = LightingModel::BlinnPhong;
+        mat->diffuse   = loadTexOr(aiTextureType_DIFFUSE, aiTextureType_BASE_COLOR, 0);
+        mat->specular  = loadTex(aiTextureType_SPECULAR, 1);
+
+        float s = 32.0f;
+        if (aiMat) aiMat->Get(AI_MATKEY_SHININESS, s);
+        mat->shininess = s;
+
+        if (loggedMats.insert(matIdx).second)
+            SGK_LOG_INFO(
+                "Model", "  mat[%u] -> BlinnPhong (shininess=%.0f diffuse=%s specular=%s)",
+                matIdx, mat->shininess, mat->diffuse  ? "yes" : "no", mat->specular ? "yes" : "no");
+    }
+
+    // Honour the two-sided flag from the source asset (applies to both PBR and BlinnPhong)
+    if (aiMat)
+    {
+        int twoSided = 0;
+        if (aiMat->Get(AI_MATKEY_TWOSIDED, twoSided) == AI_SUCCESS && twoSided)
+            mat->cullMode = CullMode::None;
+    }
 
     auto mesh = std::make_shared<Mesh>();
     mesh->vertexArray = va;
     mesh->material    = mat;
 
-    // f) Create entity
+    // g) Create entity
     auto& sm = Scene::instance();
     Entity e = sm.CreateEntity();
     auto* tf = sm.AddComponent<component::Transform>(e);
@@ -183,36 +359,79 @@ static Entity CreateEntityFromMesh(
 }
 
 // -- Recursive node walk
+//
+// Each assimp node has a local transform (node->mTransformation).  We create an
+// intermediate entity for every child node so that sub-mesh offsets are preserved
+// - otherwise all meshes would stack at the parent origin.
+//
+// The root node's transform is applied to the pre-created root entity in
+// Model::Load() before calling this function.
 
 static void ProcessAssimpNode(
-    aiNode*             node,
-    const aiScene*      aiScene,
-    const std::string&  directory,
-    std::shared_ptr<graphics::Shader> shader,
-    Entity              parentEntity,
+    aiNode*              node,
+    const aiScene*       aiScene,
+    const std::string&   directory,
+    std::shared_ptr<graphics::Shader> blinnPhongShader,
+    std::shared_ptr<graphics::Shader> pbrShader,
+    Entity               parentEntity,
     std::vector<Entity>& outMeshes,
-    TexCache&           texCache)
+    TexCache&            texCache,
+    MatLogSet&           loggedMats)
 {
+    auto& sm = Scene::instance();
+
+    // -- Meshes on this node: parent directly to this node's entity ----------
     for (unsigned int i = 0; i < node->mNumMeshes; ++i)
-        CreateEntityFromMesh(aiScene->mMeshes[node->mMeshes[i]], aiScene, directory, shader, parentEntity, outMeshes, texCache);
+        CreateEntityFromMesh(
+            aiScene->mMeshes[node->mMeshes[i]], aiScene, directory,
+            blinnPhongShader, pbrShader, parentEntity, outMeshes, texCache, loggedMats);
 
+    // -- Children: create an entity per child node, apply its transform ------
     for (unsigned int i = 0; i < node->mNumChildren; ++i)
-        ProcessAssimpNode(node->mChildren[i], aiScene, directory, shader, parentEntity, outMeshes, texCache);
+    {
+        aiNode* child = node->mChildren[i];
+
+        // Create intermediate entity for this child node
+        Entity childEntity = sm.CreateEntity();
+        auto* ct = sm.AddComponent<component::Transform>(childEntity);
+        ct->parent = parentEntity;
+        sm.GetComponent<component::Transform>(parentEntity)->children.push_back(childEntity);
+
+        // Decompose assimp node transform -> position / rotation / scale
+        aiVector3D  pos, scl;
+        aiQuaternion rot;
+        child->mTransformation.Decompose(scl, rot, pos);
+        ct->position = { pos.x, pos.y, pos.z };
+        ct->scale    = { scl.x, scl.y, scl.z };
+        ct->rotation = math::Quaternion(rot.x, rot.y, rot.z, rot.w);
+
+        ProcessAssimpNode(
+            child, aiScene, directory, blinnPhongShader, pbrShader,
+            childEntity, outMeshes, texCache, loggedMats);
+    }
 }
 
-}
+} // anonymous namespace
 
 // -- Public API
 
-Model::Result Model::Load(const std::string& filePath,
-                           std::shared_ptr<graphics::Shader> shader)
+Model::Result Model::Load( const std::string& filePath,
+    std::shared_ptr<graphics::Shader> blinnPhongShader,
+    std::shared_ptr<graphics::Shader> pbrShader)
 {
+    if (!blinnPhongShader && !pbrShader)
+    {
+        SGK_LOG_ERROR("Model", "At least one shader must be provided");
+        return { Entity::Invalid, {} };
+    }
+
     std::string ext = core::FileSystem::GetExtension(filePath);
     bool needFlip = (ext != "glb" && ext != "gltf");
 
-    unsigned int flags = aiProcess_Triangulate
-                       | aiProcess_JoinIdenticalVertices
-                       | aiProcess_GenSmoothNormals;
+    unsigned int flags
+        = aiProcess_Triangulate
+        | aiProcess_JoinIdenticalVertices
+        | aiProcess_GenSmoothNormals;
     if (needFlip) flags |= aiProcess_FlipUVs;
 
     Assimp::Importer importer;
@@ -227,11 +446,25 @@ Model::Result Model::Load(const std::string& filePath,
 
     auto& sm = Scene::instance();
     Entity root = sm.CreateEntity();
-    sm.AddComponent<component::Transform>(root);
+    auto* rootTf = sm.AddComponent<component::Transform>(root);
+
+    // Apply root node transform
+    {
+        aiVector3D  pos, scl;
+        aiQuaternion rot;
+        aiScene->mRootNode->mTransformation.Decompose(scl, rot, pos);
+        rootTf->position = { pos.x, pos.y, pos.z };
+        rootTf->scale    = { scl.x, scl.y, scl.z };
+        rootTf->rotation = math::Quaternion(rot.x, rot.y, rot.z, rot.w);
+    }
 
     std::vector<Entity> meshEntities;
     TexCache texCache;
-    ProcessAssimpNode(aiScene->mRootNode, aiScene, directory, shader, root, meshEntities, texCache);
+    MatLogSet loggedMats;
+    ProcessAssimpNode(
+        aiScene->mRootNode, aiScene, directory,
+        blinnPhongShader, pbrShader,
+        root, meshEntities, texCache, loggedMats);
 
     SGK_LOG_INFO("Model", "Loaded %s (%d meshes)", filePath.c_str(), (int)meshEntities.size());
 
