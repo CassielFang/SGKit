@@ -185,18 +185,62 @@ void Scene::Render(Entity cameraEntity)
     if (!camComp) return;
 
     RenderQueue queue = BuildRenderQueue();
-    math::Vector3 cameraPos = camTransform ? camTransform->position
-                                           : math::Vector3{0.0f, 0.0f, 0.0f};
+    math::Vector3 cameraPos =
+        camTransform ? camTransform->position : math::Vector3{0.0f, 0.0f, 0.0f};
     queue.Sort(cameraPos);
+
+    Renderer& renderer = Renderer::instance();
 
     core::Window& window = core::Window::instance();
     float aspect = static_cast<float>(window.GetWidth()) / static_cast<float>(window.GetHeight());
 
+    // -- Shadow pass
+    {
+        // Find first directional light
+        component::Light* dirLight = nullptr;
+        for (Entity e : m_aliveEntities)
+        {
+            auto* l = m_lights.Get(e);
+            if (l && l->type == component::Light::Type::Directional)
+            {
+                dirLight = l;
+                break;
+            }
+        }
+
+        if (dirLight)
+        {
+            // Directional shadow map - standard approach
+            // A fixed orthographic frustum centred on the scene ensures shadows
+            // stay visible regardless of camera position.
+            const float half  = 15.0f;
+            const float nearP = 0.1f;
+            const float farP  = 50.0f;
+
+            math::Matrix4 lightProj = math::Matrix4::Orthographic(
+                -half, half, -half, half, nearP, farP);
+
+            math::Vector3 sceneCenter{0, 0, 0};
+            math::Vector3 lightPos = sceneCenter
+                - dirLight->direction * (farP * 0.5f);
+            math::Vector3 up{0, 1, 0};
+            math::Matrix4 lightView = math::Matrix4::LookAt(
+                lightPos, sceneCenter, up);
+            math::Matrix4 lightSpace = lightProj * lightView;
+
+            renderer.RenderShadowPass(queue, lightSpace);
+        }
+        else
+        {
+            renderer.SetShadowData(math::Matrix4::Identity(), 0);
+        }
+    }
+
+    // -- Main render ---------------------------------------------------------
     math::Matrix4 viewMatrix = math::Matrix4::Identity();
     if (camTransform)
         viewMatrix = camComp->GetViewMatrix(GetWorldMatrix(cameraEntity));
 
-    Renderer& renderer = Renderer::instance();
     renderer.SetViewProjection(camComp->GetProjectionMatrix(aspect) * viewMatrix);
     renderer.SetCameraPosition(cameraPos);
     renderer.SetLights(CollectLights());

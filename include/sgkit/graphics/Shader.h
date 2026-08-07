@@ -18,8 +18,10 @@ public:
     Shader(Shader&& other) noexcept;
     Shader& operator=(Shader&& other) noexcept;
 
-    bool LoadFromFile(const std::string& vertexPath, const std::string& fragmentPath);
-    bool LoadFromSource(const std::string& vertexSource, const std::string& fragmentSource);
+    bool LoadFromFile(const std::string& vertexPath, const std::string& fragmentPath,
+                      const std::string& geometryPath = "");
+    bool LoadFromSource(const std::string& vertexSource, const std::string& fragmentSource,
+                        const std::string& geometrySource = "");
 
     void Bind() const;
     void Unbind() const;

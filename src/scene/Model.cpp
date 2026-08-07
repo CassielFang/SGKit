@@ -15,6 +15,7 @@
 #include <assimp/texture.h>
 #include <assimp/quaternion.h>
 
+#include <cmath>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -276,10 +277,12 @@ static Entity CreateEntityFromMesh(
             uint8_t flatNorm[] = {128, 128, 255, 255};  // (0,0,1) in tangent space
 
             if (!mat->albedo) {
+                // baseColor is linear (glTF spec) -> sRGB-encode for upload
+                // (shader will pow(2.2)-decode it back to linear)
                 uint8_t c[4] = {
-                    static_cast<uint8_t>(baseColor.r * 255),
-                    static_cast<uint8_t>(baseColor.g * 255),
-                    static_cast<uint8_t>(baseColor.b * 255),
+                    static_cast<uint8_t>(std::pow(baseColor.r, 1.0f/2.2f) * 255),
+                    static_cast<uint8_t>(std::pow(baseColor.g, 1.0f/2.2f) * 255),
+                    static_cast<uint8_t>(std::pow(baseColor.b, 1.0f/2.2f) * 255),
                     255
                 };
                 auto t = std::make_shared<graphics::Texture>(0);

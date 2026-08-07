@@ -1,6 +1,7 @@
 #include <sgkit/scene/Renderer.h>
 
 #include <sgkit/scene/Components.h>
+#include <sgkit/core/Window.h>
 #include <sgkit/framework/DebugOut.h>
 #include <glad/glad.h>
 
@@ -96,6 +97,48 @@ void Renderer::SetCameraPosition(const math::Vector3& pos)
 void Renderer::SetLights(const std::vector<LightInstance>& instances)
 {
     m_lights = instances;
+}
+
+// -- Shadow
+
+void Renderer::SetShadowData(const math::Matrix4& lightSpace, uint32_t depthTex)
+{
+    m_lightSpaceMatrix = lightSpace;
+    m_shadowMapTex     = depthTex;
+}
+
+void Renderer::RenderShadowPass(const RenderQueue& queue, const math::Matrix4& lightSpace)
+{
+    if (!m_shadowReady)
+    {
+        m_shadowFBO.Create(4096, 4096);
+        m_shadowDepthShader.LoadFromFile("assets/shaders/shadow_depth.vert",
+                                          "assets/shaders/shadow_depth.frag");
+        m_shadowReady = true;
+    }
+
+    m_shadowFBO.Bind();
+    glViewport(0, 0, m_shadowFBO.GetWidth(), m_shadowFBO.GetHeight());
+    glClear(GL_DEPTH_BUFFER_BIT);
+    SetShadowData(lightSpace, 0);
+
+    m_shadowDepthShader.Bind();
+    m_shadowDepthShader.SetMatrix4("u_LightSpaceMatrix", m_lightSpaceMatrix);
+    for (auto& batch : queue.GetOpaqueBatches())
+    {
+        if (!batch.vertexArray) continue;
+        batch.vertexArray->Bind();
+        for (auto& inst : batch.instances)
+        {
+            m_shadowDepthShader.SetMatrix4("u_Model", inst.modelMatrix);
+            batch.vertexArray->Draw();
+        }
+    }
+
+    m_shadowFBO.Unbind();
+    core::Window& w = core::Window::instance();
+    glViewport(0, 0, w.GetWidth(), w.GetHeight());
+    SetShadowData(lightSpace, m_shadowFBO.GetDepthTexture());
 }
 
 // -- Execute
@@ -297,6 +340,16 @@ void Renderer::SetFrameUniforms(graphics::Shader& shader)
     shader.SetInt("u_dLightCount", dCount);
     shader.SetInt("u_pLightCount", pCount);
     shader.SetInt("u_sLightCount", sCount);
+
+    // Directional shadow
+    shader.SetMatrix4("u_LightSpaceMatrix", m_lightSpaceMatrix);
+    shader.SetInt("u_ShadowsEnabled", m_shadowMapTex ? 1 : 0);
+    if (m_shadowMapTex)
+    {
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_2D, m_shadowMapTex);
+        shader.SetInt("u_ShadowMap", 6);
+    }
 }
 
 }

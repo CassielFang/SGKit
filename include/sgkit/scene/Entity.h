@@ -14,6 +14,7 @@ public:
     Entity& operator=(const Entity& other);
 
 	bool operator==(const Entity& other) const;
+	bool operator!=(const Entity& other) const;
 
 	uint32_t m_id;
 	

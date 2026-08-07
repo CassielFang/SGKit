@@ -2,6 +2,8 @@
 
 #include <sgkit/scene/RenderQueue.h>
 #include <sgkit/graphics/VertexArray.h>
+#include <sgkit/graphics/Framebuffer.h>
+#include <sgkit/graphics/Shader.h>
 #include <sgkit/math/Vector4.h>
 #include <sgkit/math/Matrix4.h>
 
@@ -47,6 +49,10 @@ public:
     // Execute a sorted render queue (two-pass: opaque -> transparent).
     void Execute(const RenderQueue& queue);
 
+    // -- Shadow pass
+    void RenderShadowPass(const RenderQueue& queue, const math::Matrix4& lightSpace);
+    void SetShadowData(const math::Matrix4& lightSpaceMatrix, uint32_t depthTexture);
+
 private:
     Renderer() = default;
     ~Renderer() = default;
@@ -58,6 +64,13 @@ private:
     math::Matrix4 m_viewProjection = math::Matrix4::Identity();
     math::Vector3 m_cameraPos{0.0f, 0.0f, 0.0f};
     std::vector<LightInstance> m_lights;
+
+    // Shadow
+    math::Matrix4        m_lightSpaceMatrix = math::Matrix4::Identity();
+    uint32_t             m_shadowMapTex = 0;
+    graphics::FrameBuffer m_shadowFBO;
+    graphics::Shader     m_shadowDepthShader;
+    bool                 m_shadowReady = false;
 
     void ExecuteBatch(const RenderBatch& batch);
     void ApplyBatchState(const RenderBatch& batch);

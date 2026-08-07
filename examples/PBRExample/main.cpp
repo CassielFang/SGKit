@@ -262,8 +262,8 @@ ApplicationConfig sgkit::CreateApplication()
                     s_modelEntities = result.entities;
 
                     auto* rootTf = sm.GetComponent<scene::component::Transform>(s_modelRoot);
-                    rootTf->position = { 0.0f, 5.0f, 0.0f };
-                    rootTf->scale    = { 0.5f, 0.5f, 0.5f };
+                    rootTf->position = { 0.0f, 4.0f, 0.0f };
+                    rootTf->scale    = { 0.2f, 0.2f, 0.2f };
 
                     // Origin marker: small glowing cube at model position (NOT parented, so T only hides model)
                     {
