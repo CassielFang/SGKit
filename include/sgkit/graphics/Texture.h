@@ -10,7 +10,8 @@ enum class TexInternalDataFormat
 {
     Alpha,
     RGB, R3_G3_B2, RGB4, RGB5, RGB8, RGB10, RGB12, RGB16,
-    RGBA, RGB5_A1, RGBA8, RGB10_A2, RGBA12, RGBA16
+    RGBA, RGB5_A1, RGBA8, RGB10_A2, RGBA12, RGBA16,
+    RGB16F, RGBA16F   // HDR float
 };
 enum class TexDataFormat
 {
@@ -27,9 +28,11 @@ public:
     Texture& operator=(Texture&& other) noexcept;
 
     bool LoadFromFile(const std::string& path);
-    bool Create(int width, int height, const void* data,
-                TexInternalDataFormat internalFormat = TexInternalDataFormat::RGBA8,
-                TexDataFormat format = TexDataFormat::RGBA);
+    bool LoadHDR(const std::string& path);   // floating-point .hdr via stbi_loadf
+    bool Create(
+        int width, int height, const void* data,
+        TexInternalDataFormat internalFormat = TexInternalDataFormat::RGBA8,
+        TexDataFormat format = TexDataFormat::RGBA);
 
     void Destroy();
 

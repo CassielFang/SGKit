@@ -8,6 +8,7 @@ struct SpotLightData  { vec4 pos, dir, amb, diff, spec, attenCut, outerCutPad; }
 layout(std140) uniform FrameBlock {
     mat4 viewProjection;
     vec4 cameraPos;
+    vec4 cameraForward;
     vec4 dirDirection;
     vec4 dirAmbient;
     vec4 dirDiffuse;
@@ -45,6 +46,7 @@ uniform sampler2D u_ShadowMap;
 uniform mat4      u_CSM_LightMatrices[3];
 uniform float     u_CSM_Splits[3];
 uniform float     u_CSM_TexelSize;
+uniform float     u_CSM_AtlasTexelX;
 uniform float     u_CSM_CascadeCount;
 uniform bool      u_ShadowsEnabled = false;
 
@@ -57,7 +59,6 @@ uniform bool        u_IBLEnabled = false;
 in vec3 worldPos;
 in vec3 normal;
 in vec2 texCoord;
-in vec4 fragPosLightSpace;
 out vec4 fragColor;
 
 const float PI = 3.14159265359;
@@ -153,8 +154,8 @@ float ShadowCalculation(vec3 worldP, vec3 N, vec3 lightDir)
 {
     if (!u_ShadowsEnabled) return 0.0;
 
-    // Select cascade by view-space depth (≈ distance to camera)
-    float viewZ = length(worldP - cameraPos.xyz);
+    // Select cascade by view-space depth along camera forward axis
+    float viewZ = abs(dot(worldP - cameraPos.xyz, cameraForward.xyz));
     int cascade = 0;
     for (int c = 0; c < int(u_CSM_CascadeCount) - 1; ++c)
         if (viewZ > u_CSM_Splits[c]) cascade = c + 1;
@@ -167,13 +168,16 @@ float ShadowCalculation(vec3 worldP, vec3 N, vec3 lightDir)
     // Atlas UV: cascade-local X mapped to atlas strip
     proj.x = (proj.x + float(cascade)) / u_CSM_CascadeCount;
 
-    float bias = max(0.08*(1.0-dot(N,lightDir)), 0.01);
+    // Reduced slope-scaled bias
+    float bias = max(0.0025 * (1.0 - dot(N, lightDir)), 0.0005);
+
     float shadow = 0.0;
-    vec2 ts = vec2(u_CSM_TexelSize);
-    for (int x=-1; x<=1; ++x)
-        for (int y=-1; y<=1; ++y)
-            shadow += (proj.z-bias > texture(u_ShadowMap, proj.xy+vec2(x,y)*ts).r) ? 1.0 : 0.0;
-    return shadow/9.0;
+    // Atlas X texels are 1/N narrower (N cascades packed horizontally)
+    vec2 ts = vec2(u_CSM_AtlasTexelX, u_CSM_TexelSize);
+    for (int x = -2; x <= 2; ++x)
+        for (int y = -2; y <= 2; ++y)
+            shadow += (proj.z - bias > texture(u_ShadowMap, proj.xy + vec2(x, y) * ts).r) ? 1.0 : 0.0;
+    return shadow / 25.0;
 }
 
 void main()

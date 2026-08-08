@@ -215,11 +215,10 @@ void Scene::Render(Entity cameraEntity)
                 viewMat = camComp->GetViewMatrix(GetWorldMatrix(cameraEntity));
             renderer.RenderCSMShadowPass(queue, dirLight->direction,
                                           viewMat,
-                                          camComp->GetProjectionMatrix(aspect));
-        }
-        else
-        {
-            renderer.SetCSMData();
+                                          camComp->GetProjectionMatrix(aspect),
+                                          cameraPos,
+                                          camComp->nearPlane, camComp->farPlane,
+                                          aspect);
         }
     }
 
@@ -228,8 +227,18 @@ void Scene::Render(Entity cameraEntity)
     if (camTransform)
         viewMatrix = camComp->GetViewMatrix(GetWorldMatrix(cameraEntity));
 
+    // Extract camera forward from view matrix (column 2 = -forward)
+    math::Vector3 camForward{0.0f, 0.0f, -1.0f};
+    if (camTransform)
+    {
+        camForward = math::Vector3{
+            -viewMatrix.m[2][0], -viewMatrix.m[2][1], -viewMatrix.m[2][2]
+        }.Normalized();
+    }
+
     renderer.SetViewProjection(camComp->GetProjectionMatrix(aspect) * viewMatrix);
     renderer.SetCameraPosition(cameraPos);
+    renderer.SetCameraForward(camForward);
     renderer.SetLights(CollectLights());
     renderer.CommitFrameData();   // upload UBO once
 

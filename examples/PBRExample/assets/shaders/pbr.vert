@@ -15,6 +15,7 @@ struct SpotLightData   { vec4 pos, dir, amb, diff, spec, attenCut, outerCutPad; 
 layout(std140) uniform FrameBlock {
     mat4 viewProjection;
     vec4 cameraPos;
+    vec4 cameraForward;
     vec4 dirDirection;
     vec4 dirAmbient;
     vec4 dirDiffuse;
@@ -28,7 +29,6 @@ layout(std140) uniform FrameBlock {
 out vec3 worldPos;
 out vec3 normal;
 out vec2 texCoord;
-out vec4 fragPosLightSpace;
 
 void main()
 {
@@ -38,5 +38,4 @@ void main()
     worldPos    = worldVertex.xyz;
     texCoord    = a_TexCoord;
     normal      = mat3(model) * a_Normal;
-    fragPosLightSpace = lightSpaceMatrix * vec4(worldPos, 1.0);
 }

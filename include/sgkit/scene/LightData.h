@@ -9,17 +9,18 @@ namespace scene {
 
 struct alignas(16) FrameUniforms
 {
-    // -- Camera (offsets 0, 16)
+    // -- Camera (offsets 0, 64, 80)
     float viewProjection[16];   // mat4, 64 bytes
-    float cameraPos[4];         // vec4  (vec3 padded), 16 bytes
-    // offset = 80
+    float cameraPos[4];         // vec4  (xyz=pos, w=0), 16 bytes
+    float cameraForward[4];     // vec4  (xyz=fwd, w=0), 16 bytes
+    // offset = 96
 
     // -- Directional light (each vec3 padded to vec4 = 16 bytes, total 64)
     float dirDirection[4];
     float dirAmbient[4];
     float dirDiffuse[4];
     float dirSpecular[4];
-    // offset = 144
+    // offset = 160
 
     // -- Point light array  (4 * 5 * vec4 = 4 * 80 = 320)
     struct alignas(16) PointData {
@@ -30,7 +31,7 @@ struct alignas(16) FrameUniforms
         float attenuation[4];    // constant, linear, quadratic, pad
     };
     PointData pointLights[4];
-    // offset = 464
+    // offset = 480
 
     // -- Spot light array  (4 * 7 * vec4 = 4 * 112 = 448)
     struct alignas(16) SpotData {
@@ -43,15 +44,15 @@ struct alignas(16) FrameUniforms
         float outerCutPad[4];    // outerCutOff, pad, pad, pad
     };
     SpotData spotLights[4];
-    // offset = 912
+    // offset = 928
 
     // -- Counts + shadow flag (int = 4 bytes, aligned to vec4 -> 16)
     int lightCounts[4];   // dCount, pCount, sCount, shadowsEnabled
-    // offset = 928
+    // offset = 944
 
     // -- Shadow
     float lightSpaceMatrix[16];  // mat4, 64 bytes
-    // offset = 992
+    // offset = 960
 
 };
 static_assert(alignof(FrameUniforms) == 16, "FrameUniforms must be 16-byte aligned");

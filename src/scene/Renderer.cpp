@@ -83,11 +83,10 @@ void Renderer::SetCullFace(bool enabled)
     }
 }
 
-// -- Frame data
+// -- Frame data -----------------------------------------------------------
 
 void Renderer::SetViewProjection(const math::Matrix4& vp)
 {
-    m_viewProjection = vp;
     memcpy(m_frameData.viewProjection, vp.Data(), 16 * sizeof(float));
 }
 
@@ -100,10 +99,17 @@ void Renderer::SetCameraPosition(const math::Vector3& pos)
     m_frameData.cameraPos[3] = 0.0f;
 }
 
+void Renderer::SetCameraForward(const math::Vector3& fwd)
+{
+    m_cameraForward = fwd;
+    m_frameData.cameraForward[0] = fwd.x;
+    m_frameData.cameraForward[1] = fwd.y;
+    m_frameData.cameraForward[2] = fwd.z;
+    m_frameData.cameraForward[3] = 0.0f;
+}
+
 void Renderer::SetLights(const std::vector<LightInstance>& instances)
 {
-    m_lights = instances;
-
     int dC = 0, pC = 0, sC = 0;
     for (auto& li : instances)
     {
@@ -148,111 +154,42 @@ void Renderer::SetLights(const std::vector<LightInstance>& instances)
 
 void Renderer::CommitFrameData()
 {
-    memcpy(m_frameData.lightSpaceMatrix, m_csmLightMatrices[0].Data(), 16 * sizeof(float));
-    m_frameData.lightCounts[3] = m_csmShadowTex ? 1 : 0;
+    memcpy(m_frameData.lightSpaceMatrix,
+           m_csmShadow.LightMatrices()[0].Data(), 16 * sizeof(float));
+    m_frameData.lightCounts[3] = m_csmShadow.GetShadowTex() ? 1 : 0;
     UpdateFrameUBO();
 }
 
-// -- CSM Shadow
+// -- CSM Shadow (delegate) ------------------------------------------------
 
-void Renderer::SetCSMData()
+void Renderer::RenderCSMShadowPass(
+    const RenderQueue& queue, const math::Vector3& lightDir,
+    const math::Matrix4& camView, const math::Matrix4& camProj,
+    const math::Vector3& cameraPos, float cameraNear, float cameraFar,
+    float aspect)
 {
-    // Called by Scene before Execute. Shadow atlas is now on unit 6;
-    // cascade uniforms are set in SetFrameUniforms per batch.
+    m_csmShadow.RenderPass(queue, lightDir, camView, camProj,
+                           cameraPos, cameraNear, cameraFar, aspect);
 }
 
-void Renderer::RenderCSMShadowPass(const RenderQueue& queue, const math::Vector3& lightDir,
-                                    const math::Matrix4& camView, const math::Matrix4& camProj)
+// -- Skybox (delegate) ----------------------------------------------------
+
+bool Renderer::SetupSkybox(const std::string& hdrPath)
 {
-    // -- Lazy init
-    if (!m_csmReady)
-    {
-        int atlasW = kCSMResolution * kCSMCascades;
-        m_csmFBO.Create(atlasW, kCSMResolution);
-        m_csmDepthShader.LoadFromFile(
-            "assets/shaders/shadow_depth.vert",
-            "assets/shaders/shadow_depth.frag");
-        m_csmShadowTex = m_csmFBO.GetDepthTexture();
-        m_csmReady = true;
-    }
-
-    m_csmFBO.Bind();
-    glClear(GL_DEPTH_BUFFER_BIT);
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(4.0f, 4.0f);
-
-    // -- Cascade split depths (practical split scheme, lambda=0.75)
-    float nearP = 0.1f, farP = 50.0f;
-    float lambda = 0.75f;
-    for (int i = 0; i < kCSMCascades; ++i)
-    {
-        float p = float(i + 1) / kCSMCascades;
-        float logS = nearP * pow(farP / nearP, p);
-        float linS = nearP + (farP - nearP) * p;
-        m_csmSplitDepths[i] = logS * lambda + linS * (1.0f - lambda);
-    }
-
-    // Inverse VP to get frustum corners in view space
-    math::Matrix4 invCamVP = (camProj * camView);
-    // ... no Inverse() available - compute corners another way
-
-    // Compute frustum heights at each split in view space
-    float fovHalf = 0.0f; // will use the split depths with fixed ortho for now
-    // Simplified approach: fixed ortho per cascade, centred on camera look-at
-
-    for (int c = 0; c < kCSMCascades; ++c)
-    {
-        float prevDist = (c == 0) ? nearP : m_csmSplitDepths[c - 1];
-        float curDist  = m_csmSplitDepths[c];
-        float midDist  = (prevDist + curDist) * 0.5f;
-
-        // Approximate half-extent using typical FOV
-        float halfExt = curDist * 0.8f;  // covers most of frustum at this distance
-
-        math::Matrix4 lightProj = math::Matrix4::Orthographic(
-            -halfExt, halfExt, -halfExt, halfExt, nearP, farP);
-        math::Vector3 sceneCenter{0, 0, 0};
-        math::Vector3 lightPos = sceneCenter - lightDir * (farP * 0.5f);
-        math::Vector3 up{0, 1, 0};
-        math::Matrix4 lightView = math::Matrix4::LookAt(lightPos, sceneCenter, up);
-        m_csmLightMatrices[c] = lightProj * lightView;
-
-        // Texel snapping
-        const float mapRes = float(kCSMResolution);
-        math::Vector4 origin = m_csmLightMatrices[c] * math::Vector4{0, 0, 0, 1};
-        float invW = 1.0f / origin.w;
-        float ox = (origin.x * invW * 0.5f + 0.5f) * mapRes;
-        float oy = (origin.y * invW * 0.5f + 0.5f) * mapRes;
-        ox = (round(ox) - ox) / mapRes * 2.0f;
-        oy = (round(oy) - oy) / mapRes * 2.0f;
-        math::Matrix4 snap = math::Matrix4::Identity();
-        snap.m[3][0] = ox; snap.m[3][1] = oy;
-        m_csmLightMatrices[c] = snap * m_csmLightMatrices[c];
-
-        // Render into atlas sub-region
-        glViewport(c * kCSMResolution, 0, kCSMResolution, kCSMResolution);
-        m_csmDepthShader.Bind();
-        m_csmDepthShader.SetMatrix4("u_LightSpaceMatrix", m_csmLightMatrices[c]);
-        for (auto& batch : queue.GetOpaqueBatches())
-        {
-            if (!batch.vertexArray) continue;
-            batch.vertexArray->Bind();
-            for (auto& inst : batch.instances)
-            {
-                m_csmDepthShader.SetMatrix4("u_Model", inst.modelMatrix);
-                batch.vertexArray->Draw();
-            }
-        }
-    }
-
-    glDisable(GL_POLYGON_OFFSET_FILL);
-    m_csmFBO.Unbind();
-    core::Window& w = core::Window::instance();
-    glViewport(0, 0, w.GetWidth(), w.GetHeight());
-    SetCSMData();
+    return m_skybox.Setup(hdrPath);
 }
 
-// -- Execute
+void Renderer::RenderSkybox(const math::Matrix4& view, const math::Matrix4& proj)
+{
+    m_skybox.Render(view, proj);
+}
+
+void Renderer::DestroySkybox()
+{
+    m_skybox.Destroy();
+}
+
+// -- Execute --------------------------------------------------------------
 
 void Renderer::Execute(const RenderQueue& queue)
 {
@@ -291,7 +228,6 @@ void Renderer::ExecuteBatch(const RenderBatch& batch)
 
     if (mat.lightingModel == LightingModel::PBR)
     {
-        // -- PBR material uniforms  (see shader/pbr.frag for slot convention)
         shader.SetInt("u_PBR_combinedMR", mat.pbrCombinedMetallicRoughness ? 1 : 0);
         shader.SetFloat("u_PBR_metallicFactor",  mat.metallicFactor);
         shader.SetFloat("u_PBR_roughnessFactor", mat.roughnessFactor);
@@ -300,62 +236,24 @@ void Renderer::ExecuteBatch(const RenderBatch& batch)
         shader.SetFloat("u_PBR_normalScale",    mat.normalScale);
         shader.SetFloat("u_PBR_aoStrength",     mat.aoStrength);
 
-        if (mat.albedo)
-        {
-            shader.SetInt("u_PBR_albedo", mat.albedo->GetSlot());
-            mat.albedo->Bind();
-        }
-        if (mat.metallic)
-        {
-            shader.SetInt("u_PBR_metallic", mat.metallic->GetSlot());
-            mat.metallic->Bind();
-        }
-        if (mat.roughness)
-        {
-            shader.SetInt("u_PBR_roughness", mat.roughness->GetSlot());
-            mat.roughness->Bind();
-        }
-        if (mat.normalMap)
-        {
-            shader.SetInt("u_PBR_normal", mat.normalMap->GetSlot());
-            mat.normalMap->Bind();
-        }
-        if (mat.ao)
-        {
-            shader.SetInt("u_PBR_ao", mat.ao->GetSlot());
-            mat.ao->Bind();
-        }
-        if (mat.emissive)
-        {
-            shader.SetInt("u_PBR_emissive", mat.emissive->GetSlot());
-            shader.SetVector3("u_PBR_emissiveFactor", mat.emissiveFactor);
-            mat.emissive->Bind();
-        }
-        else
-        {
-            // Reset factor to zero so emissive sampler (which may still point
-            // to a texture unit from a previous batch) contributes nothing.
-            shader.SetVector3("u_PBR_emissiveFactor", math::Vector3{});
-        }
+        if (mat.albedo)       { shader.SetInt("u_PBR_albedo", mat.albedo->GetSlot());           mat.albedo->Bind(); }
+        if (mat.metallic)     { shader.SetInt("u_PBR_metallic", mat.metallic->GetSlot());       mat.metallic->Bind(); }
+        if (mat.roughness)    { shader.SetInt("u_PBR_roughness", mat.roughness->GetSlot());     mat.roughness->Bind(); }
+        if (mat.normalMap)    { shader.SetInt("u_PBR_normal", mat.normalMap->GetSlot());        mat.normalMap->Bind(); }
+        if (mat.ao)           { shader.SetInt("u_PBR_ao", mat.ao->GetSlot());                   mat.ao->Bind(); }
+        if (mat.emissive)     { shader.SetInt("u_PBR_emissive", mat.emissive->GetSlot());
+                                shader.SetVector3("u_PBR_emissiveFactor", mat.emissiveFactor);   mat.emissive->Bind(); }
+        else                  { shader.SetVector3("u_PBR_emissiveFactor", math::Vector3{}); }
     }
-    else  // LightingModel::BlinnPhong
+    else
     {
-        if (mat.diffuse)
-        {
-            shader.SetInt("u_Material.diffuse", mat.diffuse->GetSlot());
-            mat.diffuse->Bind();
-        }
-        if (mat.specular)
-        {
-            shader.SetInt("u_Material.specular", mat.specular->GetSlot());
-            mat.specular->Bind();
-        }
+        if (mat.diffuse)      { shader.SetInt("u_Material.diffuse", mat.diffuse->GetSlot());     mat.diffuse->Bind(); }
+        if (mat.specular)     { shader.SetInt("u_Material.specular", mat.specular->GetSlot());   mat.specular->Bind(); }
         shader.SetFloat("u_Material.shininess", mat.shininess);
     }
 
     if (batch.instances.size() > 1)
     {
-        // Instanced path
         char name[32];
         shader.SetInt("u_Instanced", 1);
         for (size_t i = 0; i < batch.instances.size(); ++i)
@@ -380,7 +278,6 @@ void Renderer::ApplyBatchState(const RenderBatch& batch)
 {
     batch.vertexArray->Bind();
     batch.shader->Bind();
-    
 
     auto& mat = *batch.material;
 
@@ -409,7 +306,7 @@ void Renderer::ApplyBatchState(const RenderBatch& batch)
 void Renderer::EnsureUBO()
 {
     if (!m_uboReady) {
-        m_frameUBO.Create(sizeof(FrameUniforms), 0);  // binding point 0
+        m_frameUBO.Create(sizeof(FrameUniforms), 0);
         m_uboReady = true;
     }
 }
@@ -422,23 +319,9 @@ void Renderer::UpdateFrameUBO()
 
 void Renderer::SetFrameUniforms(graphics::Shader& shader)
 {
-    shader.SetInt("u_ShadowsEnabled", m_csmShadowTex ? 1 : 0);
-    if (m_csmShadowTex)
-    {
-        glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_2D, m_csmShadowTex);
-        shader.SetInt("u_ShadowMap", 6);
-        shader.SetFloat("u_CSM_TexelSize", 1.0f / float(kCSMResolution));
-        shader.SetFloat("u_CSM_CascadeCount", float(kCSMCascades));
-        for (int c = 0; c < kCSMCascades; ++c)
-        {
-            char name[32];
-            snprintf(name, 32, "u_CSM_LightMatrices[%d]", c);
-            shader.SetMatrix4(name, m_csmLightMatrices[c]);
-            snprintf(name, 32, "u_CSM_Splits[%d]", c);
-            shader.SetFloat(name, m_csmSplitDepths[c]);
-        }
-    }
+    shader.SetInt("u_ShadowsEnabled", m_csmShadow.GetShadowTex() ? 1 : 0);
+    if (m_csmShadow.GetShadowTex())
+        m_csmShadow.ApplyToShader(shader);
 }
 
 }

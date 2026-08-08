@@ -2,14 +2,14 @@
 
 #include <sgkit/scene/RenderQueue.h>
 #include <sgkit/scene/LightData.h>
-#include <sgkit/graphics/VertexArray.h>
-#include <sgkit/graphics/Framebuffer.h>
-#include <sgkit/graphics/Shader.h>
+#include <sgkit/scene/CSMShadow.h>
+#include <sgkit/scene/SkyboxRenderer.h>
 #include <sgkit/graphics/UniformBuffer.h>
 #include <sgkit/math/Vector4.h>
 #include <sgkit/math/Matrix4.h>
 
 #include <vector>
+#include <string>
 
 namespace sgkit {
 namespace scene {
@@ -46,17 +46,24 @@ public:
     // -- Frame-level data
     void SetViewProjection(const math::Matrix4& vp);
     void SetCameraPosition(const math::Vector3& pos);
+    void SetCameraForward(const math::Vector3& fwd);
     void SetLights(const std::vector<LightInstance>& instances);
     void CommitFrameData();   // upload UBO once per frame
 
     // Execute a sorted render queue (two-pass: opaque -> transparent).
     void Execute(const RenderQueue& queue);
 
-    // -- CSM shadow pass
+    // -- CSM shadows (delegates to CSMShadow)
     void RenderCSMShadowPass(
         const RenderQueue& queue, const math::Vector3& lightDir,
-        const math::Matrix4& camView, const math::Matrix4& camProj);
-    void SetCSMData();
+        const math::Matrix4& camView, const math::Matrix4& camProj,
+        const math::Vector3& cameraPos, float cameraNear, float cameraFar,
+        float aspect);
+
+    // -- Skybox (delegates to SkyboxRenderer)
+    bool SetupSkybox(const std::string& hdrPath);
+    void RenderSkybox(const math::Matrix4& view, const math::Matrix4& proj);
+    void DestroySkybox();
 
 private:
     Renderer() = default;
@@ -66,21 +73,15 @@ private:
     Renderer(Renderer&&) = delete;
     Renderer& operator=(Renderer&&) = delete;
 
-    math::Matrix4 m_viewProjection = math::Matrix4::Identity();
+    // Sub-systems
+    CSMShadow      m_csmShadow;
+    SkyboxRenderer m_skybox;
+
+    // Frame data
     math::Vector3 m_cameraPos{0.0f, 0.0f, 0.0f};
-    std::vector<LightInstance> m_lights;
+    math::Vector3 m_cameraForward{0.0f, 0.0f, -1.0f};
 
-    // CSM - 3-cascade directional shadow atlas
-    static constexpr int      kCSMCascades   = 3;
-    static constexpr int      kCSMResolution = 2048;
-    math::Matrix4             m_csmLightMatrices[kCSMCascades] = {};
-    float                     m_csmSplitDepths[kCSMCascades] = {};  // view-space Z
-    uint32_t                  m_csmShadowTex = 0;
-    graphics::FrameBuffer     m_csmFBO;
-    graphics::Shader          m_csmDepthShader;
-    bool                      m_csmReady = false;
-
-    // UBO - frame uniforms, uploaded once per frame
+    // UBO
     graphics::UniformBuffer m_frameUBO;
     FrameUniforms           m_frameData{};
     bool                    m_uboReady = false;

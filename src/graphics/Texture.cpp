@@ -116,6 +116,46 @@ bool Texture::LoadFromFile(const std::string& path)
     return ok;
 }
 
+bool Texture::LoadHDR(const std::string& path)
+{
+    auto fileData = core::FileSystem::ReadBinary(path);
+    if (!fileData)
+    {
+        SGK_LOG_ERROR("Texture", "Failed to read HDR texture: %s", path.c_str());
+        return false;
+    }
+
+    stbi_set_flip_vertically_on_load(true);
+
+    int width, height, channels;
+    float* pixels = stbi_loadf_from_memory(
+        fileData->data(),
+        static_cast<int>(fileData->size()),
+        &width, &height, &channels,
+        0);
+
+    if (!pixels)
+    {
+        SGK_LOG_ERROR("Texture", "stb_image HDR failed: %s (%s)",
+                     stbi_failure_reason(), path.c_str());
+        return false;
+    }
+
+    // .hdr files are always RGB (3 channels)
+    bool ok = Create(width, height, pixels,
+                     TexInternalDataFormat::RGB16F,
+                     TexDataFormat::RGB);
+    stbi_image_free(pixels);
+
+    if (ok)
+    {
+        m_channels = channels;
+        SGK_LOG_INFO("Texture", "Loaded HDR %s (%dx%d, %d ch)",
+                    path.c_str(), width, height, channels);
+    }
+    return ok;
+}
+
 bool Texture::Create(int width, int height, const void* data,
                      TexInternalDataFormat internalFormat, TexDataFormat format)
 {
@@ -139,6 +179,8 @@ bool Texture::Create(int width, int height, const void* data,
     case TexInternalDataFormat::RGB10_A2: internalFmt = GL_RGB10_A2; break;
     case TexInternalDataFormat::RGBA12:   internalFmt = GL_RGBA12;   break;
     case TexInternalDataFormat::RGBA16:   internalFmt = GL_RGBA16;   break;
+    case TexInternalDataFormat::RGB16F:   internalFmt = GL_RGB16F;   break;
+    case TexInternalDataFormat::RGBA16F:  internalFmt = GL_RGBA16F;  break;
     default: internalFmt = GL_RGBA8;
     }
 
@@ -159,8 +201,12 @@ bool Texture::Create(int width, int height, const void* data,
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
+    bool isFloat = (internalFormat == TexInternalDataFormat::RGB16F ||
+                    internalFormat == TexInternalDataFormat::RGBA16F);
+    GLenum dataType = isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
+
     glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internalFmt),
-                 width, height, 0, fmt, GL_UNSIGNED_BYTE, data);
+                 width, height, 0, fmt, dataType, data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     glBindTexture(GL_TEXTURE_2D, 0);

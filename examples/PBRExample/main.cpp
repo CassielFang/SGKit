@@ -337,6 +337,9 @@ ApplicationConfig sgkit::CreateApplication()
             }
         }
 
+        // -- 8. Skybox -----------------------------------------------------------
+        scene::Renderer::instance().SetupSkybox("assets/textures/skybox.hdr");
+
         return true;
     };
 
@@ -409,6 +412,21 @@ ApplicationConfig sgkit::CreateApplication()
         if (s_modelRoot != scene::Entity::Invalid)
             sm.SetVisible(s_modelRoot, s_modelVisible);
         sm.Render(s_camera);
+
+        // -- Skybox -------------------------------------------------------------
+        {
+            auto* camComp  = sm.GetComponent<scene::component::Camera>(s_camera);
+            auto* camTf    = sm.GetComponent<scene::component::Transform>(s_camera);
+            if (camComp && camTf)
+            {
+                core::Window& w = core::Window::instance();
+                float aspect = static_cast<float>(w.GetWidth()) /
+                               static_cast<float>(w.GetHeight());
+                math::Matrix4 proj = camComp->GetProjectionMatrix(aspect);
+                math::Matrix4 view = camComp->GetViewMatrix(sm.GetWorldMatrix(s_camera));
+                scene::Renderer::instance().RenderSkybox(view, proj);
+            }
+        }
     };
 
     // -- onShutdown -----------------------------------------------------------
@@ -420,6 +438,8 @@ ApplicationConfig sgkit::CreateApplication()
         s_simpleShader.reset();
         s_whiteTex.reset();
         s_flatNormalTex.reset();
+
+        scene::Renderer::instance().DestroySkybox();
     };
 
     return cfg;
