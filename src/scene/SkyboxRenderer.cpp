@@ -26,14 +26,7 @@ bool SkyboxRenderer::Setup(const std::string& hdrPath)
         return false;
     }
 
-    graphics::Texture hdrTex(0);
-    if (!hdrTex.LoadHDR(hdrPath))
-    {
-        SGK_LOG_ERROR("Skybox", "Failed to load HDR: %s", hdrPath.c_str());
-        return false;
-    }
-
-    // Position-only cube
+    // Position-only cube for rendering into cubemap faces
     constexpr float cubeVerts[] = {
         -1,-1, 1,  1,-1, 1,  1, 1, 1, -1, 1, 1,
          1,-1,-1, -1,-1,-1, -1, 1,-1,  1, 1,-1,
@@ -70,7 +63,11 @@ void SkyboxRenderer::GenerateCubemap(const std::string& hdrPath)
     constexpr int kRes = 512;
 
     graphics::Texture hdrTex(0);
-    hdrTex.LoadHDR(hdrPath);
+    if (!hdrTex.LoadHDR(hdrPath))
+    {
+        SGK_LOG_ERROR("Skybox", "Cubemap generation failed: cannot load %s", hdrPath.c_str());
+        return;
+    }
 
     glGenTextures(1, &m_cubemap);
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubemap);
@@ -105,6 +102,18 @@ void SkyboxRenderer::GenerateCubemap(const std::string& hdrPath)
     m_equiConvShader.SetInt("u_EquirectMap", 0);
     hdrTex.SetSlot(0);
     hdrTex.Bind();
+
+    // Warm-up draw: let the driver compile the shader for this VAO layout
+    // before the real cubemap faces, avoiding a mid-render recompilation warning.
+    glViewport(0, 0, 1, 1);
+    glScissor(0, 0, 0, 0);
+    glEnable(GL_SCISSOR_TEST);
+    m_equiConvShader.SetMatrix4("u_ViewProjection", proj *
+        math::Matrix4::LookAt(math::Vector3{0,0,0}, math::Vector3{1,0,0}, math::Vector3{0,-1,0}));
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_CUBE_MAP_POSITIVE_X, m_cubemap, 0);
+    m_vao.Draw();
+    glDisable(GL_SCISSOR_TEST);
 
     glViewport(0, 0, kRes, kRes);
     glDisable(GL_CULL_FACE);
@@ -162,8 +171,6 @@ void SkyboxRenderer::Destroy()
     if (m_cubemap) { glDeleteTextures(1, &m_cubemap); m_cubemap = 0; }
     m_ready = false;
 }
-
-bool SkyboxRenderer::IsReady() const { return m_ready; }
 
 }
 }

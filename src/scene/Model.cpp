@@ -69,11 +69,12 @@ static Entity CreateEntityFromMesh(
     if (!aiMesh->HasPositions() || !aiMesh->HasFaces())
         return Entity::Invalid;
 
-    // a) Vertices: interleave [pos(3) normal(3) tex(2)] = 8 floats
+    // a) Vertices: interleave [pos(3) normal(3) tex(2) tangent(4)] = 12 floats
     std::vector<float> verts;
-    verts.reserve(static_cast<size_t>(aiMesh->mNumVertices * 8));
-    bool hasTex = aiMesh->HasTextureCoords(0);
-    bool hasNrm = aiMesh->HasNormals();
+    verts.reserve(static_cast<size_t>(aiMesh->mNumVertices * 12));
+    bool hasTex   = aiMesh->HasTextureCoords(0);
+    bool hasNrm   = aiMesh->HasNormals();
+    bool hasTang  = aiMesh->HasTangentsAndBitangents();
 
     for (unsigned int i = 0; i < aiMesh->mNumVertices; ++i)
     {
@@ -91,6 +92,29 @@ static Entity CreateEntityFromMesh(
             verts.push_back(aiMesh->mTextureCoords[0][i].x);
             verts.push_back(aiMesh->mTextureCoords[0][i].y);
         } else { verts.insert(verts.end(), {0, 0}); }
+
+        if (hasTang) {
+            verts.push_back(aiMesh->mTangents[i].x);
+            verts.push_back(aiMesh->mTangents[i].y);
+            verts.push_back(aiMesh->mTangents[i].z);
+            // handedness sign: bitangent = cross(N, T) * sign
+            float sign = (aiMesh->mBitangents[i].x != 0 ||
+                          aiMesh->mBitangents[i].y != 0 ||
+                          aiMesh->mBitangents[i].z != 0) ? 1.0f : 1.0f;
+            // Compute actual sign from cross product
+            if (hasNrm) {
+                auto& n = aiMesh->mNormals[i];
+                auto& t = aiMesh->mTangents[i];
+                auto& b = aiMesh->mBitangents[i];
+                aiVector3D crossNT = aiVector3D(
+                    n.y * t.z - n.z * t.y,
+                    n.z * t.x - n.x * t.z,
+                    n.x * t.y - n.y * t.x);
+                float dot = crossNT.x * b.x + crossNT.y * b.y + crossNT.z * b.z;
+                sign = dot >= 0 ? 1.0f : -1.0f;
+            }
+            verts.push_back(sign);
+        } else { verts.insert(verts.end(), {0, 0, 0, 0}); }
     }
 
     // b) Indices
@@ -105,7 +129,7 @@ static Entity CreateEntityFromMesh(
 
     // c) Graphics objects
     graphics::VertexLayout layout;
-    layout.PushFloat(0, 3).PushFloat(1, 3).PushFloat(2, 2);
+    layout.PushFloat(0, 3).PushFloat(1, 3).PushFloat(2, 2).PushFloat(3, 4);
 
     auto vb = std::make_shared<graphics::VertexBuffer>();
     vb->Create(verts.data(), static_cast<size_t>(verts.size() * sizeof(float)));

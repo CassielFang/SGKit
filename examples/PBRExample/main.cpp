@@ -17,6 +17,7 @@ static std::shared_ptr<graphics::Texture>  s_flatNormalTex;  // RGBA (128,128,25
 
 // PBR instanced grid - 25 entities sharing one VAO + one material
 static std::vector<scene::Entity>          s_gridEntities;
+static scene::Entity                       s_groundEntity;
 
 // External model
 static scene::Entity                       s_modelRoot;
@@ -24,10 +25,9 @@ static scene::Entity                       s_modelMarker;  // origin marker, NOT
 static std::vector<scene::Entity>          s_modelEntities;
 static bool                                s_modelVisible = true;
 
-// Camera orbit
-static float s_orbitRadius = 8.0f;
-static float s_orbitYaw    = 0.0f;
-static float s_orbitPitch  = 0.3f;
+// Normal-debug toggle (Geometry Shader demo)
+static std::shared_ptr<graphics::Shader>   s_normalDebugShader;
+static bool                                s_showNormals = false;
 
 // ============================================================================
 // Procedural mesh helpers
@@ -154,6 +154,12 @@ ApplicationConfig sgkit::CreateApplication()
         s_simpleShader->LoadFromFile("assets/shaders/simple.vert",
                                       "assets/shaders/simple.frag");
 
+        s_normalDebugShader = std::make_shared<graphics::Shader>();
+        s_normalDebugShader->LoadFromFile(
+            "assets/shaders/normal_debug.vert",
+            "assets/shaders/normal_debug.frag",
+            "assets/shaders/normal_debug.geom");  // geometry shader demo
+
         // -- 2. Shared 1*1 textures -------------------------------------------
         {
             uint8_t white[]      = {255, 255, 255, 255};
@@ -203,10 +209,10 @@ ApplicationConfig sgkit::CreateApplication()
         {
             // Quad: 2 triangles, facing up (Y-up)
             constexpr float quadVerts[] = {
-                -10, 0, -10,  0,1,0,  0,10,
-                 10, 0, -10,  0,1,0,  10,10,
-                 10, 0,  10,  0,1,0,  10,0,
-                -10, 0,  10,  0,1,0,  0,0,
+                -40, 0, -40,  0,1,0,  0,10,
+                 40, 0, -40,  0,1,0,  10,10,
+                 40, 0,  40,  0,1,0,  10,0,
+                -40, 0,  40,  0,1,0,  0,0,
             };
             constexpr uint32_t quadIdx[] = { 0,2,1, 0,3,2 };
 
@@ -234,10 +240,10 @@ ApplicationConfig sgkit::CreateApplication()
             mesh->vertexArray = va;
             mesh->material    = mat;
 
-            scene::Entity ground = sm.CreateEntity();
-            auto* tf = sm.AddComponent<scene::component::Transform>(ground);
+            s_groundEntity = sm.CreateEntity();
+            auto* tf = sm.AddComponent<scene::component::Transform>(s_groundEntity);
             tf->position = { 0, -0.6f, 0 };
-            sm.AddComponent<scene::component::MeshRenderer>(ground)->mesh = mesh;
+            sm.AddComponent<scene::component::MeshRenderer>(s_groundEntity)->mesh = mesh;
         }
 
         // -- 5. External model (optional) -------------------------------------
@@ -247,6 +253,7 @@ ApplicationConfig sgkit::CreateApplication()
                 //"assets/models/star_wars_model.glb",
                 "assets/models/space_ship_torb.glb",
                 //"assets/models/cute cartoon girl.glb"
+                //"assets/models/gekco.glb"
             };
             for (auto* path : modelPaths)
             {
@@ -380,6 +387,10 @@ ApplicationConfig sgkit::CreateApplication()
         if (in.IsKeyPressed(core::KeyCode::T))
             s_modelVisible = !s_modelVisible;
 
+        // Toggle normal-debug (geometry shader demo)
+        if (in.IsKeyPressed(core::KeyCode::N))
+            s_showNormals = !s_showNormals;
+
         // Toggle fullscreen
         core::Window& w = core::Window::instance();
         if (in.IsKeyPressed(core::KeyCode::Z))
@@ -413,18 +424,41 @@ ApplicationConfig sgkit::CreateApplication()
             sm.SetVisible(s_modelRoot, s_modelVisible);
         sm.Render(s_camera);
 
-        // -- Skybox -------------------------------------------------------------
+        // -- Normal-debug pass (geometry shader demo - press N) -----------------
+        if (s_showNormals && s_normalDebugShader && s_modelRoot != scene::Entity::Invalid)
         {
-            auto* camComp  = sm.GetComponent<scene::component::Camera>(s_camera);
-            auto* camTf    = sm.GetComponent<scene::component::Transform>(s_camera);
+            auto* camComp = sm.GetComponent<scene::component::Camera>(s_camera);
+            auto* camTf   = sm.GetComponent<scene::component::Transform>(s_camera);
             if (camComp && camTf)
             {
                 core::Window& w = core::Window::instance();
                 float aspect = static_cast<float>(w.GetWidth()) /
                                static_cast<float>(w.GetHeight());
-                math::Matrix4 proj = camComp->GetProjectionMatrix(aspect);
-                math::Matrix4 view = camComp->GetViewMatrix(sm.GetWorldMatrix(s_camera));
-                scene::Renderer::instance().RenderSkybox(view, proj);
+                math::Matrix4 vp = camComp->GetProjectionMatrix(aspect)
+                                 * camComp->GetViewMatrix(sm.GetWorldMatrix(s_camera));
+
+                s_normalDebugShader->Bind();
+                s_normalDebugShader->SetMatrix4("viewProjection", vp);
+
+                auto drawNormals = [&](const std::vector<scene::Entity>& entities)
+                {
+                    for (scene::Entity e : entities)
+                    {
+                        auto* mr = sm.GetComponent<scene::component::MeshRenderer>(e);
+                        if (!mr || !mr->mesh || !mr->mesh->vertexArray) continue;
+                        auto* tf = sm.GetComponent<scene::component::Transform>(e);
+                        math::Matrix4 modelMat = tf ? sm.GetWorldMatrix(e)
+                                                    : math::Matrix4::Identity();
+                        s_normalDebugShader->SetMatrix4("u_Model", modelMat);
+                        mr->mesh->vertexArray->Bind();
+                        mr->mesh->vertexArray->Draw();
+                    }
+                };
+
+                drawNormals(s_modelEntities);
+                drawNormals(s_gridEntities);
+                if (s_groundEntity != scene::Entity::Invalid)
+                    drawNormals({s_groundEntity});
             }
         }
     };
@@ -436,6 +470,7 @@ ApplicationConfig sgkit::CreateApplication()
         s_pbrShader.reset();
         s_blinnPhongShader.reset();
         s_simpleShader.reset();
+        s_normalDebugShader.reset();
         s_whiteTex.reset();
         s_flatNormalTex.reset();
 

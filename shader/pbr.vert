@@ -3,6 +3,7 @@
 layout(location = 0) in vec3 a_Position;
 layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in vec2 a_TexCoord;
+layout(location = 3) in vec4 a_Tangent;   // xyz=tangent, w=handedness (±1), 0 if absent
 
 // Per-instance
 uniform mat4 u_Model;
@@ -29,7 +30,7 @@ layout(std140) uniform FrameBlock {
 out vec3 worldPos;
 out vec3 normal;
 out vec2 texCoord;
-out vec4 fragPosLightSpace;
+out vec4 v_Tangent;
 
 void main()
 {
@@ -39,5 +40,5 @@ void main()
     worldPos    = worldVertex.xyz;
     texCoord    = a_TexCoord;
     normal      = mat3(model) * a_Normal;
-    fragPosLightSpace = lightSpaceMatrix * vec4(worldPos, 1.0);
+    v_Tangent   = vec4(mat3(model) * a_Tangent.xyz, a_Tangent.w);
 }

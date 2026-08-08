@@ -50,6 +50,12 @@ uniform float     u_CSM_AtlasTexelX;
 uniform float     u_CSM_CascadeCount;
 uniform bool      u_ShadowsEnabled = false;
 
+// -- Point-light shadows
+uniform int        u_PointShadows;
+uniform samplerCube u_PointShadowMap[4];
+uniform float      u_PointShadowFar[4];
+uniform int        u_PointShadowEnabled[4];
+
 // -- IBL
 uniform samplerCube u_IrradianceMap;
 uniform samplerCube u_PrefilterMap;
@@ -59,6 +65,7 @@ uniform bool        u_IBLEnabled = false;
 in vec3 worldPos;
 in vec3 normal;
 in vec2 texCoord;
+in vec4 v_Tangent;
 out vec4 fragColor;
 
 const float PI = 3.14159265359;
@@ -69,16 +76,34 @@ vec3 GetWorldNormal()
 {
     vec3 texN = texture(u_PBR_normal, texCoord).xyz * 2.0 - 1.0;
     texN.xy *= u_PBR_normalScale;
-    vec3 Q1 = dFdx(worldPos), Q2 = dFdy(worldPos);
-    vec2 st1 = dFdx(texCoord), st2 = dFdy(texCoord);
-    vec3 N = normalize(normal);
+    vec3 N = length(normal) > 0.0001 ? normalize(normal) : vec3(0, 1, 0);
 
-    // Guard against degenerate UVs / zero derivatives → NaN
-    vec3 Traw = Q1 * st2.y - Q2 * st1.y;
-    float lenT = length(Traw);
-    vec3 T = lenT > 0.0001 ? Traw / lenT : vec3(1, 0, 0);
+    vec3 T, B;
 
-    vec3 B = normalize(cross(N, T));
+    // Use pre-computed tangent if available, otherwise derivative fallback
+    if (length(v_Tangent.xyz) > 0.0001)
+    {
+        T = normalize(v_Tangent.xyz);
+        B = normalize(cross(N, T)) * v_Tangent.w;  // w = handedness (±1)
+    }
+    else
+    {
+        vec3 Q1 = dFdx(worldPos), Q2 = dFdy(worldPos);
+        vec2 st1 = dFdx(texCoord), st2 = dFdy(texCoord);
+
+        vec3 Traw = Q1 * st2.y - Q2 * st1.y;
+        float lenT = length(Traw);
+        T = lenT > 0.0001 ? normalize(Traw)
+            : (abs(N.x) > 0.9 ? normalize(cross(N, vec3(0,1,0)))
+                              : normalize(cross(N, vec3(1,0,0))));
+
+        vec3 Braw = cross(N, T);
+        float lenB = length(Braw);
+        B = lenB > 0.0001 ? normalize(Braw)
+            : (abs(N.x) > 0.9 ? normalize(cross(N, vec3(0,0,1)))
+                              : normalize(cross(N, vec3(0,1,0))));
+    }
+
     return normalize(mat3(T, B, N) * texN);
 }
 
@@ -161,15 +186,19 @@ float ShadowCalculation(vec3 worldP, vec3 N, vec3 lightDir)
         if (viewZ > u_CSM_Splits[c]) cascade = c + 1;
 
     vec4 fragLS = u_CSM_LightMatrices[cascade] * vec4(worldP, 1.0);
+    if (abs(fragLS.w) < 0.0001) return 0.0;
     vec3 proj = fragLS.xyz / fragLS.w;
     proj = proj * 0.5 + 0.5;
-    if (proj.z > 1.0) return 0.0;
+    // NaN/Inf guard + bounds check (NaN only true for x!=x)
+    if (proj.z > 1.0 || proj.z != proj.z ||
+        proj.x != proj.x || proj.y != proj.y ||
+        proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0)
+        return 0.0;
 
     // Atlas UV: cascade-local X mapped to atlas strip
     proj.x = (proj.x + float(cascade)) / u_CSM_CascadeCount;
 
-    // Reduced slope-scaled bias
-    float bias = max(0.0025 * (1.0 - dot(N, lightDir)), 0.0005);
+    float bias = max(0.008 * (1.0 - dot(N, lightDir)), 0.002);
 
     float shadow = 0.0;
     // Atlas X texels are 1/N narrower (N cascades packed horizontally)
@@ -178,6 +207,40 @@ float ShadowCalculation(vec3 worldP, vec3 N, vec3 lightDir)
         for (int y = -2; y <= 2; ++y)
             shadow += (proj.z - bias > texture(u_ShadowMap, proj.xy + vec2(x, y) * ts).r) ? 1.0 : 0.0;
     return shadow / 25.0;
+}
+
+// -- Omnidirectional point-light shadow (Poisson-disk PCF)
+float PointShadowCalculation(int idx, vec3 worldP, vec3 N)
+{
+    if (u_PointShadows == 0 || u_PointShadowEnabled[idx] == 0) return 0.0;
+
+    vec3 fragToLight = worldP - pointLights[idx].pos.xyz;
+    float currentDepth = length(fragToLight);
+    float farPlane = u_PointShadowFar[idx];
+    if (currentDepth > farPlane) return 0.0;   // beyond shadow range
+
+    const vec3 disk[20] = vec3[](
+        vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1),
+        vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+        vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
+        vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
+        vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
+    );
+
+    float bias = max(0.15 * (1.0 - dot(N, normalize(-fragToLight))), 0.05);
+    float viewDist = length(cameraPos.xyz - worldP);
+    float diskRadius = (1.0 + (viewDist / farPlane)) / 40.0;
+
+    float shadow = 0.0;
+    for (int s = 0; s < 20; ++s)
+    {
+        float closestDepth = texture(u_PointShadowMap[idx],
+                                     fragToLight + disk[s] * diskRadius).r;
+        closestDepth *= farPlane;
+        if (currentDepth - bias > closestDepth)
+            shadow += 1.0;
+    }
+    return shadow / 20.0;
 }
 
 void main()
@@ -199,7 +262,10 @@ void main()
         Lo += (1.0-shadow) * RadianceDir(N,V,albedo,metallic,roughness,F0);
     }
     for (int i=0; i<lightCounts.y && i<4; ++i)
-        Lo += RadiancePoint(i, N,V,worldPos,albedo,metallic,roughness,F0);
+    {
+        float ptShadow = PointShadowCalculation(i, worldPos, N);
+        Lo += (1.0 - ptShadow) * RadiancePoint(i, N,V,worldPos,albedo,metallic,roughness,F0);
+    }
     for (int i=0; i<lightCounts.z && i<4; ++i)
         Lo += RadianceSpot(i, N,V,worldPos,albedo,metallic,roughness,F0);
 
@@ -227,5 +293,7 @@ void main()
     else if (u_DebugMode == 8) color = ambient;
     else if (u_DebugMode == 9) color = Lo;
 
+    if (color.r != color.r || color.g != color.g || color.b != color.b)
+        color = vec3(0.0);
     fragColor = vec4(color, alpha);
 }

@@ -37,8 +37,6 @@ public:
     // Release the cubemap texture.
     void Destroy();
 
-    bool IsReady() const;
-
 private:
     graphics::Shader      m_shader;
     graphics::Shader      m_equiConvShader;

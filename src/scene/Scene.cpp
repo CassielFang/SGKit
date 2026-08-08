@@ -168,7 +168,7 @@ std::vector<LightInstance> Scene::CollectLights()
             component::Transform* tf = m_transforms.Get(e);
 
             LightInstance inst;
-            inst.worldPosition = tf ? tf->position : math::Vector3{};
+            inst.worldPosition = GetWorldMatrix(e).TransformPoint(math::Vector3{});
             inst.attribute = lc;
 
             instances.push_back(inst);
@@ -220,6 +220,20 @@ void Scene::Render(Entity cameraEntity)
                                           camComp->nearPlane, camComp->farPlane,
                                           aspect);
         }
+
+        // Point-light shadows
+        {
+            math::Vector3 pointPositions[4] = {};
+            int ptCount = 0;
+            for (Entity e : m_aliveEntities)
+            {
+                auto* l = m_lights.Get(e);
+                if (l && l->type == component::Light::Type::Point && ptCount < 4)
+                    pointPositions[ptCount++] = GetWorldMatrix(e).TransformPoint({});
+            }
+            if (ptCount > 0)
+                renderer.RenderPointShadowPass(queue, pointPositions, ptCount);
+        }
     }
 
     // -- Main render ---------------------------------------------------------
@@ -240,6 +254,8 @@ void Scene::Render(Entity cameraEntity)
     renderer.SetCameraPosition(cameraPos);
     renderer.SetCameraForward(camForward);
     renderer.SetLights(CollectLights());
+    renderer.SetSkyboxMatrices(viewMatrix,
+                                camComp->GetProjectionMatrix(aspect));
     renderer.CommitFrameData();   // upload UBO once
 
     renderer.Clear();

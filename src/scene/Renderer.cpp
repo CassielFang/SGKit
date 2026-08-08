@@ -1,7 +1,6 @@
 #include <sgkit/scene/Renderer.h>
 
 #include <sgkit/scene/Components.h>
-#include <sgkit/core/Window.h>
 #include <sgkit/framework/DebugOut.h>
 #include <glad/glad.h>
 
@@ -83,7 +82,7 @@ void Renderer::SetCullFace(bool enabled)
     }
 }
 
-// -- Frame data -----------------------------------------------------------
+// -- Frame data
 
 void Renderer::SetViewProjection(const math::Matrix4& vp)
 {
@@ -160,7 +159,7 @@ void Renderer::CommitFrameData()
     UpdateFrameUBO();
 }
 
-// -- CSM Shadow (delegate) ------------------------------------------------
+// -- CSM Shadow (delegate)
 
 void Renderer::RenderCSMShadowPass(
     const RenderQueue& queue, const math::Vector3& lightDir,
@@ -168,20 +167,37 @@ void Renderer::RenderCSMShadowPass(
     const math::Vector3& cameraPos, float cameraNear, float cameraFar,
     float aspect)
 {
-    m_csmShadow.RenderPass(queue, lightDir, camView, camProj,
-                           cameraPos, cameraNear, cameraFar, aspect);
+    m_csmShadow.RenderPass(
+        queue, lightDir, camView, camProj,
+        cameraPos, cameraNear, cameraFar, aspect);
 }
 
-// -- Skybox (delegate) ----------------------------------------------------
+// -- Point-light shadows (delegate)
+
+void Renderer::RenderPointShadowPass(
+    const RenderQueue& queue,
+    const math::Vector3 lightPositions[4],
+    int activeCount)
+{
+    m_pointShadow.RenderPass(queue, lightPositions, activeCount, 25.0f);
+}
+
+void Renderer::ApplyPointShadowUniforms(graphics::Shader& shader) const
+{
+    m_pointShadow.ApplyToShader(shader, 8);  // cubemaps at units 8-11
+}
+
+// -- Skybox (delegate)
 
 bool Renderer::SetupSkybox(const std::string& hdrPath)
 {
     return m_skybox.Setup(hdrPath);
 }
 
-void Renderer::RenderSkybox(const math::Matrix4& view, const math::Matrix4& proj)
+void Renderer::SetSkyboxMatrices(const math::Matrix4& view, const math::Matrix4& proj)
 {
-    m_skybox.Render(view, proj);
+    m_skyboxView = view;
+    m_skyboxProj = proj;
 }
 
 void Renderer::DestroySkybox()
@@ -189,7 +205,7 @@ void Renderer::DestroySkybox()
     m_skybox.Destroy();
 }
 
-// -- Execute --------------------------------------------------------------
+// -- Execute
 
 void Renderer::Execute(const RenderQueue& queue)
 {
@@ -197,9 +213,14 @@ void Renderer::Execute(const RenderQueue& queue)
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
 
+    // 1. Opaque pass
     for (auto& batch : queue.GetOpaqueBatches())
         ExecuteBatch(batch);
 
+    // 2. Skybox - between opaque and transparent so additive markers stay visible
+    m_skybox.Render(m_skyboxView, m_skyboxProj);
+
+    // 3. Transparent pass
     if (queue.HasTransparentBatches())
     {
         glDepthMask(GL_FALSE);
@@ -322,6 +343,7 @@ void Renderer::SetFrameUniforms(graphics::Shader& shader)
     shader.SetInt("u_ShadowsEnabled", m_csmShadow.GetShadowTex() ? 1 : 0);
     if (m_csmShadow.GetShadowTex())
         m_csmShadow.ApplyToShader(shader);
+    ApplyPointShadowUniforms(shader);
 }
 
 }

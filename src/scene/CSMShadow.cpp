@@ -17,6 +17,8 @@ void CSMShadow::LazyInit()
         "assets/shaders/shadow_depth.vert",
         "assets/shaders/shadow_depth.frag");
     m_shadowTex = m_fbo.GetDepthTexture();
+
+
     m_ready = true;
 }
 
@@ -29,9 +31,13 @@ void CSMShadow::RenderPass(
     LazyInit();
 
     m_fbo.Bind();
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
     glClear(GL_DEPTH_BUFFER_BIT);
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(4.0f, 4.0f);
+    glPolygonOffset(4.0f, 16.0f);
 
     // -- Cascade split depths (lambda=0.9 for tighter near cascades)
     float lambda = 0.9f;
@@ -42,11 +48,6 @@ void CSMShadow::RenderPass(
         float linS = cameraNear + (cameraFar - cameraNear) * p;
         m_splitDepths[i] = logS * lambda + linS * (1.0f - lambda);
     }
-
-    // -- Extract camera forward from view matrix
-    math::Vector3 camForward = math::Vector3{
-        -camView.m[2][0], -camView.m[2][1], -camView.m[2][2]
-    }.Normalized();
 
     // -- Full camera frustum corners in world space
     math::Matrix4 invCamVP = (camProj * camView).Inverted();
@@ -172,10 +173,8 @@ void CSMShadow::ApplyToShader(graphics::Shader& shader) const
     }
 }
 
-bool CSMShadow::IsReady() const { return m_shadowTex != 0; }
 uint32_t CSMShadow::GetShadowTex() const { return m_shadowTex; }
 const math::Matrix4* CSMShadow::LightMatrices() const { return m_lightMatrices; }
-const float* CSMShadow::SplitDepths() const { return m_splitDepths; }
 
 }
 }

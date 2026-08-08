@@ -3,6 +3,7 @@
 #include <sgkit/scene/RenderQueue.h>
 #include <sgkit/scene/LightData.h>
 #include <sgkit/scene/CSMShadow.h>
+#include <sgkit/scene/PointShadow.h>
 #include <sgkit/scene/SkyboxRenderer.h>
 #include <sgkit/graphics/UniformBuffer.h>
 #include <sgkit/math/Vector4.h>
@@ -60,9 +61,15 @@ public:
         const math::Vector3& cameraPos, float cameraNear, float cameraFar,
         float aspect);
 
+    // -- Point-light shadows (delegates to PointShadow)
+    void RenderPointShadowPass(const RenderQueue& queue,
+                               const math::Vector3 lightPositions[4],
+                               int activeCount);
+    void ApplyPointShadowUniforms(graphics::Shader& shader) const;
+
     // -- Skybox (delegates to SkyboxRenderer)
     bool SetupSkybox(const std::string& hdrPath);
-    void RenderSkybox(const math::Matrix4& view, const math::Matrix4& proj);
+    void SetSkyboxMatrices(const math::Matrix4& view, const math::Matrix4& proj);
     void DestroySkybox();
 
 private:
@@ -75,7 +82,10 @@ private:
 
     // Sub-systems
     CSMShadow      m_csmShadow;
+    PointShadow    m_pointShadow;
     SkyboxRenderer m_skybox;
+    math::Matrix4  m_skyboxView = math::Matrix4::Identity();
+    math::Matrix4  m_skyboxProj = math::Matrix4::Identity();
 
     // Frame data
     math::Vector3 m_cameraPos{0.0f, 0.0f, 0.0f};

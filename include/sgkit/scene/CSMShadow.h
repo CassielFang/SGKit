@@ -39,10 +39,8 @@ public:
     void ApplyToShader(graphics::Shader& shader) const;
 
     // Query
-    bool IsReady() const;
     uint32_t GetShadowTex() const;
     const math::Matrix4* LightMatrices() const;
-    const float* SplitDepths() const;
 
 private:
     math::Matrix4         m_lightMatrices[kCascades] = {};
