@@ -21,8 +21,8 @@ Texture::~Texture()
 }
 
 Texture::Texture(Texture&& other) noexcept
-    : m_handle(other.m_handle), m_slot(other.m_slot), m_width(other.m_width),
-      m_height(other.m_height), m_channels(other.m_channels)
+    : m_handle(other.m_handle), m_slot(other.m_slot), m_width(other.m_width)
+    , m_height(other.m_height), m_channels(other.m_channels)
 {
     other.m_handle = 0;
 }
@@ -64,7 +64,7 @@ bool Texture::LoadFromFile(const std::string& path)
     }
 
     // stb_image flips the image so that the first row is the bottom row
-    // (OpenGL convention).  Must be called before every stbi_load* call.
+    // (OpenGL convention). Must be called before every stbi_load* call.
     stbi_set_flip_vertically_on_load(true);
 
     int width, height, channels;
@@ -77,7 +77,7 @@ bool Texture::LoadFromFile(const std::string& path)
     if (!pixels)
     {
         SGK_LOG_ERROR("Texture", "stb_image failed: %s (%s)",
-                     stbi_failure_reason(), path.c_str());
+            stbi_failure_reason(), path.c_str());
         return false;
     }
 
@@ -98,8 +98,7 @@ bool Texture::LoadFromFile(const std::string& path)
         internalFormat = TexInternalDataFormat::RGBA8;
         break;
     default:
-        SGK_LOG_ERROR("Texture", "Unexpected channel count %d: %s",
-                     channels, path.c_str());
+        SGK_LOG_ERROR("Texture", "Unexpected channel count %d: %s", channels, path.c_str());
         stbi_image_free(pixels);
         return false;
     }
@@ -110,8 +109,7 @@ bool Texture::LoadFromFile(const std::string& path)
     if (ok)
     {
         m_channels = channels;
-        SGK_LOG_INFO("Texture", "Loaded texture %s (%dx%d, %d ch)",
-                    path.c_str(), width, height, channels);
+        SGK_LOG_INFO("Texture", "Loaded texture %s (%dx%d, %d ch)", path.c_str(), width, height, channels);
     }
     return ok;
 }
@@ -136,28 +134,24 @@ bool Texture::LoadHDR(const std::string& path)
 
     if (!pixels)
     {
-        SGK_LOG_ERROR("Texture", "stb_image HDR failed: %s (%s)",
-                     stbi_failure_reason(), path.c_str());
+        SGK_LOG_ERROR("Texture", "stb_image HDR failed: %s (%s)", stbi_failure_reason(), path.c_str());
         return false;
     }
 
     // .hdr files are always RGB (3 channels)
-    bool ok = Create(width, height, pixels,
-                     TexInternalDataFormat::RGB16F,
-                     TexDataFormat::RGB);
+    bool ok = Create(width, height, pixels, TexInternalDataFormat::RGB16F, TexDataFormat::RGB);
     stbi_image_free(pixels);
 
     if (ok)
     {
         m_channels = channels;
-        SGK_LOG_INFO("Texture", "Loaded HDR %s (%dx%d, %d ch)",
-                    path.c_str(), width, height, channels);
+        SGK_LOG_INFO("Texture", "Loaded HDR %s (%dx%d, %d ch)", path.c_str(), width, height, channels);
     }
     return ok;
 }
 
 bool Texture::Create(int width, int height, const void* data,
-                     TexInternalDataFormat internalFormat, TexDataFormat format)
+    TexInternalDataFormat internalFormat, TexDataFormat format)
 {
     Destroy();
 
@@ -201,12 +195,11 @@ bool Texture::Create(int width, int height, const void* data,
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    bool isFloat = (internalFormat == TexInternalDataFormat::RGB16F ||
-                    internalFormat == TexInternalDataFormat::RGBA16F);
+    bool isFloat = (internalFormat == TexInternalDataFormat::RGB16F
+                 || internalFormat == TexInternalDataFormat::RGBA16F);
     GLenum dataType = isFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internalFmt),
-                 width, height, 0, fmt, dataType, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internalFmt), width, height, 0, fmt, dataType, data);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -238,7 +231,10 @@ void Texture::SetSlot(int slot)
 
 void Texture::SetFilterLinear(bool linear) const
 {
-    if (!m_handle) return;
+    if (!m_handle)
+    {
+        return;
+    }
     GLint filter = linear ? GL_LINEAR : GL_NEAREST;
     GLint mipFilter = linear ? GL_LINEAR_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_NEAREST;
 
@@ -250,7 +246,10 @@ void Texture::SetFilterLinear(bool linear) const
 
 void Texture::SetWrapRepeat(bool repeat) const
 {
-    if (!m_handle) return;
+    if (!m_handle)
+    {
+        return;
+    }
     GLint wrap = repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE;
 
     Bind();
@@ -279,7 +278,8 @@ uint32_t Texture::GetHandle() const
     return m_handle;
 }
 
-bool Texture::IsValid() const {
+bool Texture::IsValid() const
+{
     return m_handle != 0;
 }
 

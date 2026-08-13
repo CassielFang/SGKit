@@ -65,7 +65,8 @@ template<typename T> void     Scene::RemoveComponent(Entity e)    { GetPool<T>()
 template<typename T> T*       Scene::GetComponent(Entity e)       { return GetPool<T>().Get(e); }
 template<typename T> const T* Scene::GetComponent(Entity e) const { return GetPool<T>().Get(e); }
 template<typename T> bool     Scene::HasComponent(Entity e) const { return GetPool<T>().Has(e); }
-template<typename T> const std::vector<Entity>& Scene::ComponentEntities() const { return GetPool<T>().GetEntities(); }
+template<typename T> const std::vector<Entity>& Scene::ComponentEntities() const
+    { return GetPool<T>().GetEntities(); }
 
 }
 }

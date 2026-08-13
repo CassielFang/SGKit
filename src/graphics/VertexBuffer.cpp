@@ -82,8 +82,7 @@ void VertexBuffer::Unbind() const
 void VertexBuffer::SetData(const void* data, size_t sizeInBytes, size_t offset) const
 {
     glBindBuffer(GL_ARRAY_BUFFER, m_handle);
-    glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offset),
-                    static_cast<GLsizeiptr>(sizeInBytes), data);
+    glBufferSubData(GL_ARRAY_BUFFER, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(sizeInBytes), data);
     //glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 

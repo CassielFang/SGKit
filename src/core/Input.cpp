@@ -18,7 +18,7 @@ static sgkit::core::Input* g_Input = nullptr;
 namespace sgkit {
 namespace core {
 
-// VK lookup table  -  KeyCode index -> Win32 virtual-key code
+// VK lookup table: KeyCode index -> Win32 virtual-key code
 
 static constexpr unsigned int k_KeyCodeToVK[] = {
     /* Unknown        0 */ 0,
@@ -84,8 +84,8 @@ static constexpr unsigned int k_KeyCodeToVK[] = {
     /* MouseButton4   120 */ VK_XBUTTON1,
     /* MouseButton5   121 */ VK_XBUTTON2,
 };
-static_assert(std::size(k_KeyCodeToVK) == static_cast<size_t>(KeyCode::k_Count),
-              "k_KeyCodeToVK must match KeyCode enum order");
+static_assert(std::size(k_KeyCodeToVK) ==
+    static_cast<size_t>(KeyCode::k_Count), "k_KeyCodeToVK must match KeyCode enum order");
 
 Input::Input()
     : m_current(0)
@@ -108,9 +108,9 @@ bool Input::Create(void* hWindowHandle)
 
     // Register mouse Raw Input device - needed for scroll polling via GetRawInputBuffer
     RAWINPUTDEVICE rid = {};
-    rid.usUsagePage = 0x01;  // HID_USAGE_PAGE_GENERIC
-    rid.usUsage = 0x02;      // HID_USAGE_GENERIC_MOUSE
-    rid.dwFlags = RIDEV_INPUTSINK;  // receive even when window not focused
+    rid.usUsagePage = 0x01; // HID_USAGE_PAGE_GENERIC
+    rid.usUsage = 0x02;     // HID_USAGE_GENERIC_MOUSE
+    rid.dwFlags = RIDEV_INPUTSINK; // receive even when window not focused
     rid.hwndTarget = hwnd;
 
     if (RegisterRawInputDevices(&rid, 1, sizeof(rid)) != FALSE)
@@ -127,7 +127,10 @@ bool Input::Create(void* hWindowHandle)
 
 void Input::Destroy()
 {
-    if (!g_Input) return;
+    if (!g_Input)
+    {
+        return;
+    }
     delete g_Input;
     g_Input = nullptr;
     SGK_LOG_INFO("Input", "Module destroyed");
@@ -145,22 +148,23 @@ static void PollScroll(float& scrollDelta)
     // Query buffer size
     UINT size = 0;
     UINT count = GetRawInputBuffer(nullptr, &size, sizeof(RAWINPUTHEADER));
-    if (count == 0 || count == UINT_MAX) return;
+    if (count == 0 || count == UINT_MAX)
+    {
+        return;
+    }
 
     // Single RAWINPUT for mouse is 48 bytes; a generous stack buffer handles
     // typical per-frame volume without a heap allocation.
     BYTE stackBuf[1024]{};
     BYTE* buf = (size <= sizeof(stackBuf)) ? stackBuf : new BYTE[size];
 
-    count = GetRawInputBuffer(reinterpret_cast<PRAWINPUT>(buf), &size,
-                              sizeof(RAWINPUTHEADER));
+    count = GetRawInputBuffer(reinterpret_cast<PRAWINPUT>(buf), &size, sizeof(RAWINPUTHEADER));
     if (count != UINT_MAX && count > 0)
     {
         RAWINPUT* raw = reinterpret_cast<RAWINPUT*>(buf);
         for (UINT i = 0; i < count; ++i)
         {
-            if (raw[i].header.dwType == RIM_TYPEMOUSE &&
-                (raw[i].data.mouse.usButtonFlags & RI_MOUSE_WHEEL))
+            if (raw[i].header.dwType == RIM_TYPEMOUSE && (raw[i].data.mouse.usButtonFlags & RI_MOUSE_WHEEL))
             {
                 short delta = static_cast<short>(raw[i].data.mouse.usButtonData);
                 scrollDelta += static_cast<float>(delta) / 120.0f;
@@ -169,7 +173,9 @@ static void PollScroll(float& scrollDelta)
     }
 
     if (buf != stackBuf)
+    {
         delete[] buf;
+    }
     buf = nullptr;
 }
 
@@ -200,18 +206,20 @@ void Input::Update()
     }
 
     // 3. Poll mouse buttons via GetAsyncKeyState
-    if (GetAsyncKeyState(VK_LBUTTON) & 0x8000)  m_Mouse[m_current][0] = 1;
-    if (GetAsyncKeyState(VK_RBUTTON) & 0x8000)  m_Mouse[m_current][1] = 1;
-    if (GetAsyncKeyState(VK_MBUTTON) & 0x8000)  m_Mouse[m_current][2] = 1;
-    if (GetAsyncKeyState(VK_XBUTTON1) & 0x8000) m_Mouse[m_current][3] = 1;
-    if (GetAsyncKeyState(VK_XBUTTON2) & 0x8000) m_Mouse[m_current][4] = 1;
+    if (GetAsyncKeyState(VK_LBUTTON) & 0x8000)  { m_Mouse[m_current][0] = 1; }
+    if (GetAsyncKeyState(VK_RBUTTON) & 0x8000)  { m_Mouse[m_current][1] = 1; }
+    if (GetAsyncKeyState(VK_MBUTTON) & 0x8000)  { m_Mouse[m_current][2] = 1; }
+    if (GetAsyncKeyState(VK_XBUTTON1) & 0x8000) { m_Mouse[m_current][3] = 1; }
+    if (GetAsyncKeyState(VK_XBUTTON2) & 0x8000) { m_Mouse[m_current][4] = 1; }
 
     // 4. Poll keyboard keys via GetAsyncKeyState
-    for (size_t i = 1; i < k_KeyCount; ++i)  // skip Unknown
+    for (size_t i = 1; i < k_KeyCount; ++i) // skip Unknown
     {
         unsigned int vk = k_KeyCodeToVK[i];
         if (vk != 0 && (GetAsyncKeyState(vk) & 0x8000))
+        {
             m_Keys[m_current][i] = 1;
+        }
     }
 
     // 5. Poll scroll via Raw Input buffer
@@ -223,21 +231,30 @@ void Input::Update()
 bool Input::IsKeyDown(KeyCode key) const
 {
     size_t idx = static_cast<size_t>(key);
-    if (idx >= k_KeyCount) return false;
+    if (idx >= k_KeyCount)
+    {
+        return false;
+    }
     return m_Keys[m_current][idx] != 0;
 }
 
 bool Input::IsKeyPressed(KeyCode key) const
 {
     size_t idx = static_cast<size_t>(key);
-    if (idx >= k_KeyCount) return false;
+    if (idx >= k_KeyCount)
+    {
+        return false;
+    }
     return m_Keys[m_current][idx] != 0 && m_Keys[1 - m_current][idx] == 0;
 }
 
 bool Input::IsKeyReleased(KeyCode key) const
 {
     size_t idx = static_cast<size_t>(key);
-    if (idx >= k_KeyCount) return false;
+    if (idx >= k_KeyCount)
+    {
+        return false;
+    }
     return m_Keys[m_current][idx] == 0 && m_Keys[1 - m_current][idx] != 0;
 }
 
@@ -246,21 +263,30 @@ bool Input::IsKeyReleased(KeyCode key) const
 bool Input::IsMouseButtonDown(MouseButton button) const
 {
     int bcode = static_cast<int>(button);
-    if (bcode < 0 || bcode >= static_cast<int>(k_MouseButtonCount)) return false;
+    if (bcode < 0 || bcode >= static_cast<int>(k_MouseButtonCount))
+    {
+        return false;
+    }
     return m_Mouse[m_current][bcode] != 0;
 }
 
 bool Input::IsMouseButtonPressed(MouseButton button) const
 {
     int bcode = static_cast<int>(button);
-    if (bcode < 0 || bcode >= static_cast<int>(k_MouseButtonCount)) return false;
+    if (bcode < 0 || bcode >= static_cast<int>(k_MouseButtonCount))
+    {
+        return false;
+    }
     return m_Mouse[m_current][bcode] != 0 && m_Mouse[1 - m_current][bcode] == 0;
 }
 
 bool Input::IsMouseButtonReleased(MouseButton button) const
 {
     int bcode = static_cast<int>(button);
-    if (bcode < 0 || bcode >= static_cast<int>(k_MouseButtonCount)) return false;
+    if (bcode < 0 || bcode >= static_cast<int>(k_MouseButtonCount))
+    {
+        return false;
+    }
     return m_Mouse[m_current][bcode] == 0 && m_Mouse[1 - m_current][bcode] != 0;
 }
 

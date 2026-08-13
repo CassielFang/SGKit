@@ -14,9 +14,7 @@ enum class LogLevel : uint8_t
 };
 
 #ifdef _DEBUG
-void LogMessage(LogLevel level, const char* category,
-                const char* file, int line,
-                const char* format, ...);
+void LogMessage(LogLevel level, const char* category, const char* file, int line, const char* format, ...);
 #else
 
 // Release no-op - must be inline to avoid unresolved external symbol.
@@ -45,8 +43,7 @@ inline void LogMessage(LogLevel, const char*, const char*, int, const char*, ...
     do {                                                                               \
         if (!(cond)) {                                                                 \
             sgkit::framework::LogMessage(sgkit::framework::LogLevel::Fatal, "ASSERT",  \
-                                    __FILE__, __LINE__,                                \
-                                    "ASSERTION FAILED: " #cond " -- " msg);            \
+                __FILE__, __LINE__, "ASSERTION FAILED: " #cond " -- " msg);            \
             __debugbreak();                                                            \
         }                                                                              \
     } while (0)

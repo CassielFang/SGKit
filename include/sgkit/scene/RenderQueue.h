@@ -35,9 +35,9 @@ public:
     void Submit(std::shared_ptr<Mesh> mesh, const math::Matrix4& worldMatrix);
     void Sort(const math::Vector3& cameraPos);
 
-    const std::vector<RenderBatch>& GetOpaqueBatches()      const { return m_opaqueBatches; }
-    const std::vector<RenderBatch>& GetTransparentBatches() const { return m_transparentBatches; }
-    bool HasTransparentBatches() const { return !m_transparentBatches.empty(); }
+    const std::vector<RenderBatch>& GetOpaqueBatches() const;
+    const std::vector<RenderBatch>& GetTransparentBatches() const;
+    bool HasTransparentBatches() const;
 
 private:
     std::vector<RenderBatch> m_opaqueBatches;

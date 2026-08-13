@@ -38,7 +38,7 @@ Framework   (WinMain + game loop + ApplicationConfig lifecycle + Clock/timing)
   ↑
 Scene       (sparse-set ECS + Material/Mesh/RenderQueue/Renderer - owns the render pipeline)
   ↑
-Graphics    (pure OpenGL RAII wrappers: Shader/VBO/VAO/Texture/Framebuffer/VertexLayout)
+Graphics    (pure OpenGL RAII wrappers: Shader/VBO/VAO/Texture/FrameBuffer/VertexLayout)
   ↑
 Core        (Window/Input/FileSystem/ThreadPool)
   ↑
@@ -92,7 +92,7 @@ Four component types live in `sgkit::scene::component`:
 
 ### Graphics - OpenGL RAII wrappers
 
-Pure wrappers, no scene-level concepts. Key classes: `Shader` (compile from file/source, uniform caching), `VertexBuffer`/`IndexBuffer`, `VertexArray` (binds VBO+IBO+layout, issues draw calls), `VertexLayout` (attribute descriptor), `Texture` (stb_image, slot-based binding), `Framebuffer`.
+Pure wrappers, no scene-level concepts. Key classes: `Shader` (compile from file/source, uniform caching), `VertexBuffer`/`IndexBuffer`, `VertexArray` (binds VBO+IBO+layout, issues draw calls), `VertexLayout` (attribute descriptor), `Texture` (stb_image, slot-based binding), `FrameBuffer`.
 
 ### Math - Column-major
 

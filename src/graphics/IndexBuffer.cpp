@@ -52,7 +52,7 @@ bool IndexBuffer::Create(const uint32_t* data, size_t count, Usage usage)
     glGenBuffers(1, &m_handle);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_handle);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 static_cast<GLsizeiptr>(count * sizeof(uint32_t)), data, usage_gl);
+        static_cast<GLsizeiptr>(count * sizeof(uint32_t)), data, usage_gl);
     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     m_count = count;
     SGK_LOG_INFO("IBO", "Created (handle=%u, count=%zu)", m_handle, m_count);

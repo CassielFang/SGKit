@@ -69,9 +69,12 @@ static void SetupAttrib(const VertexAttribute& attr, GLsizei stride)
 {
     glEnableVertexAttribArray(attr.location);
     if (attr.type == AttribType::Float)
-        glVertexAttribPointer(attr.location, attr.count, GL_FLOAT,
-                              attr.normalized ? GL_TRUE : GL_FALSE,
-                              stride, reinterpret_cast<void*>(attr.offset));
+    {
+        glVertexAttribPointer(
+            attr.location, attr.count, GL_FLOAT,
+            attr.normalized ? GL_TRUE : GL_FALSE,
+            stride, reinterpret_cast<void*>(attr.offset));
+    }
     else
     {
         GLenum t = GL_UNSIGNED_INT;
@@ -84,37 +87,53 @@ static void SetupAttrib(const VertexAttribute& attr, GLsizei stride)
         case AttribType::Int:           t = GL_INT;            break;
         default: break;
         }
-        glVertexAttribIPointer(attr.location, attr.count, t, stride,
-                               reinterpret_cast<void*>(attr.offset));
+        glVertexAttribIPointer(
+            attr.location, attr.count, t, stride,
+            reinterpret_cast<void*>(attr.offset));
     }
     if (attr.divisor > 0)
+    {
         glVertexAttribDivisor(attr.location, attr.divisor);
+    }
 }
 
 void VertexArray::SetVertexBuffer(std::shared_ptr<VertexBuffer> vb, const VertexLayout& layout)
 {
-    if (!m_handle || !vb) return;
+    if (!m_handle || !vb)
+    {
+        return;
+    }
     Bind();
     vb->Bind();
     for (const auto& attr : layout.GetAttributes())
+    {
         SetupAttrib(attr, static_cast<GLsizei>(layout.GetStride()));
+    }
     m_vertexBuffer = vb;
     Unbind();
 }
 
 void VertexArray::SetInstanceBuffer(std::shared_ptr<VertexBuffer> ib, const VertexLayout& layout)
 {
-    if (!m_handle || !ib) return;
+    if (!m_handle || !ib)
+    {
+        return;
+    }
     Bind();
     ib->Bind();
     for (const auto& attr : layout.GetAttributes())
+    {
         SetupAttrib(attr, static_cast<GLsizei>(layout.GetStride()));
+    }
     Unbind();
 }
 
 void VertexArray::SetIndexBuffer(std::shared_ptr<IndexBuffer> ib)
 {
-    if (!m_handle) return;
+    if (!m_handle)
+    {
+        return;
+    }
     Bind();
     ib->Bind();
     m_indexBuffer = ib;
@@ -128,7 +147,10 @@ void VertexArray::Draw(DrawMode mode) const
 
 void VertexArray::DrawInstanced(uint32_t instanceCount, DrawMode mode) const
 {
-    if (!m_handle || !m_vertexBuffer) return;
+    if (!m_handle || !m_vertexBuffer)
+    {
+        return;
+    }
 
     GLenum mode_gl = GL_TRIANGLES;
     switch (mode)
@@ -144,12 +166,16 @@ void VertexArray::DrawInstanced(uint32_t instanceCount, DrawMode mode) const
 
     Bind();
     if (m_indexBuffer)
+    {
         glDrawElementsInstanced(mode_gl, static_cast<GLsizei>(m_indexBuffer->GetCount()),
-                                GL_UNSIGNED_INT, nullptr, instanceCount);
+            GL_UNSIGNED_INT, nullptr, instanceCount);
+    }
     else
+    {
         glDrawArraysInstanced(mode_gl, 0,
             static_cast<GLsizei>(m_vertexBuffer->GetSize() / sizeof(float) / 3),
             instanceCount);
+    }
 }
 
 uint32_t VertexArray::GetHandle() const

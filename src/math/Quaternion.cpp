@@ -13,7 +13,12 @@ bool Quaternion::operator==(const Quaternion& rhs) const
            Approximately(z, rhs.z) && Approximately(w, rhs.w);
 }
 
-// -- Multiplication
+bool Quaternion::operator!=(const Quaternion& rhs) const
+{
+    return !(*this == rhs);
+}
+
+// -- Operations
 
 Quaternion Quaternion::operator*(const Quaternion& rhs) const
 {
@@ -34,35 +39,71 @@ Vector3 Quaternion::operator*(const Vector3& v) const
     return v + (uv * w + uuv) * 2.0f;
 }
 
-// -- Normalise / Conjugate / Inverse
-
 Quaternion& Quaternion::Normalize()
 {
     float len = Length();
-    if (len > k_Epsilon) { x /= len; y /= len; z /= len; w /= len; }
+    if (len > k_Epsilon)
+    {
+        x /= len;
+        y /= len;
+        z /= len;
+        w /= len;
+    }
     return *this;
 }
 
-Quaternion Quaternion::Normalized() const { Quaternion q = *this; q.Normalize(); return q; }
+Quaternion Quaternion::Normalized() const
+{
+    Quaternion q = *this;
+    q.Normalize();
+    return q;
+}
 
-Quaternion& Quaternion::Conjugate() { x = -x; y = -y; z = -z; return *this; }
-Quaternion Quaternion::Conjugated() const { return {-x, -y, -z, w}; }
+Quaternion& Quaternion::Conjugate()
+{
+    x = -x; y = -y; z = -z;
+    return *this;
+}
 
-Quaternion& Quaternion::Invert() { *this = Inverted(); return *this; }
+Quaternion Quaternion::Conjugated() const 
+{
+    return {-x, -y, -z, w};
+}
+
+Quaternion& Quaternion::Invert()
+{
+    *this = Inverted();
+    return *this;
+}
+
 Quaternion Quaternion::Inverted() const
 {
     float lenSq = LengthSquared();
-    if (lenSq < k_Epsilon) return *this;
+    if (lenSq < k_Epsilon)
+    {
+        return *this;
+    }
     Quaternion c = Conjugated();
     float inv = 1.0f / lenSq;
     return {c.x * inv, c.y * inv, c.z * inv, c.w * inv};
 }
 
-float Quaternion::LengthSquared() const { return x * x + y * y + z * z + w * w; }
-float Quaternion::Length() const { return std::sqrt(LengthSquared()); }
-float Quaternion::Dot(const Quaternion& rhs) const { return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w; }
+float Quaternion::LengthSquared() const
+{
+    return x * x + y * y + z * z + w * w;
+}
 
-// -- Euler conversion
+float Quaternion::Length() const
+{
+    return std::sqrt(LengthSquared());
+}
+
+float Quaternion::Dot(const Quaternion& rhs) const
+{
+    return x * rhs.x + y * rhs.y + z * rhs.z + w * rhs.w;
+}
+
+// -- Conversion
 
 Vector3 Quaternion::ToEulerAngles() const
 {
@@ -74,9 +115,13 @@ Vector3 Quaternion::ToEulerAngles() const
     float sinYaw = 2.0f * (w * y - z * x);
     float yaw;
     if (std::fabs(sinYaw) >= 1.0f)
+    {
         yaw = std::copysign(k_HalfPi, sinYaw);
+    }
     else
+    {
         yaw = std::asin(sinYaw);
+    }
 
     float sinRoll = 2.0f * (w * z + x * y);
     float cosRoll = 1.0f - 2.0f * (y * y + z * z);
@@ -87,7 +132,10 @@ Vector3 Quaternion::ToEulerAngles() const
 
 // -- Static factories
 
-Quaternion Quaternion::Identity() { return {0.0f, 0.0f, 0.0f, 1.0f}; }
+Quaternion Quaternion::Identity()
+{
+    return {0.0f, 0.0f, 0.0f, 1.0f};
+}
 
 Quaternion Quaternion::FromEulerAngles(float pitch, float yaw, float roll)
 {
@@ -116,7 +164,11 @@ Quaternion Quaternion::Slerp(const Quaternion& a, const Quaternion& b, float t)
 {
     float cosTheta = a.Dot(b);
     Quaternion bAdj = b;
-    if (cosTheta < 0.0f) { cosTheta = -cosTheta; bAdj = {-b.x, -b.y, -b.z, -b.w}; }
+    if (cosTheta < 0.0f)
+    {
+        cosTheta = -cosTheta;
+        bAdj = {-b.x, -b.y, -b.z, -b.w};
+    }
 
     if (cosTheta > 1.0f - k_Epsilon)
     {

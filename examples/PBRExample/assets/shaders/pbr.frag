@@ -16,7 +16,6 @@ layout(std140) uniform FrameBlock {
     PointLightData pointLights[4];
     SpotLightData  spotLights[4];
     ivec4 lightCounts;
-    mat4 lightSpaceMatrix;
 };
 
 // Debug: 0=normal, 1=albedo, 2=normal, 3=metallic, 4=roughness, 5=ao, 6=NaN(red)
@@ -43,18 +42,8 @@ uniform int   u_PBR_combinedMR = 0;
 
 // -- CSM shadows
 uniform sampler2D u_ShadowMap;
-uniform mat4      u_CSM_LightMatrices[3];
-uniform float     u_CSM_Splits[3];
-uniform float     u_CSM_TexelSize;
-uniform float     u_CSM_AtlasTexelX;
-uniform float     u_CSM_CascadeCount;
+uniform mat4      u_LightSpaceMatrix;
 uniform bool      u_ShadowsEnabled = false;
-
-// -- Point-light shadows
-uniform int        u_PointShadows;
-uniform samplerCube u_PointShadowMap[4];
-uniform float      u_PointShadowFar[4];
-uniform int        u_PointShadowEnabled[4];
 
 // -- IBL
 uniform samplerCube u_IrradianceMap;
@@ -84,7 +73,7 @@ vec3 GetWorldNormal()
     if (length(v_Tangent.xyz) > 0.0001)
     {
         T = normalize(v_Tangent.xyz);
-        B = normalize(cross(N, T)) * v_Tangent.w;  // w = handedness (±1)
+        B = normalize(cross(N, T)) * v_Tangent.w;  // w = handedness (+/-1)
     }
     else
     {
@@ -174,73 +163,25 @@ vec3 RadianceSpot(int i, vec3 N, vec3 V, vec3 P, vec3 albedo, float m, float r, 
     return CalcPBRRadiance(L, spotLights[i].diff.rgb*atten*intensity, N,V,albedo,m,r,F0);
 }
 
-// -- CSM directional shadow
-float ShadowCalculation(vec3 worldP, vec3 N, vec3 lightDir)
+// -- Directional shadow (single shadow map + 3x3 PCF, per LearnOpenGL)
+float ShadowCalculation(vec3 worldPos, vec3 N, vec3 lightDir)
 {
     if (!u_ShadowsEnabled) return 0.0;
 
-    // Select cascade by view-space depth along camera forward axis
-    float viewZ = abs(dot(worldP - cameraPos.xyz, cameraForward.xyz));
-    int cascade = 0;
-    for (int c = 0; c < int(u_CSM_CascadeCount) - 1; ++c)
-        if (viewZ > u_CSM_Splits[c]) cascade = c + 1;
-
-    vec4 fragLS = u_CSM_LightMatrices[cascade] * vec4(worldP, 1.0);
-    if (abs(fragLS.w) < 0.0001) return 0.0;
+    vec4 fragLS = u_LightSpaceMatrix * vec4(worldPos, 1.0);
     vec3 proj = fragLS.xyz / fragLS.w;
     proj = proj * 0.5 + 0.5;
-    // NaN/Inf guard + bounds check (NaN only true for x!=x)
-    if (proj.z > 1.0 || proj.z != proj.z ||
-        proj.x != proj.x || proj.y != proj.y ||
-        proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0)
-        return 0.0;
+    if (proj.z > 1.0) return 0.0;
 
-    // Atlas UV: cascade-local X mapped to atlas strip
-    proj.x = (proj.x + float(cascade)) / u_CSM_CascadeCount;
-
-    float bias = max(0.008 * (1.0 - dot(N, lightDir)), 0.002);
+    // Slope-scaled bias (more offset at grazing angles).
+    float bias = max(0.005 * (1.0 - dot(N, lightDir)), 0.0005);
 
     float shadow = 0.0;
-    // Atlas X texels are 1/N narrower (N cascades packed horizontally)
-    vec2 ts = vec2(u_CSM_AtlasTexelX, u_CSM_TexelSize);
-    for (int x = -2; x <= 2; ++x)
-        for (int y = -2; y <= 2; ++y)
-            shadow += (proj.z - bias > texture(u_ShadowMap, proj.xy + vec2(x, y) * ts).r) ? 1.0 : 0.0;
-    return shadow / 25.0;
-}
-
-// -- Omnidirectional point-light shadow (Poisson-disk PCF)
-float PointShadowCalculation(int idx, vec3 worldP, vec3 N)
-{
-    if (u_PointShadows == 0 || u_PointShadowEnabled[idx] == 0) return 0.0;
-
-    vec3 fragToLight = worldP - pointLights[idx].pos.xyz;
-    float currentDepth = length(fragToLight);
-    float farPlane = u_PointShadowFar[idx];
-    if (currentDepth > farPlane) return 0.0;   // beyond shadow range
-
-    const vec3 disk[20] = vec3[](
-        vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1),
-        vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
-        vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
-        vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
-        vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
-    );
-
-    float bias = max(0.15 * (1.0 - dot(N, normalize(-fragToLight))), 0.05);
-    float viewDist = length(cameraPos.xyz - worldP);
-    float diskRadius = (1.0 + (viewDist / farPlane)) / 40.0;
-
-    float shadow = 0.0;
-    for (int s = 0; s < 20; ++s)
-    {
-        float closestDepth = texture(u_PointShadowMap[idx],
-                                     fragToLight + disk[s] * diskRadius).r;
-        closestDepth *= farPlane;
-        if (currentDepth - bias > closestDepth)
-            shadow += 1.0;
-    }
-    return shadow / 20.0;
+    vec2 texelSize = 1.0 / vec2(textureSize(u_ShadowMap, 0));
+    for (int x = -1; x <= 1; ++x)
+        for (int y = -1; y <= 1; ++y)
+            shadow += (proj.z - bias > texture(u_ShadowMap, proj.xy + vec2(x, y) * texelSize).r) ? 1.0 : 0.0;
+    return shadow / 9.0;
 }
 
 void main()
@@ -262,10 +203,7 @@ void main()
         Lo += (1.0-shadow) * RadianceDir(N,V,albedo,metallic,roughness,F0);
     }
     for (int i=0; i<lightCounts.y && i<4; ++i)
-    {
-        float ptShadow = PointShadowCalculation(i, worldPos, N);
-        Lo += (1.0 - ptShadow) * RadiancePoint(i, N,V,worldPos,albedo,metallic,roughness,F0);
-    }
+        Lo += RadiancePoint(i, N,V,worldPos,albedo,metallic,roughness,F0);
     for (int i=0; i<lightCounts.z && i<4; ++i)
         Lo += RadianceSpot(i, N,V,worldPos,albedo,metallic,roughness,F0);
 

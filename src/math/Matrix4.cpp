@@ -13,6 +13,96 @@ Matrix4::Matrix4()
     SetIdentity();
 }
 
+// -- Raw data access (for passing to OpenGL)
+
+const float* Matrix4::Data() const
+{
+    return &m[0][0];
+}
+
+float* Matrix4::Data() {
+    return &m[0][0];
+}
+
+// -- Element access
+
+float& Matrix4::operator()(int col, int row)
+{
+    return m[col][row];
+}
+
+float Matrix4::operator()(int col, int row) const
+{
+    return m[col][row];
+}
+
+// -- Comparison
+
+bool Matrix4::operator==(const Matrix4& rhs) const
+{
+    for (int i = 0; i < 4; ++i)
+    {
+        for (int j = 0; j < 4; ++j)
+        {
+            if (!Approximately(m[i][j], rhs.m[i][j]))
+            {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool Matrix4::operator!=(const Matrix4& rhs) const
+{
+    return !(*this == rhs);
+}
+
+// -- Arithmetic
+
+Matrix4 Matrix4::operator*(const Matrix4& rhs) const
+{
+    Matrix4 result;
+    for (int col = 0; col < 4; ++col)
+    {
+        for (int row = 0; row < 4; ++row)
+        {
+            result.m[col][row] =
+                m[0][row] * rhs.m[col][0] +
+                m[1][row] * rhs.m[col][1] +
+                m[2][row] * rhs.m[col][2] +
+                m[3][row] * rhs.m[col][3];
+        }
+    }
+    return result;
+}
+
+Vector4 Matrix4::operator*(const Vector4& v) const
+{
+    return {
+        m[0][0] * v.x + m[1][0] * v.y + m[2][0] * v.z + m[3][0] * v.w,
+        m[0][1] * v.x + m[1][1] * v.y + m[2][1] * v.z + m[3][1] * v.w,
+        m[0][2] * v.x + m[1][2] * v.y + m[2][2] * v.z + m[3][2] * v.w,
+        m[0][3] * v.x + m[1][3] * v.y + m[2][3] * v.z + m[3][3] * v.w
+    };
+}
+
+Vector3 Matrix4::TransformPoint(const Vector3& v) const
+{
+    Vector4 r = (*this) * Vector4(v, 1.0f);
+    if (std::fabs(r.w) > k_Epsilon)
+        return {r.x / r.w, r.y / r.w, r.z / r.w};
+    return {r.x, r.y, r.z};
+}
+
+Vector3 Matrix4::TransformDirection(const Vector3& v) const
+{
+    Vector4 r = (*this) * Vector4(v, 0.0f);
+    return {r.x, r.y, r.z};
+}
+
+// -- Initialization
+
 Matrix4& Matrix4::SetIdentity()
 {
     std::memset(m, 0, sizeof(m));
@@ -140,61 +230,7 @@ Matrix4& Matrix4::SetLookAt(const Vector3& eye, const Vector3& target, const Vec
     return *this;
 }
 
-// -- Comparison
-
-bool Matrix4::operator==(const Matrix4& rhs) const
-{
-    for (int i = 0; i < 4; ++i)
-        for (int j = 0; j < 4; ++j)
-            if (!Approximately(m[i][j], rhs.m[i][j]))
-                return false;
-    return true;
-}
-
-// -- Matrix multiplication
-
-Matrix4 Matrix4::operator*(const Matrix4& rhs) const
-{
-    Matrix4 result;
-    for (int col = 0; col < 4; ++col)
-    {
-        for (int row = 0; row < 4; ++row)
-        {
-            result.m[col][row] =
-                m[0][row] * rhs.m[col][0] +
-                m[1][row] * rhs.m[col][1] +
-                m[2][row] * rhs.m[col][2] +
-                m[3][row] * rhs.m[col][3];
-        }
-    }
-    return result;
-}
-
-Vector4 Matrix4::operator*(const Vector4& v) const
-{
-    return {
-        m[0][0] * v.x + m[1][0] * v.y + m[2][0] * v.z + m[3][0] * v.w,
-        m[0][1] * v.x + m[1][1] * v.y + m[2][1] * v.z + m[3][1] * v.w,
-        m[0][2] * v.x + m[1][2] * v.y + m[2][2] * v.z + m[3][2] * v.w,
-        m[0][3] * v.x + m[1][3] * v.y + m[2][3] * v.z + m[3][3] * v.w
-    };
-}
-
-Vector3 Matrix4::TransformPoint(const Vector3& v) const
-{
-    Vector4 r = (*this) * Vector4(v, 1.0f);
-    if (std::fabs(r.w) > k_Epsilon)
-        return {r.x / r.w, r.y / r.w, r.z / r.w};
-    return {r.x, r.y, r.z};
-}
-
-Vector3 Matrix4::TransformDirection(const Vector3& v) const
-{
-    Vector4 r = (*this) * Vector4(v, 0.0f);
-    return {r.x, r.y, r.z};
-}
-
-// -- Transpose
+// -- Operations
 
 Matrix4& Matrix4::Transpose()
 {
@@ -216,28 +252,6 @@ Matrix4 Matrix4::Transposed() const
     result.Transpose();
     return result;
 }
-
-// -- Determinant
-
-float Matrix4::Determinant() const
-{
-    float a0 = m[0][0] * m[1][1] - m[0][1] * m[1][0];
-    float a1 = m[0][0] * m[1][2] - m[0][2] * m[1][0];
-    float a2 = m[0][0] * m[1][3] - m[0][3] * m[1][0];
-    float a3 = m[0][1] * m[1][2] - m[0][2] * m[1][1];
-    float a4 = m[0][1] * m[1][3] - m[0][3] * m[1][1];
-    float a5 = m[0][2] * m[1][3] - m[0][3] * m[1][2];
-    float b0 = m[2][0] * m[3][1] - m[2][1] * m[3][0];
-    float b1 = m[2][0] * m[3][2] - m[2][2] * m[3][0];
-    float b2 = m[2][0] * m[3][3] - m[2][3] * m[3][0];
-    float b3 = m[2][1] * m[3][2] - m[2][2] * m[3][1];
-    float b4 = m[2][1] * m[3][3] - m[2][3] * m[3][1];
-    float b5 = m[2][2] * m[3][3] - m[2][3] * m[3][2];
-
-    return a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
-}
-
-// -- Inverted
 
 Matrix4& Matrix4::Invert()
 {
@@ -263,7 +277,7 @@ Matrix4 Matrix4::Inverted() const
     float det = a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
     if (std::fabs(det) < k_Epsilon)
     {
-        return Identity();  // degenerated matrix -> return identity
+        return Identity(); // degenerated matrix -> return identity
     }
 
     Matrix4 result;
@@ -290,6 +304,24 @@ Matrix4 Matrix4::Inverted() const
     result.m[3][3] = (+m[2][0] * a3 - m[2][1] * a1 + m[2][2] * a0) * invDet;
 
     return result;
+}
+
+float Matrix4::Determinant() const
+{
+    float a0 = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+    float a1 = m[0][0] * m[1][2] - m[0][2] * m[1][0];
+    float a2 = m[0][0] * m[1][3] - m[0][3] * m[1][0];
+    float a3 = m[0][1] * m[1][2] - m[0][2] * m[1][1];
+    float a4 = m[0][1] * m[1][3] - m[0][3] * m[1][1];
+    float a5 = m[0][2] * m[1][3] - m[0][3] * m[1][2];
+    float b0 = m[2][0] * m[3][1] - m[2][1] * m[3][0];
+    float b1 = m[2][0] * m[3][2] - m[2][2] * m[3][0];
+    float b2 = m[2][0] * m[3][3] - m[2][3] * m[3][0];
+    float b3 = m[2][1] * m[3][2] - m[2][2] * m[3][1];
+    float b4 = m[2][1] * m[3][3] - m[2][3] * m[3][1];
+    float b5 = m[2][2] * m[3][3] - m[2][3] * m[3][2];
+
+    return a0 * b5 - a1 * b4 + a2 * b3 + a3 * b2 - a4 * b1 + a5 * b0;
 }
 
 // -- Static factories

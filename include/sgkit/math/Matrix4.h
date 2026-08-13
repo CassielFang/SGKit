@@ -23,16 +23,16 @@ public:
     Matrix4();
 
     // -- Raw data access (for passing to OpenGL)
-    const float* Data() const { return &m[0][0]; }
-    float* Data()             { return &m[0][0]; }
+    const float* Data() const;
+    float* Data();
 
     // -- Element access
-    float& operator()(int col, int row)       { return m[col][row]; }
-    float  operator()(int col, int row) const { return m[col][row]; }
+    float& operator()(int col, int row);
+    float  operator()(int col, int row) const;
 
     // -- Comparison
     bool operator==(const Matrix4& rhs) const;
-    bool operator!=(const Matrix4& rhs) const { return !(*this == rhs); }
+    bool operator!=(const Matrix4& rhs) const;
 
     // -- Arithmetic
     Matrix4 operator*(const Matrix4& rhs) const;

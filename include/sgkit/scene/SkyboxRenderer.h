@@ -29,8 +29,8 @@ public:
     // skybox shader.  Returns false if shaders or the HDR are missing.
     bool Setup(const std::string& hdrPath);
 
-    // Draw the skybox.  Call AFTER scene rendering so it fills only empty
-    // pixels (depth == far plane).  The view matrix should have its
+    // Draw the skybox. Call AFTER scene rendering so it fills only empty
+    // pixels (depth == far plane). The view matrix should have its
     // translation already stripped.
     void Render(const math::Matrix4& view, const math::Matrix4& proj);
 
@@ -38,8 +38,8 @@ public:
     void Destroy();
 
 private:
-    graphics::Shader      m_shader;
-    graphics::Shader      m_equiConvShader;
+    graphics::Shader       m_shader;
+    graphics::Shader       m_equiConvShader;
     graphics::VertexBuffer m_vb;
     graphics::IndexBuffer  m_ib;
     graphics::VertexArray  m_vao;

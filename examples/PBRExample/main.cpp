@@ -251,8 +251,8 @@ ApplicationConfig sgkit::CreateApplication()
             // Try common paths - first match wins
             const char* modelPaths[] = {
                 //"assets/models/star_wars_model.glb",
-                "assets/models/space_ship_torb.glb",
-                //"assets/models/cute cartoon girl.glb"
+                //"assets/models/space_ship_torb.glb",
+                "assets/models/cute cartoon girl.glb"
                 //"assets/models/gekco.glb"
             };
             for (auto* path : modelPaths)
@@ -264,10 +264,10 @@ ApplicationConfig sgkit::CreateApplication()
                     s_modelEntities = result.entities;
 
                     auto* rootTf = sm.GetComponent<scene::component::Transform>(s_modelRoot);
-                    rootTf->position = { 0.0f, 4.0f, 0.0f };
-                    rootTf->scale    = { 0.3f, 0.3f, 0.3f };
-                    // rootTf->position = { 0.0f, 1.0f, 0.0f };
-                    // rootTf->scale    = { 2.0f, 2.0f, 2.0f };
+                    // rootTf->position = { 0.0f, 4.0f, 0.0f };
+                    // rootTf->scale    = { 0.3f, 0.3f, 0.3f };
+                    rootTf->position = { 0.0f, 0.5f, 0.0f };
+                    rootTf->scale    = { 2.5f, 2.5f, 2.5f };
 
                     // Origin marker: small glowing cube at model position (NOT parented, so T only hides model)
                     {
@@ -304,7 +304,7 @@ ApplicationConfig sgkit::CreateApplication()
                 auto* l = sm.AddComponent<scene::component::Light>(e);
                 l->type      = scene::component::Light::Type::Directional;
                 l->direction = { 0.5f, -1.0f, 0.3f };
-                l->ambient   = { 0.18f, 0.18f, 0.20f };
+                l->ambient   = { 0.22f, 0.22f, 0.26f };
                 l->diffuse   = { 2.0f, 1.9f, 1.6f };
                 l->specular  = { 1.0f, 1.0f, 1.0f };
             }

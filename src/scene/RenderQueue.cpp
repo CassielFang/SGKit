@@ -16,7 +16,9 @@ void RenderQueue::Clear()
 void RenderQueue::Submit(std::shared_ptr<Mesh> mesh, const math::Matrix4& worldMatrix)
 {
     if (!mesh || !mesh->material || !mesh->material->shader || !mesh->vertexArray)
+    {
         return;
+    }
 
     graphics::Shader*       shader = mesh->material->shader.get();
     Material*               mat    = mesh->material.get();
@@ -66,6 +68,21 @@ void RenderQueue::Sort(const math::Vector3& cameraPos)
             };
             return depth(a) > depth(b);
         });
+}
+
+const std::vector<RenderBatch>& RenderQueue::GetOpaqueBatches() const
+{
+    return m_opaqueBatches;
+}
+
+const std::vector<RenderBatch>& RenderQueue::GetTransparentBatches() const
+{
+    return m_transparentBatches;
+}
+
+bool RenderQueue::HasTransparentBatches() const
+{
+    return !m_transparentBatches.empty();
 }
 
 }

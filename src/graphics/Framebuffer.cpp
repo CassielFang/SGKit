@@ -119,9 +119,15 @@ bool FrameBuffer::CreateColorDepth(int width, int height, bool hdr)
     bool ok = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    if (ok) SGK_LOG_INFO("FBO", "Created color+depth (fbo=%u, color=%u, %dx%d %s)",
-                         m_fbo, m_colorTexture, width, height, hdr ? "HDR" : "LDR");
-    else    { SGK_LOG_ERROR("FBO", "Failed color+depth create"); Destroy(); }
+    if (ok)
+    {
+        SGK_LOG_INFO("FBO", "Created color+depth (fbo=%u, color=%u, %dx%d %s)",
+            m_fbo, m_colorTexture, width, height, hdr ? "HDR" : "LDR");
+    }
+    else {
+        SGK_LOG_ERROR("FBO", "Failed color+depth create");
+        Destroy();
+    }
     return ok;
 }
 
@@ -140,8 +146,10 @@ bool FrameBuffer::CreateCubemap(int size)
     glGenTextures(1, &m_depthTexture);
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_depthTexture);
     for (unsigned int i = 0; i < 6; ++i)
+    {
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT,
-                     size, size, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+            size, size, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -155,31 +163,53 @@ bool FrameBuffer::CreateCubemap(int size)
     bool ok = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    if (ok) SGK_LOG_INFO("FBO", "Created cubemap (fbo=%u, depthCube=%u, %dx%d)", m_fbo, m_depthTexture, m_width, m_height);
-    else { SGK_LOG_ERROR("FBO", "Failed cubemap create"); Destroy(); }
+    if (ok)
+    {
+        SGK_LOG_INFO("FBO", "Created cubemap (fbo=%u, depthCube=%u, %dx%d)",
+            m_fbo, m_depthTexture, m_width, m_height);
+    }
+    else
+    {
+        SGK_LOG_ERROR("FBO", "Failed cubemap create");
+        Destroy();
+    }
     return ok;
 }
 
 void FrameBuffer::Destroy()
 {
     SGK_LOG_INFO("FBO", "Destroyed (fbo=%u, color=%u, depth=%u, %dx%d)",
-                 m_fbo, m_colorTexture, m_depthTexture, m_width, m_height);
-    if (m_colorTexture) { glDeleteTextures(1, &m_colorTexture); m_colorTexture = 0; }
+        m_fbo, m_colorTexture, m_depthTexture, m_width, m_height);
+    if (m_colorTexture)
+    {
+        glDeleteTextures(1, &m_colorTexture);
+        m_colorTexture = 0;
+    }
     if (m_depthTexture)
     {
-        if (m_depthIsRBO) glDeleteRenderbuffers(1, &m_depthTexture);
-        else              glDeleteTextures(1, &m_depthTexture);
+        if (m_depthIsRBO)
+        {
+            glDeleteRenderbuffers(1, &m_depthTexture);
+        }
+        else
+        {
+            glDeleteTextures(1, &m_depthTexture);
+        }
         m_depthTexture = 0;
     }
-    if (m_fbo) { glDeleteFramebuffers(1, &m_fbo); m_fbo = 0; }
+    if (m_fbo)
+    {
+        glDeleteFramebuffers(1, &m_fbo);
+        m_fbo = 0;
+    }
     m_isCubemap  = false;
     m_hasColor   = false;
     m_depthIsRBO = false;
 }
 
 uint32_t FrameBuffer::GetColorTexture() const { return m_colorTexture; }
-bool     FrameBuffer::IsCubemap()        const { return m_isCubemap; }
-bool     FrameBuffer::HasColor()         const { return m_hasColor; }
+bool     FrameBuffer::IsCubemap()       const { return m_isCubemap; }
+bool     FrameBuffer::HasColor()        const { return m_hasColor; }
 
 bool FrameBuffer::IsValid() const
 {

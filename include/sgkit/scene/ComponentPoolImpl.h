@@ -12,7 +12,9 @@ T* ComponentPool<T>::Add(Entity entity)
     EnsureSize(idx + 1);
 
     if (Has(entity))
+    {
         return &m_components[m_sparse[idx]];
+    }
 
     m_sparse[idx] = m_components.size();
     m_dense.push_back(entity);
@@ -23,7 +25,10 @@ T* ComponentPool<T>::Add(Entity entity)
 template<typename T>
 void ComponentPool<T>::Remove(Entity entity)
 {
-    if (!Has(entity.m_id)) return;
+    if (!Has(entity.m_id))
+    {
+        return;
+    }
 
     size_t idx = m_sparse[entity.m_id];
     size_t last = m_components.size() - 1;
@@ -42,21 +47,30 @@ void ComponentPool<T>::Remove(Entity entity)
 template<typename T>
 T* ComponentPool<T>::Get(Entity entity)
 {
-    if (!Has(entity.m_id)) return nullptr;
+    if (!Has(entity.m_id))
+    {
+        return nullptr;
+    }
     return &m_components[m_sparse[entity.m_id]];
 }
 
 template<typename T>
 const T* ComponentPool<T>::Get(Entity entity) const
 {
-    if (!Has(entity.m_id)) return nullptr;
+    if (!Has(entity.m_id))
+    {
+        return nullptr;
+    }
     return &m_components[m_sparse[entity.m_id]];
 }
 
 template<typename T>
 bool ComponentPool<T>::Has(Entity entity) const
 {
-    if (entity.m_id >= m_sparse.size()) return false;
+    if (entity.m_id >= m_sparse.size())
+    {
+        return false;
+    }
     size_t idx = m_sparse[entity.m_id];
     return idx != 0xFFFFFFFF && idx < m_dense.size() && m_dense[idx] == entity.m_id;
 }
@@ -74,7 +88,9 @@ template<typename T>
 void ComponentPool<T>::EnsureSize(size_t size)
 {
     if (m_sparse.size() < size)
+    {
         m_sparse.resize(size, 0xFFFFFFFF);
+    }
 }
 
 }

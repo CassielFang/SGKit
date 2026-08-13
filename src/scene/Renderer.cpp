@@ -11,7 +11,10 @@ namespace scene {
 
 void Renderer::Create()
 {
-    if (g_Renderer) return;
+    if (g_Renderer)
+    {
+
+    }
     g_Renderer = new Renderer;
     glEnable(GL_MULTISAMPLE);
     SGK_LOG_INFO("Renderer", "Module created");
@@ -19,7 +22,10 @@ void Renderer::Create()
 
 void Renderer::Destroy()
 {
-    if (!g_Renderer) return;
+    if (!g_Renderer)
+    {
+        return;
+    }
     delete g_Renderer;
     g_Renderer = nullptr;
     SGK_LOG_INFO("Renderer", "Module destroyed");
@@ -52,8 +58,14 @@ void Renderer::SetWireframe(bool enabled)
 
 void Renderer::SetDepthTest(bool enabled)
 {
-    if (enabled) glEnable(GL_DEPTH_TEST);
-    else         glDisable(GL_DEPTH_TEST);
+    if (enabled)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
+    else
+    {
+        glDisable(GL_DEPTH_TEST);
+    }
 }
 
 void Renderer::SetBlend(bool enabled)
@@ -123,7 +135,8 @@ void Renderer::SetLights(const std::vector<LightInstance>& instances)
             m_frameData.dirSpecular[0]=l.specular.x; m_frameData.dirSpecular[1]=l.specular.y; m_frameData.dirSpecular[2]=l.specular.z;
             break;
         case component::Light::Type::Point:
-            if (pC < 4) {
+            if (pC < 4)
+            {
                 auto& p = m_frameData.pointLights[pC++];
                 p.position[0]=li.worldPosition.x; p.position[1]=li.worldPosition.y; p.position[2]=li.worldPosition.z;
                 p.ambient[0]=l.ambient.x; p.ambient[1]=l.ambient.y; p.ambient[2]=l.ambient.z;
@@ -133,7 +146,8 @@ void Renderer::SetLights(const std::vector<LightInstance>& instances)
             }
             break;
         case component::Light::Type::SpotLight:
-            if (sC < 4) {
+            if (sC < 4)
+            {
                 auto& s = m_frameData.spotLights[sC++];
                 s.position[0]=li.worldPosition.x; s.position[1]=li.worldPosition.y; s.position[2]=li.worldPosition.z;
                 s.direction[0]=l.direction.x; s.direction[1]=l.direction.y; s.direction[2]=l.direction.z;
@@ -153,38 +167,15 @@ void Renderer::SetLights(const std::vector<LightInstance>& instances)
 
 void Renderer::CommitFrameData()
 {
-    memcpy(m_frameData.lightSpaceMatrix,
-           m_csmShadow.LightMatrices()[0].Data(), 16 * sizeof(float));
-    m_frameData.lightCounts[3] = m_csmShadow.GetShadowTex() ? 1 : 0;
     UpdateFrameUBO();
 }
 
-// -- CSM Shadow (delegate)
+// -- Directional shadow (delegate)
 
-void Renderer::RenderCSMShadowPass(
-    const RenderQueue& queue, const math::Vector3& lightDir,
-    const math::Matrix4& camView, const math::Matrix4& camProj,
-    const math::Vector3& cameraPos, float cameraNear, float cameraFar,
-    float aspect)
+void Renderer::RenderDirectionalShadowPass(
+    const RenderQueue& queue, const math::Vector3& lightDir)
 {
-    m_csmShadow.RenderPass(
-        queue, lightDir, camView, camProj,
-        cameraPos, cameraNear, cameraFar, aspect);
-}
-
-// -- Point-light shadows (delegate)
-
-void Renderer::RenderPointShadowPass(
-    const RenderQueue& queue,
-    const math::Vector3 lightPositions[4],
-    int activeCount)
-{
-    m_pointShadow.RenderPass(queue, lightPositions, activeCount, 25.0f);
-}
-
-void Renderer::ApplyPointShadowUniforms(graphics::Shader& shader) const
-{
-    m_pointShadow.ApplyToShader(shader, 8);  // cubemaps at units 8-11
+    m_dirShadow.RenderPass(queue, lightDir);
 }
 
 // -- Skybox (delegate)
@@ -215,7 +206,9 @@ void Renderer::Execute(const RenderQueue& queue)
 
     // 1. Opaque pass
     for (auto& batch : queue.GetOpaqueBatches())
+    {
         ExecuteBatch(batch);
+    }
 
     // 2. Skybox - between opaque and transparent so additive markers stay visible
     m_skybox.Render(m_skyboxView, m_skyboxProj);
@@ -228,7 +221,9 @@ void Renderer::Execute(const RenderQueue& queue)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         for (auto& batch : queue.GetTransparentBatches())
+        {
             ExecuteBatch(batch);
+        }
 
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
@@ -238,7 +233,9 @@ void Renderer::Execute(const RenderQueue& queue)
 void Renderer::ExecuteBatch(const RenderBatch& batch)
 {
     if (!batch.shader || !batch.material || !batch.vertexArray || batch.instances.empty())
+    {
         return;
+    }
 
     auto& shader = *batch.shader;
     auto& mat    = *batch.material;
@@ -257,19 +254,26 @@ void Renderer::ExecuteBatch(const RenderBatch& batch)
         shader.SetFloat("u_PBR_normalScale",    mat.normalScale);
         shader.SetFloat("u_PBR_aoStrength",     mat.aoStrength);
 
-        if (mat.albedo)       { shader.SetInt("u_PBR_albedo", mat.albedo->GetSlot());           mat.albedo->Bind(); }
-        if (mat.metallic)     { shader.SetInt("u_PBR_metallic", mat.metallic->GetSlot());       mat.metallic->Bind(); }
-        if (mat.roughness)    { shader.SetInt("u_PBR_roughness", mat.roughness->GetSlot());     mat.roughness->Bind(); }
-        if (mat.normalMap)    { shader.SetInt("u_PBR_normal", mat.normalMap->GetSlot());        mat.normalMap->Bind(); }
-        if (mat.ao)           { shader.SetInt("u_PBR_ao", mat.ao->GetSlot());                   mat.ao->Bind(); }
-        if (mat.emissive)     { shader.SetInt("u_PBR_emissive", mat.emissive->GetSlot());
-                                shader.SetVector3("u_PBR_emissiveFactor", mat.emissiveFactor);   mat.emissive->Bind(); }
-        else                  { shader.SetVector3("u_PBR_emissiveFactor", math::Vector3{}); }
+        if (mat.albedo)    { shader.SetInt("u_PBR_albedo", mat.albedo->GetSlot());       mat.albedo->Bind(); }
+        if (mat.metallic)  { shader.SetInt("u_PBR_metallic", mat.metallic->GetSlot());   mat.metallic->Bind(); }
+        if (mat.roughness) { shader.SetInt("u_PBR_roughness", mat.roughness->GetSlot()); mat.roughness->Bind(); }
+        if (mat.normalMap) { shader.SetInt("u_PBR_normal", mat.normalMap->GetSlot());    mat.normalMap->Bind(); }
+        if (mat.ao)        { shader.SetInt("u_PBR_ao", mat.ao->GetSlot());               mat.ao->Bind(); }
+        if (mat.emissive) 
+        {
+            shader.SetInt("u_PBR_emissive", mat.emissive->GetSlot());
+            shader.SetVector3("u_PBR_emissiveFactor", mat.emissiveFactor);
+            mat.emissive->Bind();
+        }
+        else
+        {
+            shader.SetVector3("u_PBR_emissiveFactor", math::Vector3{});
+        }
     }
     else
     {
-        if (mat.diffuse)      { shader.SetInt("u_Material.diffuse", mat.diffuse->GetSlot());     mat.diffuse->Bind(); }
-        if (mat.specular)     { shader.SetInt("u_Material.specular", mat.specular->GetSlot());   mat.specular->Bind(); }
+        if (mat.diffuse)  { shader.SetInt("u_Material.diffuse", mat.diffuse->GetSlot());   mat.diffuse->Bind(); }
+        if (mat.specular) { shader.SetInt("u_Material.specular", mat.specular->GetSlot()); mat.specular->Bind(); }
         shader.SetFloat("u_Material.shininess", mat.shininess);
     }
 
@@ -326,7 +330,8 @@ void Renderer::ApplyBatchState(const RenderBatch& batch)
 
 void Renderer::EnsureUBO()
 {
-    if (!m_uboReady) {
+    if (!m_uboReady)
+    {
         m_frameUBO.Create(sizeof(FrameUniforms), 0);
         m_uboReady = true;
     }
@@ -340,10 +345,11 @@ void Renderer::UpdateFrameUBO()
 
 void Renderer::SetFrameUniforms(graphics::Shader& shader)
 {
-    shader.SetInt("u_ShadowsEnabled", m_csmShadow.GetShadowTex() ? 1 : 0);
-    if (m_csmShadow.GetShadowTex())
-        m_csmShadow.ApplyToShader(shader);
-    ApplyPointShadowUniforms(shader);
+    shader.SetInt("u_ShadowsEnabled", m_dirShadow.GetShadowTex() ? 1 : 0);
+    if (m_dirShadow.GetShadowTex())
+    {
+        m_dirShadow.ApplyToShader(shader);
+    }
 }
 
 }

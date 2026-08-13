@@ -12,15 +12,15 @@ bool SkyboxRenderer::Setup(const std::string& hdrPath)
     Destroy();
 
     if (!m_shader.LoadFromFile(
-            "assets/shaders/skybox.vert",
-            "assets/shaders/skybox.frag"))
+        "assets/shaders/skybox.vert",
+        "assets/shaders/skybox.frag"))
     {
         SGK_LOG_ERROR("Skybox", "Failed to load skybox shader");
         return false;
     }
     if (!m_equiConvShader.LoadFromFile(
-            "assets/shaders/equirect_to_cubemap.vert",
-            "assets/shaders/equirect_to_cubemap.frag"))
+        "assets/shaders/equirect_to_cubemap.vert",
+        "assets/shaders/equirect_to_cubemap.frag"))
     {
         SGK_LOG_ERROR("Skybox", "Failed to load equirect conversion shader");
         return false;
@@ -46,10 +46,8 @@ bool SkyboxRenderer::Setup(const std::string& hdrPath)
     m_vb.Create(cubeVerts, sizeof(cubeVerts));
     m_ib.Create(cubeIdx, 36);
     m_vao.Create();
-    m_vao.SetVertexBuffer(
-        std::make_shared<graphics::VertexBuffer>(std::move(m_vb)), lo);
-    m_vao.SetIndexBuffer(
-        std::make_shared<graphics::IndexBuffer>(std::move(m_ib)));
+    m_vao.SetVertexBuffer(std::make_shared<graphics::VertexBuffer>(std::move(m_vb)), lo);
+    m_vao.SetIndexBuffer(std::make_shared<graphics::IndexBuffer>(std::move(m_ib)));
 
     GenerateCubemap(hdrPath);
 
@@ -72,8 +70,10 @@ void SkyboxRenderer::GenerateCubemap(const std::string& hdrPath)
     glGenTextures(1, &m_cubemap);
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_cubemap);
     for (int i = 0; i < 6; ++i)
+    {
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F,
-                     kRes, kRes, 0, GL_RGB, GL_FLOAT, nullptr);
+            kRes, kRes, 0, GL_RGB, GL_FLOAT, nullptr);
+    }
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -111,7 +111,7 @@ void SkyboxRenderer::GenerateCubemap(const std::string& hdrPath)
     m_equiConvShader.SetMatrix4("u_ViewProjection", proj *
         math::Matrix4::LookAt(math::Vector3{0,0,0}, math::Vector3{1,0,0}, math::Vector3{0,-1,0}));
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                           GL_TEXTURE_CUBE_MAP_POSITIVE_X, m_cubemap, 0);
+        GL_TEXTURE_CUBE_MAP_POSITIVE_X, m_cubemap, 0);
     m_vao.Draw();
     glDisable(GL_SCISSOR_TEST);
 
@@ -125,8 +125,8 @@ void SkyboxRenderer::GenerateCubemap(const std::string& hdrPath)
         m_equiConvShader.SetMatrix4("u_ViewProjection", proj * view);
 
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                               GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                               m_cubemap, 0);
+            GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+            m_cubemap, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         m_vao.Draw();
     }
@@ -143,7 +143,10 @@ void SkyboxRenderer::GenerateCubemap(const std::string& hdrPath)
 
 void SkyboxRenderer::Render(const math::Matrix4& view, const math::Matrix4& proj)
 {
-    if (!m_ready) return;
+    if (!m_ready)
+    {
+        return;
+    }
 
     math::Matrix4 viewNoTrans = view;
     viewNoTrans.m[3][0] = 0.f;
@@ -168,7 +171,10 @@ void SkyboxRenderer::Render(const math::Matrix4& view, const math::Matrix4& proj
 
 void SkyboxRenderer::Destroy()
 {
-    if (m_cubemap) { glDeleteTextures(1, &m_cubemap); m_cubemap = 0; }
+    if (m_cubemap)
+    {
+        glDeleteTextures(1, &m_cubemap); m_cubemap = 0;
+    }
     m_ready = false;
 }
 

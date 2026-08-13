@@ -15,7 +15,7 @@ TaskHandle<T>::TaskHandle(TaskHandle&& other) noexcept
     : m_future(std::move(other.m_future))
     , m_consumed(other.m_consumed)
 {
-    other.m_consumed = true;   // moved-from behaves as consumed
+    other.m_consumed = true; // moved-from behaves as consumed
 }
 
 template<typename T>

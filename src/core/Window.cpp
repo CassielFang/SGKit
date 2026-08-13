@@ -23,10 +23,14 @@
 static std::wstring ToWideString(const std::string& utf8)
 {
     if (utf8.empty())
+    {
         return L"";
+    }
     int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
     if (len <= 0)
+    {
         return L"";
+    }
     std::wstring result(len - 1, L'\0');
     MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, result.data(), len);
     return result;
@@ -81,7 +85,9 @@ Window::Window() : m_impl(std::make_unique<Impl>()) {}
 Window::~Window()
 {
     if (!m_impl->hwnd)
+    {
         return;
+    }
 
     wglMakeCurrent(m_impl->dc, nullptr);
     if (m_impl->glContext)
@@ -142,7 +148,9 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
     // -- 2. Calculate window size
     DWORD dwStyle = WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
     if (desc.resizable)
+    {
         dwStyle |= WS_SIZEBOX | WS_MAXIMIZEBOX;
+    }
 
     RECT rect = {0, 0, desc.width, desc.height};
     AdjustWindowRect(&rect, dwStyle, FALSE);
@@ -220,8 +228,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
 
     int pixelFormat[32];
     UINT numFormats;
-    BOOL ok = wglChoosePixelFormatARB(m_impl->dc, pixelAttribs, nullptr, 32,
-                                        pixelFormat, &numFormats);
+    BOOL ok = wglChoosePixelFormatARB(m_impl->dc, pixelAttribs, nullptr, 32, pixelFormat, &numFormats);
     if (ok && numFormats > 0)
     {
         PIXELFORMATDESCRIPTOR pfd;
@@ -245,8 +252,7 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
             WGL_STENCIL_BITS_ARB, 8,
             0
         };
-        ok = wglChoosePixelFormatARB(m_impl->dc, noMsaAAttribs, nullptr, 32,
-                                        pixelFormat, &numFormats);
+        ok = wglChoosePixelFormatARB(m_impl->dc, noMsaAAttribs, nullptr, 32, pixelFormat, &numFormats);
         if (ok && numFormats > 0)
         {
             PIXELFORMATDESCRIPTOR pfd;
@@ -366,7 +372,10 @@ bool Window::Create(void* hInst, const WindowDesc& desc)
 
 void Window::Destroy()
 {
-    if (!g_currentWindow) return;
+    if (!g_currentWindow)
+    {
+        return;
+    }
     delete g_currentWindow;
     g_currentWindow = nullptr;
     SGK_LOG_INFO("Window", "Module destroyed");
@@ -400,19 +409,25 @@ bool Window::IsCloseRequest() const
 void Window::SwapBuffers()
 {
     if (m_impl->dc)
+    {
         ::SwapBuffers(m_impl->dc);
+    }
 }
 
 void Window::Maximize()
 {
     if (m_impl->hwnd)
+    {
         SetFullscreen(true);
+    }
 }
 
 void Window::Minimize()
 {
     if (m_impl->hwnd)
+    {
         ShowWindow(m_impl->hwnd, SW_MINIMIZE);
+    }
 }
 
 void Window::Restore()
@@ -420,9 +435,13 @@ void Window::Restore()
     if (m_impl->hwnd)
     {
         if (IsFullscreen())
+        {
             SetFullscreen(false);
+        }
         else
+        {
             ShowWindow(m_impl->hwnd, SW_RESTORE);
+        }
     }
 }
 
@@ -433,7 +452,10 @@ bool Window::isActive() const
 
 void Window::SetFullscreen(bool enabled)
 {
-    if (!m_impl->hwnd || m_impl->isFullscreen == enabled) return;
+    if (!m_impl->hwnd || m_impl->isFullscreen == enabled)
+    {
+        return;
+    }
 
     if (enabled)
     {
@@ -488,7 +510,10 @@ bool Window::IsFullscreen() const
 
 void Window::SetCursorVisible(bool enabled)
 {
-    if (!m_impl->hwnd || m_impl->cursorVisible == enabled) return;
+    if (!m_impl->hwnd || m_impl->cursorVisible == enabled)
+    {
+        return;
+    }
     m_impl->cursorVisible = enabled;
     if (enabled)
     {
@@ -571,7 +596,10 @@ int64_t Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam,
     // Dispatch to registered event handlers
     for (auto& handler : m_impl->eventHandlers)
     {
-        if (handler)  handler(msg, wParam, lParam);
+        if (handler)
+        {
+            handler(msg, wParam, lParam);
+        }
     }
 
     return DefWindowProc(m_impl->hwnd, msg, wParam, lParam);
@@ -585,9 +613,13 @@ int64_t Window::HandleWindowMessage(unsigned int msg, unsigned long long wParam,
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (g_currentWindow && g_currentWindow->GetNativeHandle())
+    {
         return g_currentWindow->HandleWindowMessage(msg, wParam, lParam);
+    }
     else
+    {
         return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
 }
 
 static bool CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTANCE hInst)
@@ -597,7 +629,10 @@ static bool CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTAN
         k_WindowClassName, L"Dummy",
         WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, hInst, nullptr
     );
-    if (!hwnd) return false;
+    if (!hwnd)
+    {
+        return false;
+    }
 
     HDC dc = GetDC(hwnd);
     PIXELFORMATDESCRIPTOR pfd{};
@@ -624,9 +659,18 @@ static bool CreateDummyGLWindow(HWND* outHwnd, HDC* outDc, HGLRC* outRc, HINSTAN
 static void DestroyDummyGLWindow(HWND hwnd, HDC dc, HGLRC rc)
 {
     wglMakeCurrent(nullptr, nullptr);
-    if (rc) wglDeleteContext(rc);
-    if (dc) ReleaseDC(hwnd, dc);
-    if (hwnd) DestroyWindow(hwnd);
+    if (rc)
+    {
+        wglDeleteContext(rc);
+    }
+    if (dc)
+    {
+        ReleaseDC(hwnd, dc);
+    }
+    if (hwnd)
+    {
+        DestroyWindow(hwnd);
+    }
 }
 
 #endif

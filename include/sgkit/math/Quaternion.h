@@ -18,7 +18,7 @@ public:
 
     // -- Comparison
     bool operator==(const Quaternion& rhs) const;
-    bool operator!=(const Quaternion& rhs) const { return !(*this == rhs); }
+    bool operator!=(const Quaternion& rhs) const;
 
     // -- Operations
     Quaternion operator*(const Quaternion& rhs) const;

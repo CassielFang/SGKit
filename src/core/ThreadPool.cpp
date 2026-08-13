@@ -35,9 +35,10 @@ bool TaskHandle<void>::IsReady() const
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_consumed)
+    {
         return false;
-    return m_future.valid() &&
-        m_future.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+    }
+    return m_future.valid() && m_future.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
 }
 
 void TaskHandle<void>::Get()
@@ -52,7 +53,9 @@ void TaskHandle<void>::Wait()
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (m_consumed)
+        {
             return;
+        }
     }
     m_future.wait();
 }
@@ -61,9 +64,13 @@ void TaskHandle<void>::Wait()
 ThreadPool::ThreadPool(size_t numThreads) : m_stop(false), m_activeTasks(0)
 {
     if (numThreads == 0)
+    {
         numThreads = std::thread::hardware_concurrency();
+    }
     if (numThreads == 0)
-        numThreads = 4;  // fallback - hardware_concurrency can return 0 per spec
+    {
+        numThreads = 4; // fallback - hardware_concurrency can return 0 per spec
+    }
 
     m_workers.reserve(numThreads);
     for (size_t i = 0; i < numThreads; ++i)
@@ -101,20 +108,28 @@ ThreadPool::~ThreadPool()
     for (std::thread& worker : m_workers)
     {
         if (worker.joinable())
+        {
             worker.join();
+        }
     }
     SGK_LOG_INFO("ThreadPool", "Module destroyed");
 }
 
 void ThreadPool::Create(size_t numThreads)
 {
-    if (g_ThreadPool) return;
+    if (g_ThreadPool)
+    {
+        return;
+    }
     g_ThreadPool = new ThreadPool(numThreads);
 }
 
 void ThreadPool::Destroy()
 {
-    if (!g_ThreadPool) return;
+    if (!g_ThreadPool)
+    {
+        return;
+    }
     delete g_ThreadPool;
     g_ThreadPool = nullptr;
 }
@@ -144,7 +159,9 @@ void ThreadPool::WorkerLoop()
             });
 
             if (m_stop && m_tasks.empty())
+            {
                 return;
+            }
 
             task = std::move(m_tasks.front());
             m_tasks.pop();

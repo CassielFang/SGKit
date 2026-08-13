@@ -40,12 +40,12 @@ private:
 
     uint32_t m_fbo = 0;
     uint32_t m_colorTexture = 0;
-    uint32_t m_depthTexture = 0;     // texture (2D or cubemap) or RBO
+    uint32_t m_depthTexture = 0; // texture (2D or cubemap) or RBO
     int  m_width  = 0;
     int  m_height = 0;
     bool m_isCubemap   = false;
     bool m_hasColor    = false;
-    bool m_depthIsRBO  = false;      // true when depth is a renderbuffer
+    bool m_depthIsRBO  = false; // true when depth is a renderbuffer
 };
 
 }

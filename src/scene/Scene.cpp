@@ -12,14 +12,20 @@ sgkit::scene::Scene* g_Scene = nullptr;
 
 void Scene::Create()
 {
-    if (g_Scene) return;
+    if (g_Scene)
+    {
+        return;
+    }
     g_Scene = new Scene;
     SGK_LOG_INFO("Scene", "Module created");
 }
 
 void Scene::Destroy()
 {
-    if (!g_Scene) return;
+    if (!g_Scene)
+    {
+        return;
+    }
     delete g_Scene;
     g_Scene = nullptr;
     SGK_LOG_INFO("Scene", "Module destroyed");
@@ -33,7 +39,9 @@ Scene& Scene::instance()
 Entity Scene::CreateEntity()
 {
     if (m_nextEntity.m_id >= k_MaxEntities)
+    {
         return Entity::Invalid;
+    }
 
     Entity entity(m_nextEntity.m_id++);
     m_aliveEntities.push_back(entity);
@@ -42,7 +50,10 @@ Entity Scene::CreateEntity()
 
 void Scene::DestroyEntity(Entity entity)
 {
-    if (!IsAlive(entity)) return;
+    if (!IsAlive(entity))
+    {
+        return;
+    }
 
     // Snapshot children + parent before any modification
     // (cascade removal can swap-and-pop the pool, invalidating raw pointers)
@@ -52,7 +63,9 @@ void Scene::DestroyEntity(Entity entity)
 
     // 1. Cascade: destroy children first
     for (Entity child : kids)
+    {
         DestroyEntity(child);
+    }
 
     // 2. Unlink from parent (before removing our own Transform)
     if (parent != Entity::Invalid)
@@ -75,40 +88,52 @@ void Scene::DestroyEntity(Entity entity)
     // 4. Remove from alive list
     auto it = std::find(m_aliveEntities.begin(), m_aliveEntities.end(), entity);
     if (it != m_aliveEntities.end())
+    {
         m_aliveEntities.erase(it);
+    }
 }
 
 void Scene::SetVisible(Entity entity, bool enabled)
 {
     component::MeshRenderer* mr = m_meshRenderers.Get(entity);
-    if (mr) mr->enabled = enabled;
+    if (mr)
+    {
+        mr->enabled = enabled;
+    }
 
     component::Transform* tf = m_transforms.Get(entity);
     if (tf)
     {
         for (Entity child : tf->children)
+        {
             SetVisible(child, enabled);
+        }
     }
 }
 
 bool Scene::IsAlive(Entity entity) const
 {
-    return std::find(m_aliveEntities.begin(), m_aliveEntities.end(), entity)
-           != m_aliveEntities.end();
+    return std::find(m_aliveEntities.begin(), m_aliveEntities.end(), entity) != m_aliveEntities.end();
 }
 
 void Scene::RecomputeWorldTransforms()
 {
     if (m_worldMatrices.size() <= m_nextEntity.m_id)
+    {
         m_worldMatrices.resize(static_cast<size_t>(m_nextEntity.m_id) + 1);
+    }
 
     for (Entity& e : m_aliveEntities)
     {
         component::Transform* tf = m_transforms.Get(e);
         if (tf)
+        {
             m_worldMatrices[e.m_id] = tf->GetLocalMatrix();
+        }
         else
+        {
             m_worldMatrices[e.m_id] = math::Matrix4::Identity();
+        }
     }
 
     bool changed = true;
@@ -119,7 +144,10 @@ void Scene::RecomputeWorldTransforms()
         for (Entity& e : m_aliveEntities)
         {
             component::Transform* tf = m_transforms.Get(e);
-            if (!tf || tf->parent == Entity::Invalid) continue;
+            if (!tf || tf->parent == Entity::Invalid)
+            {
+                continue;
+            }
 
             math::Matrix4 parentWorld = m_worldMatrices[tf->parent.m_id];
             math::Matrix4 local = tf->GetLocalMatrix();
@@ -136,7 +164,9 @@ void Scene::RecomputeWorldTransforms()
 math::Matrix4 Scene::GetWorldMatrix(Entity entity) const
 {
     if (entity.m_id < m_worldMatrices.size())
+    {
         return m_worldMatrices[entity.m_id];
+    }
     return math::Matrix4::Identity();
 }
 
@@ -150,7 +180,9 @@ RenderQueue Scene::BuildRenderQueue()
     {
         component::MeshRenderer* mr = m_meshRenderers.Get(e);
         if (mr && mr->enabled && mr->mesh)
+        {
             queue.Submit(mr->mesh, GetWorldMatrix(e));
+        }
     }
 
     return queue;
@@ -182,7 +214,10 @@ void Scene::Render(Entity cameraEntity)
 {
     component::Camera*    camComp      = m_cameras.Get(cameraEntity);
     component::Transform* camTransform = m_transforms.Get(cameraEntity);
-    if (!camComp) return;
+    if (!camComp)
+    {
+        return;
+    }
 
     RenderQueue queue = BuildRenderQueue();
     math::Vector3 cameraPos =
@@ -210,33 +245,11 @@ void Scene::Render(Entity cameraEntity)
 
         if (dirLight)
         {
-            math::Matrix4 viewMat = math::Matrix4::Identity();
-            if (camTransform)
-                viewMat = camComp->GetViewMatrix(GetWorldMatrix(cameraEntity));
-            renderer.RenderCSMShadowPass(queue, dirLight->direction,
-                                          viewMat,
-                                          camComp->GetProjectionMatrix(aspect),
-                                          cameraPos,
-                                          camComp->nearPlane, camComp->farPlane,
-                                          aspect);
-        }
-
-        // Point-light shadows
-        {
-            math::Vector3 pointPositions[4] = {};
-            int ptCount = 0;
-            for (Entity e : m_aliveEntities)
-            {
-                auto* l = m_lights.Get(e);
-                if (l && l->type == component::Light::Type::Point && ptCount < 4)
-                    pointPositions[ptCount++] = GetWorldMatrix(e).TransformPoint({});
-            }
-            if (ptCount > 0)
-                renderer.RenderPointShadowPass(queue, pointPositions, ptCount);
+            renderer.RenderDirectionalShadowPass(queue, dirLight->direction);
         }
     }
 
-    // -- Main render ---------------------------------------------------------
+    // -- Main render
     math::Matrix4 viewMatrix = math::Matrix4::Identity();
     if (camTransform)
         viewMatrix = camComp->GetViewMatrix(GetWorldMatrix(cameraEntity));
@@ -245,7 +258,7 @@ void Scene::Render(Entity cameraEntity)
     math::Vector3 camForward{0.0f, 0.0f, -1.0f};
     if (camTransform)
     {
-        camForward = math::Vector3{
+        camForward = math::Vector3 {
             -viewMatrix.m[2][0], -viewMatrix.m[2][1], -viewMatrix.m[2][2]
         }.Normalized();
     }
@@ -254,9 +267,8 @@ void Scene::Render(Entity cameraEntity)
     renderer.SetCameraPosition(cameraPos);
     renderer.SetCameraForward(camForward);
     renderer.SetLights(CollectLights());
-    renderer.SetSkyboxMatrices(viewMatrix,
-                                camComp->GetProjectionMatrix(aspect));
-    renderer.CommitFrameData();   // upload UBO once
+    renderer.SetSkyboxMatrices(viewMatrix, camComp->GetProjectionMatrix(aspect));
+    renderer.CommitFrameData(); // upload UBO once
 
     renderer.Clear();
     renderer.Execute(queue);
@@ -265,13 +277,13 @@ void Scene::Render(Entity cameraEntity)
 // -- Template specialisations
 
 template<> ComponentPool<component::Transform>&
-    Scene::GetPool<component::Transform>()        { return m_transforms; }
+    Scene::GetPool<component::Transform>()    { return m_transforms; }
 template<> ComponentPool<component::Camera>&
-    Scene::GetPool<component::Camera>()           { return m_cameras; }
+    Scene::GetPool<component::Camera>()       { return m_cameras; }
 template<> ComponentPool<component::Light>&
-    Scene::GetPool<component::Light>()            { return m_lights; }
+    Scene::GetPool<component::Light>()        { return m_lights; }
 template<> ComponentPool<component::MeshRenderer>&
-    Scene::GetPool<component::MeshRenderer>()     { return m_meshRenderers; }
+    Scene::GetPool<component::MeshRenderer>() { return m_meshRenderers; }
 
 template<> const ComponentPool<component::Transform>&
     Scene::GetPool<component::Transform>() const    { return m_transforms; }

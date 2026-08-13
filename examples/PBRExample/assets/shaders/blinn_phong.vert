@@ -19,7 +19,6 @@ layout(std140) uniform FrameBlock {
     PointLightData pointLights[4];
     SpotLightData  spotLights[4];
     ivec4 lightCounts;
-    mat4 lightSpaceMatrix;
 };
 
 out vec3 worldPos;

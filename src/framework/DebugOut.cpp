@@ -25,9 +25,7 @@ static const char* LevelToString(LogLevel level)
     return "?????";
 }
 
-void LogMessage(LogLevel level, const char* category,
-                const char* file, int line,
-                const char* format, ...)
+void LogMessage(LogLevel level, const char* category, const char* file, int line, const char* format, ...)
 {
     // 1. Format the user message
     char msgBuf[1024]{};
@@ -43,7 +41,9 @@ void LogMessage(LogLevel level, const char* category,
     for (const char* p = file; *p; ++p)
     {
         if (*p == '/' || *p == '\\')
+        {
             filename = p + 1;
+        }
     }
 
     // 3. Elapsed time since program start

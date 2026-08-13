@@ -32,14 +32,14 @@ enum class DepthMode
 
 enum class LightingModel
 {
-    BlinnPhong,   // Phong/Blinn-Phong: diffuse + specular + shininess
-    PBR,          // Cook-Torrance metallic-roughness: albedo + metallic + roughness
+    BlinnPhong, // Phong/Blinn-Phong: diffuse + specular + shininess
+    PBR,        // Cook-Torrance metallic-roughness: albedo + metallic + roughness
 };
 
 class Material
 {
 public:
-    // -- Shared ---------------------------------------------------------------
+    // -- Shared
     std::shared_ptr<graphics::Shader>  shader;
     LightingModel lightingModel = LightingModel::BlinnPhong;
 
@@ -48,27 +48,27 @@ public:
     DepthMode depthMode = DepthMode::ReadWrite;
     int renderQueue = 0;
 
-    // -- Blinn-Phong  (used when lightingModel == BlinnPhong) -----------------
+    // -- Blinn-Phong  (used when lightingModel == BlinnPhong)
     std::shared_ptr<graphics::Texture> diffuse;
     std::shared_ptr<graphics::Texture> specular;
     float shininess = 32.0f;
 
-    // -- PBR  (used when lightingModel == PBR) --------------------------------
-    // Slot convention:  0=albedo  1=metallic  2=roughness  3=normal  4=ao  5=emissive
+    // -- PBR  (used when lightingModel == PBR)
+    // Slot convention: 0=albedo 1=metallic 2=roughness 3=normal 4=ao 5=emissive
     std::shared_ptr<graphics::Texture> albedo;
     std::shared_ptr<graphics::Texture> metallic;
     std::shared_ptr<graphics::Texture> roughness;
     std::shared_ptr<graphics::Texture> normalMap;
     std::shared_ptr<graphics::Texture> ao;
-    std::shared_ptr<graphics::Texture> emissive;   // self-illumination map (slot 5)
+    std::shared_ptr<graphics::Texture> emissive; // self-illumination map (slot 5)
 
-    float metallicFactor  = 1.0f;   // multiplied by metallic texture value
-    float roughnessFactor = 1.0f;   // multiplied by roughness texture value
-    math::Vector3 emissiveFactor;  // RGB self-illumination (added after lighting), default (0,0,0)
-    float alphaFactor  = 1.0f;      // baseColorFactor.a
-    float alphaCutoff  = 0.5f;      // glTF alphaMode:MASK threshold
-    float normalScale  = 1.0f;      // glTF normalTexture.scale
-    float aoStrength   = 1.0f;      // glTF occlusionTexture.strength
+    float metallicFactor  = 1.0f; // multiplied by metallic texture value
+    float roughnessFactor = 1.0f; // multiplied by roughness texture value
+    math::Vector3 emissiveFactor; // RGB self-illumination (added after lighting), default (0,0,0)
+    float alphaFactor  = 1.0f;    // baseColorFactor.a
+    float alphaCutoff  = 0.5f;    // glTF alphaMode:MASK threshold
+    float normalScale  = 1.0f;    // glTF normalTexture.scale
+    float aoStrength   = 1.0f;    // glTF occlusionTexture.strength
 
     // glTF combined metallicRoughnessTexture: metallic=B, roughness=G
     // (false = separate textures, both in R channel)

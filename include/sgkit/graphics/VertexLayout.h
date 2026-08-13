@@ -18,11 +18,11 @@ struct VertexAttribute
 {
     std::string name;
     int         location    = 0;
-    int         count       = 3;       // 1, 2, 3, or 4
+    int         count       = 3; // 1, 2, 3, or 4
     AttribType  type        = AttribType::Float;
     bool        normalized  = false;
     size_t      offset      = 0;
-    int         divisor     = 0;       // 0 = per-vertex, 1 = per-instance
+    int         divisor     = 0; // 0 = per-vertex, 1 = per-instance
 };
 
 class VertexLayout

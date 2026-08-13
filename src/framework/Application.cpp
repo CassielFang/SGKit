@@ -107,7 +107,9 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
         [&window, &renderer](unsigned int msg, unsigned long long, long long)
         {
             if (msg == WM_SIZE)
+            {
                 renderer.SetViewport(0, 0, window.GetWidth(), window.GetHeight());
+            }
         });
 
     scene::Scene::Create();
@@ -141,16 +143,29 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
         if (previousActive)
         {
             if (config.fullscreenBolderless && window.isActive() && window.IsFullscreen())
+            {
                 if (input.IsKeyPressed(core::KeyCode::Escape))
+                {
                     window.Restore();
+                }
+            }
 
-            if (config.onUpdate) config.onUpdate();
+            if (config.onUpdate)
+            {
+                config.onUpdate();
+            }
 
-            if (window.IsCloseRequest()) break;
+            if (window.IsCloseRequest())
+            {
+                break;
+            }
 
             scene.RecomputeWorldTransforms();
 
-            if (config.onRender) config.onRender();
+            if (config.onRender)
+            {
+                config.onRender();
+            }
 
             window.SwapBuffers();
         }
@@ -158,8 +173,14 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
         {
             if (window.IsCloseRequest())
             {
-                if (config.onUpdate) config.onUpdate();
-                if (window.IsCloseRequest()) break;
+                if (config.onUpdate)
+                {
+                    config.onUpdate();
+                }
+                if (window.IsCloseRequest())
+                {
+                    break;
+                }
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
@@ -167,7 +188,9 @@ static int Run(HINSTANCE hInst, const ApplicationConfig& config)
     }
 
     if (config.onShutdown)
+    {
         config.onShutdown();
+    }
 
     scene::Scene::Destroy();
     scene::Renderer::Destroy();

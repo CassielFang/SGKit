@@ -39,10 +39,10 @@ VertexLayout& VertexLayout::PushMat4Instanced(int startLocation)
         a.count    = 4;
         a.type     = AttribType::Float;
         a.offset   = m_stride + col * 4 * sizeof(float);
-        a.divisor  = 1;  // one per instance
+        a.divisor  = 1; // one per instance
         m_attributes.push_back(a);
     }
-    m_stride += sizeof(float) * 16;  // 4×4 matrix
+    m_stride += sizeof(float) * 16; // 4×4 matrix
     return *this;
 }
 

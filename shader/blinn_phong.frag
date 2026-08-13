@@ -15,7 +15,6 @@ layout(std140) uniform FrameBlock {
     PointLightData pointLights[4];
     SpotLightData  spotLights[4];
     ivec4 lightCounts;
-    mat4 lightSpaceMatrix;
 };
 
 struct Material {
@@ -25,75 +24,33 @@ struct Material {
 };
 uniform Material u_Material;
 uniform sampler2D u_ShadowMap;
-uniform mat4      u_CSM_LightMatrices[3];
-uniform float     u_CSM_Splits[3];
-uniform float     u_CSM_TexelSize;
-uniform float     u_CSM_AtlasTexelX;
-uniform float     u_CSM_CascadeCount;
+uniform mat4      u_LightSpaceMatrix;
 uniform bool      u_ShadowsEnabled = false;
-
-uniform int        u_PointShadows;
-uniform samplerCube u_PointShadowMap[4];
-uniform float      u_PointShadowFar[4];
-uniform int        u_PointShadowEnabled[4];
 
 in vec3 worldPos;
 in vec3 normal;
 in vec2 texCoord;
 out vec4 fragColor;
 
-float ShadowCalculation(vec3 worldP, vec3 N, vec3 lightDir)
+// -- Directional shadow (single shadow map + 3x3 PCF, per LearnOpenGL)
+float ShadowCalculation(vec3 worldPos, vec3 N, vec3 lightDir)
 {
     if (!u_ShadowsEnabled) return 0.0;
 
-    float viewZ = abs(dot(worldP - cameraPos.xyz, cameraForward.xyz));
-    int cascade = 0;
-    for (int c = 0; c < int(u_CSM_CascadeCount) - 1; ++c)
-        if (viewZ > u_CSM_Splits[c]) cascade = c + 1;
-
-    vec4 fragLS = u_CSM_LightMatrices[cascade] * vec4(worldP, 1.0);
-    if (abs(fragLS.w) < 0.0001) return 0.0;
+    vec4 fragLS = u_LightSpaceMatrix * vec4(worldPos, 1.0);
     vec3 proj = fragLS.xyz / fragLS.w;
     proj = proj * 0.5 + 0.5;
-    if (proj.z > 1.0 || proj.z != proj.z ||
-        proj.x != proj.x || proj.y != proj.y ||
-        proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0)
-        return 0.0;
+    if (proj.z > 1.0) return 0.0;
 
-    proj.x = (proj.x + float(cascade)) / u_CSM_CascadeCount;
-
-    float bias = max(0.008 * (1.0 - dot(N, lightDir)), 0.002);
+    // Slope-scaled bias (more offset at grazing angles).
+    float bias = max(0.005 * (1.0 - dot(N, lightDir)), 0.0005);
 
     float shadow = 0.0;
-    vec2 ts = vec2(u_CSM_AtlasTexelX, u_CSM_TexelSize);
-    for (int x = -2; x <= 2; ++x)
-        for (int y = -2; y <= 2; ++y)
-            shadow += (proj.z - bias > texture(u_ShadowMap, proj.xy + vec2(x, y) * ts).r) ? 1.0 : 0.0;
-    return shadow / 25.0;
-}
-
-float PointShadowCalculation(int idx, vec3 worldP, vec3 N)
-{
-    if (u_PointShadows == 0 || u_PointShadowEnabled[idx] == 0) return 0.0;
-    vec3 fragToLight = worldP - pointLights[idx].pos.xyz;
-    float curDepth = length(fragToLight);
-    float farPlane = u_PointShadowFar[idx];
-    if (curDepth > farPlane) return 0.0;
-    const vec3 disk[20] = vec3[](
-        vec3( 1, 1, 1), vec3( 1,-1, 1), vec3(-1,-1, 1), vec3(-1, 1, 1),
-        vec3( 1, 1,-1), vec3( 1,-1,-1), vec3(-1,-1,-1), vec3(-1, 1,-1),
-        vec3( 1, 1, 0), vec3( 1,-1, 0), vec3(-1,-1, 0), vec3(-1, 1, 0),
-        vec3( 1, 0, 1), vec3(-1, 0, 1), vec3( 1, 0,-1), vec3(-1, 0,-1),
-        vec3( 0, 1, 1), vec3( 0,-1, 1), vec3( 0,-1,-1), vec3( 0, 1,-1));
-    float bias = max(0.15*(1.0-dot(N,normalize(-fragToLight))),0.05);
-    float viewDist = length(cameraPos.xyz-worldP);
-    float r = (1.0+(viewDist/farPlane))/40.0;
-    float s=0.0;
-    for(int i=0;i<20;++i){
-        float cd=texture(u_PointShadowMap[idx],fragToLight+disk[i]*r).r*farPlane;
-        if(curDepth-bias>cd)s+=1.0;
-    }
-    return s/20.0;
+    vec2 texelSize = 1.0 / vec2(textureSize(u_ShadowMap, 0));
+    for (int x = -1; x <= 1; ++x)
+        for (int y = -1; y <= 1; ++y)
+            shadow += (proj.z - bias > texture(u_ShadowMap, proj.xy + vec2(x, y) * texelSize).r) ? 1.0 : 0.0;
+    return shadow / 9.0;
 }
 
 vec3 CalcDir(vec3 N, vec3 V)
@@ -152,10 +109,8 @@ void main()
         float shadow = ShadowCalculation(worldPos, N, normalize(-dirDirection.xyz));
         color += (1.0-shadow) * CalcDir(N, V);
     }
-    for (int i=0; i<lightCounts.y && i<4; ++i) {
-        float ps = PointShadowCalculation(i, worldPos, N);
-        color += (1.0-ps) * CalcPoint(i, N, worldPos, V);
-    }
+    for (int i=0; i<lightCounts.y && i<4; ++i)
+        color += CalcPoint(i, N, worldPos, V);
     for (int i=0; i<lightCounts.z && i<4; ++i) color += CalcSpot(i, N, worldPos, V);
 
     color = pow(color, vec3(1.0/2.2));

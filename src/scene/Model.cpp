@@ -67,7 +67,9 @@ static Entity CreateEntityFromMesh(
     MatLogSet&          loggedMats)
 {
     if (!aiMesh->HasPositions() || !aiMesh->HasFaces())
+    {
         return Entity::Invalid;
+    }
 
     // a) Vertices: interleave [pos(3) normal(3) tex(2) tangent(4)] = 12 floats
     std::vector<float> verts;
@@ -82,27 +84,38 @@ static Entity CreateEntityFromMesh(
         verts.push_back(aiMesh->mVertices[i].y);
         verts.push_back(aiMesh->mVertices[i].z);
 
-        if (hasNrm) {
+        if (hasNrm)
+        {
             verts.push_back(aiMesh->mNormals[i].x);
             verts.push_back(aiMesh->mNormals[i].y);
             verts.push_back(aiMesh->mNormals[i].z);
-        } else { verts.insert(verts.end(), {0, 1, 0}); }
+        }
+        else
+        {
+            verts.insert(verts.end(), {0, 1, 0});
+        }
 
-        if (hasTex) {
+        if (hasTex)
+        {
             verts.push_back(aiMesh->mTextureCoords[0][i].x);
             verts.push_back(aiMesh->mTextureCoords[0][i].y);
-        } else { verts.insert(verts.end(), {0, 0}); }
+        }
+        else
+        {
+            verts.insert(verts.end(), {0, 0});
+        }
 
         if (hasTang) {
             verts.push_back(aiMesh->mTangents[i].x);
             verts.push_back(aiMesh->mTangents[i].y);
             verts.push_back(aiMesh->mTangents[i].z);
             // handedness sign: bitangent = cross(N, T) * sign
-            float sign = (aiMesh->mBitangents[i].x != 0 ||
-                          aiMesh->mBitangents[i].y != 0 ||
-                          aiMesh->mBitangents[i].z != 0) ? 1.0f : 1.0f;
+            float sign = (aiMesh->mBitangents[i].x != 0
+                       || aiMesh->mBitangents[i].y != 0
+                       || aiMesh->mBitangents[i].z != 0) ? 1.0f : 1.0f;
             // Compute actual sign from cross product
-            if (hasNrm) {
+            if (hasNrm)
+            {
                 auto& n = aiMesh->mNormals[i];
                 auto& t = aiMesh->mTangents[i];
                 auto& b = aiMesh->mBitangents[i];
@@ -114,7 +127,11 @@ static Entity CreateEntityFromMesh(
                 sign = dot >= 0 ? 1.0f : -1.0f;
             }
             verts.push_back(sign);
-        } else { verts.insert(verts.end(), {0, 0, 0, 0}); }
+        }
+        else
+        {
+            verts.insert(verts.end(), {0, 0, 0, 0});
+        }
     }
 
     // b) Indices
@@ -124,7 +141,9 @@ static Entity CreateEntityFromMesh(
     {
         const aiFace& f = aiMesh->mFaces[i];
         for (unsigned int j = 0; j < f.mNumIndices; ++j)
+        {
             idx.push_back(f.mIndices[j]);
+        }
     }
 
     // c) Graphics objects
@@ -154,14 +173,18 @@ static Entity CreateEntityFromMesh(
         // Primary: check shading model
         int shadingModel = 0;
         if (aiMat->Get(AI_MATKEY_SHADING_MODEL, shadingModel) == AI_SUCCESS)
+        {
             isPBR = (shadingModel == aiShadingMode_PBR_BRDF);
+        }
 
-        // Fallback: glTF PBR metallic factor exists  ->  PBR workflow
+        // Fallback: glTF PBR metallic factor exists -> PBR workflow
         if (!isPBR)
         {
             float mf;
             if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, mf) == AI_SUCCESS)
+            {
                 isPBR = true;
+            }
         }
     }
 
@@ -172,35 +195,50 @@ static Entity CreateEntityFromMesh(
         // Fallback: if the preferred shader is missing, try the other one
         shader = isPBR ? blinnPhongShader : pbrShader;
         if (shader && loggedMats.insert(matIdx).second)
+        {
             SGK_LOG_WARN(
                 "Model", "  mat[%u] is %s but no %s shader provided; falling back to other shader",
                 matIdx, isPBR ? "PBR" : "BlinnPhong", isPBR ? "PBR" : "BlinnPhong");
+        }
     }
     if (!shader)
     {
         if (loggedMats.insert(matIdx).second)
+        {
             SGK_LOG_ERROR("Model", "  mat[%u] has no shader - skipping mesh", matIdx);
+        }
         return Entity::Invalid;
     }
 
     // e) Generic texture loader (single type, no fallback)
     auto loadTex = [&](aiTextureType type, int slot) -> std::shared_ptr<graphics::Texture>
     {
-        if (!aiMat) return nullptr;
+        if (!aiMat)
+        {
+            return nullptr;
+        }
         aiString aiPath;
         if (aiMat->GetTexture(type, 0, &aiPath) != AI_SUCCESS || aiPath.length == 0)
+        {
             return nullptr;
+        }
 
         std::string key = aiPath.C_Str();
         auto it = texCache.find(key);
-        if (it != texCache.end()) return it->second;
+        if (it != texCache.end())
+        {
+            return it->second;
+        }
 
         auto tex = std::make_shared<graphics::Texture>(slot);
 
         if (!key.empty() && key[0] == '*')
         {
             int embIdx = std::stoi(key.substr(1));
-            if (embIdx < 0 || embIdx >= (int)aiScene->mNumTextures) return nullptr;
+            if (embIdx < 0 || embIdx >= (int)aiScene->mNumTextures)
+            {
+                return nullptr;
+            }
             aiTexture* emb = aiScene->mTextures[embIdx];
 
             if (emb->mHeight > 0)  // uncompressed BGRA -> RGBA
@@ -229,15 +267,17 @@ static Entity CreateEntityFromMesh(
         else
         {
             if (!tex->LoadFromFile(directory + "/" + key))
+            {
                 return nullptr;
+            }
         }
 
         texCache[key] = tex;
         return tex;
     };
 
-    auto loadTexOr = [&](aiTextureType primary, aiTextureType fallback,
-                         int slot) -> std::shared_ptr<graphics::Texture>
+    auto loadTexOr = [&](aiTextureType primary, aiTextureType fallback, int slot) ->
+    std::shared_ptr<graphics::Texture>
     {
         auto t = loadTex(primary, slot);
         return t ? t : loadTex(fallback, slot);
@@ -261,38 +301,51 @@ static Entity CreateEntityFromMesh(
         // assimp returns the same file for METALNESS + DIFFUSE_ROUGHNESS,
         // so the cache gives us the same shared_ptr for both.
         if (mat->metallic && mat->roughness && mat->metallic == mat->roughness)
+        {
             mat->pbrCombinedMetallicRoughness = true;
+        }
 
         // PBR factor values
         float f;
         if (aiMat->Get(AI_MATKEY_METALLIC_FACTOR, f) == AI_SUCCESS)
+        {
             mat->metallicFactor = f;
+        }
         if (aiMat->Get(AI_MATKEY_ROUGHNESS_FACTOR, f) == AI_SUCCESS)
+        {
             mat->roughnessFactor = f;
+        }
 
         // Emissive factor
         aiColor3D emissiveCol(0.0f, 0.0f, 0.0f);
         if (aiMat->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveCol) == AI_SUCCESS)
+        {
             mat->emissiveFactor = { emissiveCol.r, emissiveCol.g, emissiveCol.b };
+        }
 
-        // Normal scale & AO strength  (glTF textureInfo extensions)
+        // Normal scale & AO strength (glTF textureInfo extensions)
         float ns = 1.0f;
         if (aiMat->Get(AI_MATKEY_GLTF_TEXTURE_STRENGTH(aiTextureType_NORMALS, 0), ns) == AI_SUCCESS)
+        {
             mat->normalScale = ns;
+        }
         float aos = 1.0f;
         if (aiMat->Get(AI_MATKEY_GLTF_TEXTURE_STRENGTH(aiTextureType_AMBIENT_OCCLUSION, 0), aos) == AI_SUCCESS)
+        {
             mat->aoStrength = aos;
+        }
 
         // Read glTF baseColorFactor for the albedo fallback colour
         aiColor4D baseColor(1.0f, 1.0f, 1.0f, 1.0f);
         if (aiMat)
+        {
             aiMat->Get(AI_MATKEY_BASE_COLOR, baseColor);
+        }
 
         // Transparency: read opacity and set blend/depth/cull for glass etc.
         {
             float opacity = 1.0f;
-            if (aiMat && aiMat->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS
-                && opacity < 1.0f)
+            if (aiMat && aiMat->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS && opacity < 1.0f)
             {
                 mat->alphaFactor = opacity;
                 mat->blendMode   = BlendMode::AlphaBlend;
@@ -322,9 +375,10 @@ static Entity CreateEntityFromMesh(
         {
             uint8_t black[]    = {0,   0,   0,   255};
             uint8_t white[]    = {255, 255, 255, 255};
-            uint8_t flatNorm[] = {128, 128, 255, 255};  // (0,0,1) in tangent space
+            uint8_t flatNorm[] = {128, 128, 255, 255}; // (0,0,1) in tangent space
 
-            if (!mat->albedo) {
+            if (!mat->albedo)
+            {
                 // baseColor is linear (glTF spec) -> sRGB-encode for upload
                 // (shader will pow(2.2)-decode it back to linear)
                 uint8_t c[4] = {
@@ -337,52 +391,64 @@ static Entity CreateEntityFromMesh(
                 t->Create(1, 1, c);
                 mat->albedo = t;
             }
-            if (!mat->metallic) {
+            if (!mat->metallic)
+            {
                 auto t = std::make_shared<graphics::Texture>(1);
                 t->Create(1, 1, black);
                 mat->metallic = t;
             }
-            if (!mat->roughness) {
+            if (!mat->roughness)
+            {
                 auto t = std::make_shared<graphics::Texture>(2);
                 t->Create(1, 1, white);
                 mat->roughness = t;
             }
-            if (!mat->normalMap) {
+            if (!mat->normalMap)
+            {
                 auto t = std::make_shared<graphics::Texture>(3);
                 t->Create(1, 1, flatNorm);
                 mat->normalMap = t;
             }
-            if (!mat->ao) {
+            if (!mat->ao)
+            {
                 auto t = std::make_shared<graphics::Texture>(4);
                 t->Create(1, 1, white);
                 mat->ao = t;
             }
-            if (!mat->emissive) {
+            if (!mat->emissive)
+            {
                 auto t = std::make_shared<graphics::Texture>(5);
-                t->Create(1, 1, white);  // white -> emissiveFactor controls colour
+                t->Create(1, 1, white); // white -> emissiveFactor controls colour
                 mat->emissive = t;
             }
         }
 
         if (loggedMats.insert(matIdx).second)
+        {
             SGK_LOG_INFO(
                 "Model", "  mat[%u] -> PBR (metallic=%.2f roughness=%.2f)",
                 matIdx, mat->metallicFactor, mat->roughnessFactor);
+        }
     }
     else
     {
         mat->lightingModel = LightingModel::BlinnPhong;
-        mat->diffuse   = loadTexOr(aiTextureType_DIFFUSE, aiTextureType_BASE_COLOR, 0);
-        mat->specular  = loadTex(aiTextureType_SPECULAR, 1);
+        mat->diffuse       = loadTexOr(aiTextureType_DIFFUSE, aiTextureType_BASE_COLOR, 0);
+        mat->specular      = loadTex(aiTextureType_SPECULAR, 1);
 
         float s = 32.0f;
-        if (aiMat) aiMat->Get(AI_MATKEY_SHININESS, s);
+        if (aiMat)
+        {
+            aiMat->Get(AI_MATKEY_SHININESS, s);
+        }
         mat->shininess = s;
 
         if (loggedMats.insert(matIdx).second)
+        {
             SGK_LOG_INFO(
                 "Model", "  mat[%u] -> BlinnPhong (shininess=%.0f diffuse=%s specular=%s)",
                 matIdx, mat->shininess, mat->diffuse  ? "yes" : "no", mat->specular ? "yes" : "no");
+        }
     }
 
     // Honour the two-sided flag from the source asset (applies to both PBR and BlinnPhong)
@@ -390,7 +456,9 @@ static Entity CreateEntityFromMesh(
     {
         int twoSided = 0;
         if (aiMat->Get(AI_MATKEY_TWOSIDED, twoSided) == AI_SUCCESS && twoSided)
+        {
             mat->cullMode = CullMode::None;
+        }
     }
 
     auto mesh = std::make_shared<Mesh>();
@@ -431,13 +499,15 @@ static void ProcessAssimpNode(
 {
     auto& sm = Scene::instance();
 
-    // -- Meshes on this node: parent directly to this node's entity ----------
+    // -- Meshes on this node: parent directly to this node's entity
     for (unsigned int i = 0; i < node->mNumMeshes; ++i)
+    {
         CreateEntityFromMesh(
             aiScene->mMeshes[node->mMeshes[i]], aiScene, directory,
             blinnPhongShader, pbrShader, parentEntity, outMeshes, texCache, loggedMats);
+    }
 
-    // -- Children: create an entity per child node, apply its transform ------
+    // -- Children: create an entity per child node, apply its transform
     for (unsigned int i = 0; i < node->mNumChildren; ++i)
     {
         aiNode* child = node->mChildren[i];
@@ -483,7 +553,10 @@ Model::Result Model::Load( const std::string& filePath,
         = aiProcess_Triangulate
         | aiProcess_JoinIdenticalVertices
         | aiProcess_GenSmoothNormals;
-    if (needFlip) flags |= aiProcess_FlipUVs;
+    if (needFlip)
+    {
+        flags |= aiProcess_FlipUVs;
+    }
 
     Assimp::Importer importer;
     const aiScene* aiScene = importer.ReadFile(filePath, flags);
@@ -520,6 +593,11 @@ Model::Result Model::Load( const std::string& filePath,
     SGK_LOG_INFO("Model", "Loaded %s (%d meshes)", filePath.c_str(), (int)meshEntities.size());
 
     return { root, meshEntities };
+}
+
+Model::Result Model::Load(const std::string& filePath, std::shared_ptr<graphics::Shader> shader)
+{
+    return Load(filePath, shader, shader);
 }
 
 }

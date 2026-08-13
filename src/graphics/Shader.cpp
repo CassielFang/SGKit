@@ -74,24 +74,32 @@ uint32_t Shader::CompileShader(uint32_t type, const std::string& source)
 }
 
 bool Shader::LoadFromFile(const std::string& vertexPath, const std::string& fragmentPath,
-                           const std::string& geometryPath)
+    const std::string& geometryPath)
 {
     auto vertSrc = core::FileSystem::ReadText(vertexPath);
     auto fragSrc = core::FileSystem::ReadText(fragmentPath);
-    if (!vertSrc || !fragSrc) { SGK_LOG_ERROR("Shader", "failed to load shader files"); return false; }
+    if (!vertSrc || !fragSrc)
+    {
+        SGK_LOG_ERROR("Shader", "failed to load shader files");
+        return false;
+    }
 
     std::string geomSrc;
     if (!geometryPath.empty())
     {
         auto gs = core::FileSystem::ReadText(geometryPath);
-        if (!gs) { SGK_LOG_ERROR("Shader", "failed to load geometry shader: %s", geometryPath.c_str()); return false; }
+        if (!gs)
+        {
+            SGK_LOG_ERROR("Shader", "failed to load geometry shader: %s", geometryPath.c_str());
+            return false;
+        }
         geomSrc = *gs;
     }
     return LoadFromSource(*vertSrc, *fragSrc, geomSrc);
 }
 
 bool Shader::LoadFromSource(const std::string& vertexSource, const std::string& fragmentSource,
-                             const std::string& geometrySource)
+    const std::string& geometrySource)
 {
     Release();
 
@@ -99,20 +107,34 @@ bool Shader::LoadFromSource(const std::string& vertexSource, const std::string& 
     uint32_t fs = CompileShader(GL_FRAGMENT_SHADER, fragmentSource);
     uint32_t gs = 0;
     if (!geometrySource.empty())
+    {
         gs = CompileShader(GL_GEOMETRY_SHADER, geometrySource);
+    }
 
     if (!vs || !fs || (!geometrySource.empty() && !gs))
     {
-        if (vs) glDeleteShader(vs);
-        if (fs) glDeleteShader(fs);
-        if (gs) glDeleteShader(gs);
+        if (vs)
+        {
+            glDeleteShader(vs);
+        }
+        if (fs)
+        {
+            glDeleteShader(fs);
+        }
+        if (gs)
+        {
+            glDeleteShader(gs);
+        }
         return false;
     }
 
     m_programID = glCreateProgram();
     glAttachShader(m_programID, vs);
     glAttachShader(m_programID, fs);
-    if (gs) glAttachShader(m_programID, gs);
+    if (gs)
+    {
+        glAttachShader(m_programID, gs);
+    }
     glLinkProgram(m_programID);
 
     int success;
@@ -137,12 +159,17 @@ bool Shader::LoadFromSource(const std::string& vertexSource, const std::string& 
     {
         GLuint idx = glGetUniformBlockIndex(m_programID, "FrameBlock");
         if (idx != GL_INVALID_INDEX)
+        {
             glUniformBlockBinding(m_programID, idx, 0);
+        }
     }
 
     glDeleteShader(vs);
     glDeleteShader(fs);
-    if (gs) glDeleteShader(gs);
+    if (gs)
+    {
+        glDeleteShader(gs);
+    }
     return success;
 }
 
@@ -170,7 +197,9 @@ int Shader::GetUniformLocation(const std::string& name)
 {
     auto it = m_uniformCache.find(name);
     if (it != m_uniformCache.end())
+    {
         return it->second;
+    }
 
     int loc = glGetUniformLocation(m_programID, name.c_str());
     m_uniformCache[name] = loc;
